@@ -2,8 +2,6 @@
 
 ...
 
-Sends the data about validators in a particuler epoch to the mirror contract.
-
 ## Configuration
 
 The configuration is read from `toml` file. Some configuration
