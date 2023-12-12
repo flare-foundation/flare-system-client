@@ -1,0 +1,112 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes20",
+        "name": "pAddress",
+        "type": "bytes20"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "cAddress",
+        "type": "address"
+      }
+    ],
+    "name": "AddressesRegistered",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "cAddressToPAddress",
+    "outputs": [
+      {
+        "internalType": "bytes20",
+        "name": "",
+        "type": "bytes20"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes20",
+        "name": "",
+        "type": "bytes20"
+      }
+    ],
+    "name": "pAddressToCAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "_publicKey",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes20",
+        "name": "_pAddress",
+        "type": "bytes20"
+      },
+      {
+        "internalType": "address",
+        "name": "_cAddress",
+        "type": "address"
+      }
+    ],
+    "name": "registerAddresses",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "_publicKey",
+        "type": "bytes"
+      }
+    ],
+    "name": "registerPublicKey",
+    "outputs": [
+      {
+        "internalType": "bytes20",
+        "name": "_pAddress",
+        "type": "bytes20"
+      },
+      {
+        "internalType": "address",
+        "name": "_cAddress",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
