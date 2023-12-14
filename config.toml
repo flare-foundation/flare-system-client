@@ -1,13 +1,6 @@
 # This file serves as a template for the configuration file. Copy it and edit the values as needed.
 # Use --config parameter to specify the path to the configuration file.
 
-[db]
-host = "localhost"
-port = 3306
-database = "flare_tlc"
-username = "flaretlcuser"
-password = "P.a.s.s.W.O.R.D"
-log_queries = false
 
 [logger]
 level = "INFO"

@@ -22,7 +22,7 @@ var (
 
 type GlobalConfig interface {
 	LoggerConfig() LoggerConfig
-	ChainConfig() ChainConfig
+	// ChainConfig() ChainConfig
 }
 
 type LoggerLevel string

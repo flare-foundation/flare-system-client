@@ -1,11 +1,11 @@
 package runner
 
 import (
+	"flare-tlc/client/clients"
 	"flare-tlc/client/context"
-	"fmt"
 )
 
 func Start(ctx context.ClientContext) {
-	fmt.Println("Hello Flare!")
-	// Add your code here
+	client := clients.NewVotingClient()
+	go client.Run()
 }
