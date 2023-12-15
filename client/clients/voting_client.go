@@ -3,7 +3,6 @@ package clients
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"encoding/binary"
 	localContext "flare-tlc/client/context"
 	"flare-tlc/config"
@@ -11,15 +10,12 @@ import (
 	"flare-tlc/utils/contracts/submission"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -28,12 +24,12 @@ type VotingClient struct {
 	eth               *ethclient.Client
 	privateKey        string
 	contractAddresses config.ContractAddresses
-	selectors         selectors
+	contractSelectors contractSelectors
 }
 
 type subProtocol struct {
 	// TODO: Should use 2 bytes for id?
-	id byte
+	id uint8
 	// E.g. localhost:3000/ftso/price-controller/
 	apiEndpoint string
 }
@@ -41,7 +37,7 @@ type subProtocol struct {
 var currentPriceEpoch = 1452560
 
 func NewVotingClient(ctx localContext.ClientContext) *VotingClient {
-	// TODO: Read from config
+	// TODO: Move to config
 	subProtocols := []subProtocol{
 		{
 			id:          1,
@@ -55,7 +51,9 @@ func NewVotingClient(ctx localContext.ClientContext) *VotingClient {
 
 	config := ctx.Config().ChainConfig()
 	cl, err := config.DialETH()
+
 	if err != nil {
+		// TODO: repalce all panic(error) with proper error handling
 		panic(err)
 	}
 
@@ -64,7 +62,8 @@ func NewVotingClient(ctx localContext.ClientContext) *VotingClient {
 		panic(err)
 	}
 
-	fmt.Println("Current block number: ", bn)
+	// TODO: Use a logger everywhere instead of fmt.Println
+	fmt.Println("Connected to chain, current block number: ", bn)
 
 	privateKey, err := ctx.Config().ChainConfig().GetPrivateKey()
 	if err != nil {
@@ -76,30 +75,34 @@ func NewVotingClient(ctx localContext.ClientContext) *VotingClient {
 		subProtocols:      subProtocols,
 		privateKey:        privateKey,
 		contractAddresses: ctx.Config().ContractAddresses,
-		selectors:         newSelectors(),
+		contractSelectors: newSelectors(),
 	}
 }
 
-type selectors struct {
-	commitSelector []byte
-	revealSelector []byte
-	resultSelector []byte
+type contractSelectors struct {
+	commit []byte
+	reveal []byte
+	result []byte
 }
 
-func newSelectors() selectors {
-	submissionABI, err := abi.JSON(strings.NewReader(submission.SubmissionABI))
+func newSelectors() contractSelectors {
+	submissionABI, err := abi.JSON(strings.NewReader(submission.SubmissionMetaData.ABI))
 	if err != nil {
 		panic(err)
 	}
-	return selectors{
-		commitSelector: submissionABI.Methods["commit"].ID,
-		revealSelector: submissionABI.Methods["reveal"].ID,
-		resultSelector: submissionABI.Methods["result"].ID,
+	return contractSelectors{
+		commit: submissionABI.Methods["commit"].ID,
+		reveal: submissionABI.Methods["reveal"].ID,
+		result: submissionABI.Methods["result"].ID,
 	}
 }
 
+// TODO: Read from smart contract or config
+const epochDuration = 30 * time.Second
+const revealPeriod = 15 * time.Second
+
 func (c *VotingClient) Run() error {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(epochDuration)
 
 	// TODO: Make sure to start at the start of a voting round.
 	// 		 Requires getting epoch settings from smart contracts.
@@ -110,29 +113,38 @@ func (c *VotingClient) Run() error {
 		processReveals(c)
 
 		// Wait until reveal deadline
-		revealDeadline := startTime.Add(15 * time.Second)
+		revealDeadline := startTime.Add(revealPeriod)
+		// TODO: Probably a better way of achieving this than sleeping?
 		time.Sleep(time.Until(revealDeadline))
 
 		// Get results
 		processResults(c)
-
 		currentPriceEpoch++
 	}
 
 	return nil
 }
 
+// Calldata format:
+//
+// - 4 bytes: Solidity function selector
+// Followed by for each sub-protocol:
+// - 1 byte: protocol id
+// - 2 bytes: length of data
+// - n bytes: data
 func processCommits(c *VotingClient) {
 	buffer := bytes.NewBuffer(nil)
 
-	buffer.Write(c.selectors.commitSelector)
+	selector := c.contractSelectors.commit
+	fmt.Println(fmt.Sprintln("Selector: ", len(selector)))
+	buffer.Write(c.contractSelectors.commit)
 
 	for _, protocol := range c.subProtocols {
 		commitData := getCommitData(currentPriceEpoch, protocol)
 
 		buffer.WriteByte(protocol.id)
-		// TODO: Probablty don't need 4 bytes for length
-		length := intToBytes(len(commitData))
+		// TODO: Handle overflow errors
+		length := uint16toBytes(uint16(len(commitData)))
 		buffer.Write(length[:])
 		buffer.Write(commitData)
 
@@ -141,17 +153,17 @@ func processCommits(c *VotingClient) {
 	commitPayload := buffer.Bytes()
 	fmt.Println("Submitting commit payload:", len(commitPayload))
 
-	sendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, commitPayload)
+	chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, commitPayload)
 }
 
 func processReveals(c *VotingClient) {
 	buffer := bytes.NewBuffer(nil)
-	buffer.Write(c.selectors.revealSelector)
+	buffer.Write(c.contractSelectors.reveal)
 	for _, protocol := range c.subProtocols {
 		revealData := getRevealData(currentPriceEpoch, protocol)
 
 		buffer.WriteByte(protocol.id)
-		length := intToBytes(len(revealData))
+		length := uint16toBytes(uint16(len(revealData)))
 		buffer.Write(length[:])
 		buffer.Write(revealData)
 
@@ -159,25 +171,25 @@ func processReveals(c *VotingClient) {
 	}
 	revealPayload := buffer.Bytes()
 	fmt.Println("Submitting reveal payload:", len(revealPayload))
-	// TODO: Submit to smart contract
+	chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, revealPayload)
 }
 
 func processResults(c *VotingClient) {
 	buffer := bytes.NewBuffer(nil)
-	buffer.Write(c.selectors.resultSelector)
+	buffer.Write(c.contractSelectors.result)
 	for _, protocol := range c.subProtocols {
-		revealData := getResultsData(currentPriceEpoch, protocol)
+		resultData := getResultsData(currentPriceEpoch, protocol)
 
 		buffer.WriteByte(protocol.id)
-		length := intToBytes(len(revealData))
+		length := uint16toBytes(uint16(len(resultData)))
 		buffer.Write(length[:])
-		buffer.Write(revealData)
+		buffer.Write(resultData)
 
 		fmt.Println("Total encoded:", buffer.Len())
 	}
-	revealPayload := buffer.Bytes()
-	fmt.Println("Submitting result payload:", len(revealPayload))
-	// TODO: Submit to smart contract
+	resultPayload := buffer.Bytes()
+	fmt.Println("Submitting result payload:", len(resultPayload))
+	chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, resultPayload)
 }
 
 // TODO: Handle error status codes
@@ -240,67 +252,7 @@ func getResultsData(votingRound int, protocol subProtocol) []byte {
 	return body
 }
 
-func intToBytes(i int) (arr [4]byte) {
-	binary.BigEndian.PutUint32(arr[0:4], uint32(i))
+func uint16toBytes(i uint16) (arr [2]byte) {
+	binary.LittleEndian.PutUint16(arr[0:2], i)
 	return
-}
-
-func sendRawTx(client ethclient.Client, pk string, toAddress common.Address, data []byte) {
-	privateKey, err := crypto.HexToECDSA(pk)
-	if err != nil {
-		panic(err)
-	}
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		panic(err)
-	}
-
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		panic(err)
-	}
-
-	value := big.NewInt(1000000000000000000) // in wei (1 eth)
-	gasLimit := uint64(210000)               // in units
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
-	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
-
-	chainID, err := client.NetworkID(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Sending signed tx: ", signedTx.Hash().Hex())
-
-	err = client.SendTransaction(context.Background(), signedTx)
-	if err != nil {
-		panic(err)
-	}
-
-	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Receipt: ", rec.Status)
-
-	verifier := chain.NewTxVerifier(&client)
-
-	fmt.Println("Waiting for tx to be mined...", time.Now())
-	err = verifier.WaitUntilMined(fromAddress, signedTx, 10*time.Second)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Tx mined ", time.Now())
 }

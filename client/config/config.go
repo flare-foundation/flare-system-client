@@ -2,7 +2,7 @@ package config
 
 import (
 	"flare-tlc/config"
-	"time"
+	// "time"
 )
 
 type ClientConfig struct {
@@ -17,16 +17,12 @@ type MetricsConfig struct {
 	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
 }
 
-type CronjobConfig struct {
-	Enabled   bool          `toml:"enabled"`
-	Timeout   time.Duration `toml:"timeout"`
-	BatchSize int64         `toml:"batch_size"`
-	Delay     time.Duration `toml:"delay"`
-}
-
-type ContractAddresses struct {
-	config.ContractAddresses
-}
+// type CronjobConfig struct {
+// 	Enabled   bool          `toml:"enabled"`
+// 	Timeout   time.Duration `toml:"timeout"`
+// 	BatchSize int64         `toml:"batch_size"`
+// 	Delay     time.Duration `toml:"delay"`
+// }
 
 func newConfig() *ClientConfig {
 	return &ClientConfig{
