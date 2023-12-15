@@ -13,16 +13,15 @@ console = true
 prometheus_address = "localhost:2112"
 
 [chain]
-node_url = "http://localhost:9650/"
+node_url = "http://127.0.0.1:8545"
 address_hrp = "localflare"
 chain_id = 162
 # eth_rpc_url is needed for services
-eth_rpc_url = "http://localhost:9650/ext/bc/C/rpc"
+eth_rpc_url = "http://127.0.0.1:8545"
 # api key may be needed for access to production nodes
 api_key = ""
 # private_key_file is needed for voting and mirroring clients
-private_key_file = "path/to/private/key/file"
+private_key_file = "./privateKey"
 
 [contract_addresses]
-mirroring = "0x0000000"
-voting = "0x0000000"
+submission = "0x7e35Eaf7e8FBd7887ad538D4A38Df5BbD073814a"

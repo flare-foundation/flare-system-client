@@ -6,6 +6,6 @@ import (
 )
 
 func Start(ctx context.ClientContext) {
-	client := clients.NewVotingClient()
+	client := clients.NewVotingClient(ctx)
 	go client.Run()
 }

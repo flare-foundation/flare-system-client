@@ -22,7 +22,7 @@ var (
 
 type GlobalConfig interface {
 	LoggerConfig() LoggerConfig
-	// ChainConfig() ChainConfig
+	ChainConfig() ChainConfig
 }
 
 type LoggerLevel string
@@ -94,7 +94,7 @@ type EpochConfig struct {
 }
 
 type ContractAddresses struct {
-	Voting common.Address `toml:"voting" envconfig:"VOTING_CONTRACT_ADDRESS"`
+	Submission common.Address `toml:"submission" envconfig:"SUBMISSION_CONTRACT_ADDRESS"`
 }
 
 func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error {

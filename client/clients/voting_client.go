@@ -2,15 +2,33 @@ package clients
 
 import (
 	"bytes"
+	"context"
+	"crypto/ecdsa"
 	"encoding/binary"
+	localContext "flare-tlc/client/context"
+	"flare-tlc/config"
+	"flare-tlc/utils/chain"
+	"flare-tlc/utils/contracts/submission"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 type VotingClient struct {
-	subProtocols []subProtocol
+	subProtocols      []subProtocol
+	eth               *ethclient.Client
+	privateKey        string
+	contractAddresses config.ContractAddresses
+	selectors         selectors
 }
 
 type subProtocol struct {
@@ -22,7 +40,7 @@ type subProtocol struct {
 
 var currentPriceEpoch = 1452560
 
-func NewVotingClient() *VotingClient {
+func NewVotingClient(ctx localContext.ClientContext) *VotingClient {
 	// TODO: Read from config
 	subProtocols := []subProtocol{
 		{
@@ -35,8 +53,48 @@ func NewVotingClient() *VotingClient {
 		},
 	}
 
+	config := ctx.Config().ChainConfig()
+	cl, err := config.DialETH()
+	if err != nil {
+		panic(err)
+	}
+
+	bn, err := cl.BlockNumber(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Current block number: ", bn)
+
+	privateKey, err := ctx.Config().ChainConfig().GetPrivateKey()
+	if err != nil {
+		panic(err)
+	}
+
 	return &VotingClient{
-		subProtocols: subProtocols,
+		eth:               cl,
+		subProtocols:      subProtocols,
+		privateKey:        privateKey,
+		contractAddresses: ctx.Config().ContractAddresses,
+		selectors:         newSelectors(),
+	}
+}
+
+type selectors struct {
+	commitSelector []byte
+	revealSelector []byte
+	resultSelector []byte
+}
+
+func newSelectors() selectors {
+	submissionABI, err := abi.JSON(strings.NewReader(submission.SubmissionABI))
+	if err != nil {
+		panic(err)
+	}
+	return selectors{
+		commitSelector: submissionABI.Methods["commit"].ID,
+		revealSelector: submissionABI.Methods["reveal"].ID,
+		resultSelector: submissionABI.Methods["result"].ID,
 	}
 }
 
@@ -44,7 +102,7 @@ func (c *VotingClient) Run() error {
 	ticker := time.NewTicker(30 * time.Second)
 
 	// TODO: Make sure to start at the start of a voting round.
-	// 		 Requires getting voting settings from smart contract.
+	// 		 Requires getting epoch settings from smart contracts.
 	for startTime := time.Now(); true; startTime = <-ticker.C {
 		fmt.Println("Starting voting round: ", currentPriceEpoch)
 
@@ -66,6 +124,9 @@ func (c *VotingClient) Run() error {
 
 func processCommits(c *VotingClient) {
 	buffer := bytes.NewBuffer(nil)
+
+	buffer.Write(c.selectors.commitSelector)
+
 	for _, protocol := range c.subProtocols {
 		commitData := getCommitData(currentPriceEpoch, protocol)
 
@@ -79,11 +140,13 @@ func processCommits(c *VotingClient) {
 	}
 	commitPayload := buffer.Bytes()
 	fmt.Println("Submitting commit payload:", len(commitPayload))
-	// TODO: Submit to smart contract
+
+	sendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, commitPayload)
 }
 
 func processReveals(c *VotingClient) {
 	buffer := bytes.NewBuffer(nil)
+	buffer.Write(c.selectors.revealSelector)
 	for _, protocol := range c.subProtocols {
 		revealData := getRevealData(currentPriceEpoch, protocol)
 
@@ -101,6 +164,7 @@ func processReveals(c *VotingClient) {
 
 func processResults(c *VotingClient) {
 	buffer := bytes.NewBuffer(nil)
+	buffer.Write(c.selectors.resultSelector)
 	for _, protocol := range c.subProtocols {
 		revealData := getResultsData(currentPriceEpoch, protocol)
 
@@ -179,4 +243,64 @@ func getResultsData(votingRound int, protocol subProtocol) []byte {
 func intToBytes(i int) (arr [4]byte) {
 	binary.BigEndian.PutUint32(arr[0:4], uint32(i))
 	return
+}
+
+func sendRawTx(client ethclient.Client, pk string, toAddress common.Address, data []byte) {
+	privateKey, err := crypto.HexToECDSA(pk)
+	if err != nil {
+		panic(err)
+	}
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		panic(err)
+	}
+
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	value := big.NewInt(1000000000000000000) // in wei (1 eth)
+	gasLimit := uint64(210000)               // in units
+	gasPrice, err := client.SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Sending signed tx: ", signedTx.Hash().Hex())
+
+	err = client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		panic(err)
+	}
+
+	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Receipt: ", rec.Status)
+
+	verifier := chain.NewTxVerifier(&client)
+
+	fmt.Println("Waiting for tx to be mined...", time.Now())
+	err = verifier.WaitUntilMined(fromAddress, signedTx, 10*time.Second)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Tx mined ", time.Now())
 }
