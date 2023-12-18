@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	localContext "flare-tlc/client/context"
 	"flare-tlc/config"
 	"flare-tlc/utils/chain"
@@ -134,9 +136,6 @@ func (c *VotingClient) Run() error {
 // - n bytes: data
 func processCommits(c *VotingClient) {
 	buffer := bytes.NewBuffer(nil)
-
-	selector := c.contractSelectors.commit
-	fmt.Println(fmt.Sprintln("Selector: ", len(selector)))
 	buffer.Write(c.contractSelectors.commit)
 
 	for _, protocol := range c.subProtocols {
@@ -208,8 +207,15 @@ func getCommitData(votingRound int, protocol subProtocol) []byte {
 		return nil
 	}
 
-	fmt.Println("Commit data: ", string(body))
-	return body
+	bodyString := strings.TrimPrefix(string(body), "0x")
+	commitHash, _ := hex.DecodeString(bodyString)
+
+	if len(commitHash) != 32 {
+		panic(errors.New("merkle root is not 32 bytes long"))
+	}
+	fmt.Println("Commit data: ", string(body), len(body), len(commitHash))
+
+	return commitHash
 }
 
 // TODO: Handle error status codes
@@ -227,9 +233,13 @@ func getRevealData(votingRound int, protocol subProtocol) []byte {
 		fmt.Println("Error reading reveal response:", err)
 		return nil
 	}
-	fmt.Println("Reveal data: ", string(body))
 
-	return body
+	bodyString := strings.TrimPrefix(string(body), "0x")
+	revealData, _ := hex.DecodeString(bodyString)
+
+	fmt.Println("Reveal data: ", bodyString)
+
+	return revealData
 }
 
 // TODO: Handle error status codes
@@ -248,8 +258,17 @@ func getResultsData(votingRound int, protocol subProtocol) []byte {
 		return nil
 	}
 
-	fmt.Println("Result data: ", string(body))
-	return body
+	bodyString := strings.TrimPrefix(string(body), "0x")
+	merkleRoot, _ := hex.DecodeString(bodyString)
+
+	fmt.Println("Result data: ", bodyString)
+
+	if len(merkleRoot) != 32 {
+		panic(errors.New("merkle root is not 32 bytes long"))
+	}
+	fmt.Println("Result data: ", hex.EncodeToString(merkleRoot))
+
+	return merkleRoot
 }
 
 func uint16toBytes(i uint16) (arr [2]byte) {
