@@ -1,13 +1,6 @@
 # This file serves as a template for the configuration file. Copy it and edit the values as needed.
 # Use --config parameter to specify the path to the configuration file.
 
-[db]
-host = "localhost"
-port = 3306
-database = "flare_tlc"
-username = "flaretlcuser"
-password = "P.a.s.s.W.O.R.D"
-log_queries = false
 
 [logger]
 level = "INFO"
@@ -20,16 +13,16 @@ console = true
 prometheus_address = "localhost:2112"
 
 [chain]
-node_url = "http://localhost:9650/"
+node_url = "http://127.0.0.1:8545"
 address_hrp = "localflare"
 chain_id = 162
 # eth_rpc_url is needed for services
-eth_rpc_url = "http://localhost:9650/ext/bc/C/rpc"
+eth_rpc_url = "http://127.0.0.1:8545"
 # api key may be needed for access to production nodes
 api_key = ""
 # private_key_file is needed for voting and mirroring clients
-private_key_file = "path/to/private/key/file"
+private_key_file = "./privateKey"
 
 [contract_addresses]
-mirroring = "0x0000000"
-voting = "0x0000000"
+submission = "0x6082731fdAba4761277Fb31299ebC782AD3bCf24"
+system_manager = "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F"

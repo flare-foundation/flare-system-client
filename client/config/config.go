@@ -2,33 +2,27 @@ package config
 
 import (
 	"flare-tlc/config"
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
+	// "time"
 )
 
 type ClientConfig struct {
-	DB      config.DBConfig     `toml:"db"`
-	Logger  config.LoggerConfig `toml:"logger"`
-	Chain   config.ChainConfig  `toml:"chain"`
-	Metrics MetricsConfig       `toml:"metrics"`
+	// DB      config.DBConfig     `toml:"db"`
+	Logger            config.LoggerConfig      `toml:"logger"`
+	Chain             config.ChainConfig       `toml:"chain"`
+	Metrics           MetricsConfig            `toml:"metrics"`
+	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
 }
 
 type MetricsConfig struct {
 	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
 }
 
-type CronjobConfig struct {
-	Enabled   bool          `toml:"enabled"`
-	Timeout   time.Duration `toml:"timeout"`
-	BatchSize int64         `toml:"batch_size"`
-	Delay     time.Duration `toml:"delay"`
-}
-
-type ContractAddresses struct {
-	config.ContractAddresses
-	Mirroring common.Address `toml:"mirroring" envconfig:"MIRRORING_CONTRACT_ADDRESS"`
-}
+// type CronjobConfig struct {
+// 	Enabled   bool          `toml:"enabled"`
+// 	Timeout   time.Duration `toml:"timeout"`
+// 	BatchSize int64         `toml:"batch_size"`
+// 	Delay     time.Duration `toml:"delay"`
+// }
 
 func newConfig() *ClientConfig {
 	return &ClientConfig{

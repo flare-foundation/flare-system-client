@@ -3,6 +3,8 @@ package chain
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 )
@@ -77,4 +80,89 @@ func unpackError(result []byte) (string, error) {
 		return "<invalid tx result>", errors.Wrap(err, "unpacking revert reason")
 	}
 	return vs[0].(string), nil
+}
+
+func TransactOptsFromPrivateKey(privateKey string, chainID int) (*bind.TransactOpts, error) {
+	if len(privateKey) < 2 {
+		return nil, errors.New("privateKey is too short")
+	}
+
+	if privateKey[:2] == "0x" {
+		privateKey = privateKey[2:]
+	}
+
+	pk, err := crypto.HexToECDSA(privateKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "crypto.HexToECDSA")
+	}
+
+	opts, err := bind.NewKeyedTransactorWithChainID(
+		pk, big.NewInt(int64(chainID)),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+	}
+	// bind.N
+	return opts, nil
+}
+
+func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.Address, data []byte) {
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		panic(err)
+	}
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		panic(err)
+	}
+
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	value := big.NewInt(0)     // in wei (1 eth)
+	gasLimit := uint64(210000) // in units
+	gasPrice, err := client.SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	// TODO: NewTransaction is deprecated
+	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Sending signed tx: ", signedTx.Hash().Hex())
+
+	err = client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		panic(err)
+	}
+
+	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Receipt: ", rec.Status)
+
+	verifier := NewTxVerifier(&client)
+
+	fmt.Println("Waiting for tx to be mined...", time.Now())
+	err = verifier.WaitUntilMined(fromAddress, signedTx, 10*time.Second)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Tx mined ", time.Now())
 }
