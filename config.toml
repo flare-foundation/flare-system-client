@@ -24,4 +24,5 @@ api_key = ""
 private_key_file = "./privateKey"
 
 [contract_addresses]
-submission = "0x7e35Eaf7e8FBd7887ad538D4A38Df5BbD073814a"
+submission = "0x6082731fdAba4761277Fb31299ebC782AD3bCf24"
+system_manager = "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F"

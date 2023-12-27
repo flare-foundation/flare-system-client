@@ -94,7 +94,8 @@ type EpochConfig struct {
 }
 
 type ContractAddresses struct {
-	Submission common.Address `toml:"submission" envconfig:"SUBMISSION_CONTRACT_ADDRESS"`
+	Submission    common.Address `toml:"submission" envconfig:"SUBMISSION_CONTRACT_ADDRESS"`
+	SystemManager common.Address `toml:"system_manager" envconfig:"SYSTEM_MANAGER_CONTRACT_ADDRESS"`
 }
 
 func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error {
