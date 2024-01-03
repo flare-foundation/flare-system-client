@@ -6,7 +6,7 @@ import (
 )
 
 func Start(ctx context.ClientContext) {
-	client, err := clients.NewVotingClient(ctx.Config())
+	client, err := clients.NewVotingClient(ctx)
 	if err != nil {
 		panic(err)
 	}

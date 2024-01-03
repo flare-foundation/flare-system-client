@@ -6,10 +6,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"flare-tlc/client/config"
+	clientContext "flare-tlc/client/context"
+	"flare-tlc/client/shared"
 	globalConfig "flare-tlc/config"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/submission"
+	"flare-tlc/utils/contracts/system"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +32,8 @@ type VotingClient struct {
 	privateKey        string
 	contractAddresses globalConfig.ContractAddresses
 	contractSelectors contractSelectors
+	epochSettings     shared.EpochSettings
+	systemManager     *system.FlareSystemManager
 }
 
 type SubProtocol struct {
@@ -43,7 +48,8 @@ func NewSubProtocol(config config.ProtocolConfig) SubProtocol {
 
 var currentPriceEpoch = 1452560
 
-func NewVotingClient(config *config.ClientConfig) (*VotingClient, error) {
+func NewVotingClient(ctx clientContext.ClientContext) (*VotingClient, error) {
+	config := ctx.Config()
 	subProtocols := []SubProtocol{
 		NewSubProtocol(config.Ftso),
 	}
@@ -67,19 +73,39 @@ func NewVotingClient(config *config.ClientConfig) (*VotingClient, error) {
 		return nil, err
 	}
 
+	systemManager, _ := system.NewFlareSystemManager(ctx.Config().ContractAddresses.SystemManager, cl)
+
+	rewardEpochStart, _ := systemManager.RewardEpochsStartTs(nil)
+	rewardEpochDuration, _ := systemManager.RewardEpochDurationSeconds(nil)
+	firstVotingEpochStart, _ := systemManager.FirstVotingRoundStartTs(nil)
+	votingEpochDuration, _ := systemManager.VotingEpochDurationSeconds(nil)
+
+	epochSettings := shared.EpochSettings{
+		RewardEpochStartSec:      rewardEpochStart,
+		RewardEpochDurationSec:   rewardEpochDuration,
+		FirstVotingEpochStartSec: firstVotingEpochStart,
+		VotingEpochDurationSec:   votingEpochDuration,
+	}
+
+	selectors := newSelectors()
+
+	fmt.Println("Selectors :", hex.EncodeToString(selectors.commit), hex.EncodeToString(selectors.reveal), hex.EncodeToString(selectors.sign))
+
 	return &VotingClient{
 		eth:               cl,
 		subProtocols:      subProtocols,
 		privateKey:        privateKey,
 		contractAddresses: config.ContractAddresses,
-		contractSelectors: newSelectors(),
+		contractSelectors: selectors,
+		epochSettings:     epochSettings,
+		systemManager:     systemManager,
 	}, nil
 }
 
 type contractSelectors struct {
 	commit []byte
 	reveal []byte
-	result []byte
+	sign   []byte
 }
 
 func newSelectors() contractSelectors {
@@ -90,21 +116,17 @@ func newSelectors() contractSelectors {
 	return contractSelectors{
 		commit: submissionABI.Methods["commit"].ID,
 		reveal: submissionABI.Methods["reveal"].ID,
-		result: submissionABI.Methods["result"].ID,
+		sign:   submissionABI.Methods["sign"].ID,
 	}
 }
 
-// TODO: Read from smart contract or config
-const epochDuration = 30 * time.Second
-const revealPeriod = 15 * time.Second
-
 func (c *VotingClient) Run() error {
-	ticker := time.NewTicker(epochDuration)
 
-	// TODO: Make sure to start at the start of a voting round.
-	// 		 Requires getting epoch settings from smart contracts.
-	for startTime := time.Now(); true; startTime = <-ticker.C {
-		fmt.Println("Starting voting round: ", currentPriceEpoch)
+	for {
+		currentTime := time.Now()
+		votingEpochStart := c.epochSettings.NextVotingEpochStart(currentTime)
+		fmt.Println("Next epoch starts at:", votingEpochStart)
+		time.Sleep(time.Until(votingEpochStart))
 
 		if err := processCommits(c); err != nil {
 			return errors.Wrap(err, "error processing commits")
@@ -115,8 +137,7 @@ func (c *VotingClient) Run() error {
 		}
 
 		// Wait until reveal deadline
-		revealDeadline := startTime.Add(revealPeriod)
-		// TODO: Probably a better way of achieving this than sleeping?
+		revealDeadline := votingEpochStart.Add(time.Duration(c.epochSettings.VotingEpochDurationSec / 2))
 		time.Sleep(time.Until(revealDeadline))
 
 		// Get results
@@ -125,8 +146,6 @@ func (c *VotingClient) Run() error {
 		}
 		currentPriceEpoch++
 	}
-
-	return nil
 }
 
 // Calldata format:
@@ -183,7 +202,7 @@ func processReveals(c *VotingClient) error {
 
 func processResults(c *VotingClient) error {
 	buffer := bytes.NewBuffer(nil)
-	buffer.Write(c.contractSelectors.result)
+	buffer.Write(c.contractSelectors.sign)
 	for _, protocol := range c.subProtocols {
 		resultData, err := getResultsData(currentPriceEpoch, protocol)
 		if err != nil {
