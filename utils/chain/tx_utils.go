@@ -106,29 +106,29 @@ func TransactOptsFromPrivateKey(privateKey string, chainID int) (*bind.TransactO
 	return opts, nil
 }
 
-func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.Address, data []byte) {
+func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.Address, data []byte) error {
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		panic(err)
+		return err
 	}
 
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	value := big.NewInt(0)     // in wei (1 eth)
 	gasLimit := uint64(210000) // in units
 	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// TODO: NewTransaction is deprecated
@@ -136,24 +136,24 @@ func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.A
 
 	chainID, err := client.NetworkID(context.Background())
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	fmt.Println("Sending signed tx: ", signedTx.Hash().Hex())
 
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
 	if err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("Receipt: ", rec.Status)
 
@@ -162,7 +162,8 @@ func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.A
 	fmt.Println("Waiting for tx to be mined...", time.Now())
 	err = verifier.WaitUntilMined(fromAddress, signedTx, 10*time.Second)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("Tx mined ", time.Now())
+	return nil
 }

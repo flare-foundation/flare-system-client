@@ -26,3 +26,5 @@ private_key_file = "./privateKey"
 [contract_addresses]
 submission = "0x6082731fdAba4761277Fb31299ebC782AD3bCf24"
 system_manager = "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F"
+
+[ftso_v2]

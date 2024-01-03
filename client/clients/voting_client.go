@@ -5,80 +5,75 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
-	localContext "flare-tlc/client/context"
-	"flare-tlc/config"
+	"flare-tlc/client/config"
+	globalConfig "flare-tlc/config"
+	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/submission"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
 )
 
 type VotingClient struct {
-	subProtocols      []subProtocol
+	subProtocols      []SubProtocol
 	eth               *ethclient.Client
 	privateKey        string
-	contractAddresses config.ContractAddresses
+	contractAddresses globalConfig.ContractAddresses
 	contractSelectors contractSelectors
 }
 
-type subProtocol struct {
-	// TODO: Should use 2 bytes for id?
-	id uint8
-	// E.g. localhost:3000/ftso/price-controller/
-	apiEndpoint string
+type SubProtocol struct {
+	config config.ProtocolConfig
+}
+
+func NewSubProtocol(config config.ProtocolConfig) SubProtocol {
+	return SubProtocol{
+		config: config,
+	}
 }
 
 var currentPriceEpoch = 1452560
 
-func NewVotingClient(ctx localContext.ClientContext) *VotingClient {
-	// TODO: Move to config
-	subProtocols := []subProtocol{
-		{
-			id:          1,
-			apiEndpoint: "http://localhost:3000/ftso/price-controller/",
-		},
-		{
-			id:          2,
-			apiEndpoint: "http://localhost:3000/ftso/price-controller/",
-		},
+func NewVotingClient(config *config.ClientConfig) (*VotingClient, error) {
+	subProtocols := []SubProtocol{
+		NewSubProtocol(config.Ftso),
 	}
 
-	config := ctx.Config().ChainConfig()
-	cl, err := config.DialETH()
+	chainConfig := config.ChainConfig()
+	cl, err := chainConfig.DialETH()
 
 	if err != nil {
-		// TODO: repalce all panic(error) with proper error handling
-		panic(err)
+		return nil, err
 	}
 
 	bn, err := cl.BlockNumber(context.Background())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	// TODO: Use a logger everywhere instead of fmt.Println
-	fmt.Println("Connected to chain, current block number: ", bn)
+	logger.Info("Connected to chain, current block number: %d", bn)
 
-	privateKey, err := ctx.Config().ChainConfig().GetPrivateKey()
+	privateKey, err := chainConfig.GetPrivateKey()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &VotingClient{
 		eth:               cl,
 		subProtocols:      subProtocols,
 		privateKey:        privateKey,
-		contractAddresses: ctx.Config().ContractAddresses,
+		contractAddresses: config.ContractAddresses,
 		contractSelectors: newSelectors(),
-	}
+	}, nil
 }
 
 type contractSelectors struct {
@@ -111,8 +106,13 @@ func (c *VotingClient) Run() error {
 	for startTime := time.Now(); true; startTime = <-ticker.C {
 		fmt.Println("Starting voting round: ", currentPriceEpoch)
 
-		processCommits(c)
-		processReveals(c)
+		if err := processCommits(c); err != nil {
+			return errors.Wrap(err, "error processing commits")
+		}
+
+		if err := processReveals(c); err != nil {
+			return errors.Wrap(err, "error processing reveals")
+		}
 
 		// Wait until reveal deadline
 		revealDeadline := startTime.Add(revealPeriod)
@@ -120,7 +120,9 @@ func (c *VotingClient) Run() error {
 		time.Sleep(time.Until(revealDeadline))
 
 		// Get results
-		processResults(c)
+		if err := processResults(c); err != nil {
+			return errors.Wrap(err, "error processing results")
+		}
 		currentPriceEpoch++
 	}
 
@@ -134,17 +136,20 @@ func (c *VotingClient) Run() error {
 // - 1 byte: protocol id
 // - 2 bytes: length of data
 // - n bytes: data
-func processCommits(c *VotingClient) {
+func processCommits(c *VotingClient) error {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(c.contractSelectors.commit)
 
 	for _, protocol := range c.subProtocols {
-		commitData := getCommitData(currentPriceEpoch, protocol)
+		commitData, err := getCommitData(currentPriceEpoch, protocol)
+		if err != nil {
+			return err
+		}
 
-		buffer.WriteByte(protocol.id)
+		buffer.WriteByte(protocol.config.Id)
 		// TODO: Handle overflow errors
-		length := uint16toBytes(uint16(len(commitData)))
-		buffer.Write(length[:])
+		lengthBytes := uint16toBytes(uint16(len(commitData)))
+		buffer.Write(lengthBytes[:])
 		buffer.Write(commitData)
 
 		fmt.Println("Total encoded:", buffer.Len())
@@ -152,16 +157,19 @@ func processCommits(c *VotingClient) {
 	commitPayload := buffer.Bytes()
 	fmt.Println("Submitting commit payload:", len(commitPayload))
 
-	chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, commitPayload)
+	return chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, commitPayload)
 }
 
-func processReveals(c *VotingClient) {
+func processReveals(c *VotingClient) error {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(c.contractSelectors.reveal)
 	for _, protocol := range c.subProtocols {
-		revealData := getRevealData(currentPriceEpoch, protocol)
+		revealData, err := getRevealData(currentPriceEpoch, protocol)
+		if err != nil {
+			return errors.Wrap(err, "processReveals: error getting reveal data")
+		}
 
-		buffer.WriteByte(protocol.id)
+		buffer.WriteByte(protocol.config.Id)
 		length := uint16toBytes(uint16(len(revealData)))
 		buffer.Write(length[:])
 		buffer.Write(revealData)
@@ -170,16 +178,19 @@ func processReveals(c *VotingClient) {
 	}
 	revealPayload := buffer.Bytes()
 	fmt.Println("Submitting reveal payload:", len(revealPayload))
-	chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, revealPayload)
+	return chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, revealPayload)
 }
 
-func processResults(c *VotingClient) {
+func processResults(c *VotingClient) error {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(c.contractSelectors.result)
 	for _, protocol := range c.subProtocols {
-		resultData := getResultsData(currentPriceEpoch, protocol)
+		resultData, err := getResultsData(currentPriceEpoch, protocol)
+		if err != nil {
+			return errors.Wrap(err, "processResults: error getting result data")
+		}
 
-		buffer.WriteByte(protocol.id)
+		buffer.WriteByte(protocol.config.Id)
 		length := uint16toBytes(uint16(len(resultData)))
 		buffer.Write(length[:])
 		buffer.Write(resultData)
@@ -188,74 +199,77 @@ func processResults(c *VotingClient) {
 	}
 	resultPayload := buffer.Bytes()
 	fmt.Println("Submitting result payload:", len(resultPayload))
-	chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, resultPayload)
+	return chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, resultPayload)
 }
 
 // TODO: Handle error status codes
-func getCommitData(votingRound int, protocol subProtocol) []byte {
-	url := fmt.Sprint(protocol.apiEndpoint, "commit/", votingRound)
+func getCommitData(votingRound int, protocol SubProtocol) ([]byte, error) {
+	url, err := url.JoinPath(protocol.config.ApiEndpoint, fmt.Sprintf("commit/%d", votingRound))
+	if err != nil {
+		return nil, errors.Wrap(err, "error joining url path")
+	}
+
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("Error calling commit API:", err)
-		return nil
+		return nil, errors.Wrap(err, "error calling commit API")
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading commit response:", err)
-		return nil
+		return nil, errors.Wrap(err, "error reading commit response")
 	}
 
 	bodyString := strings.TrimPrefix(string(body), "0x")
 	commitHash, _ := hex.DecodeString(bodyString)
 
 	if len(commitHash) != 32 {
-		panic(errors.New("merkle root is not 32 bytes long"))
+		return nil, errors.New("merkle root is not 32 bytes long")
 	}
 	fmt.Println("Commit data: ", string(body), len(body), len(commitHash))
 
-	return commitHash
+	return commitHash, nil
 }
 
 // TODO: Handle error status codes
-func getRevealData(votingRound int, protocol subProtocol) []byte {
-	url := fmt.Sprint(protocol.apiEndpoint, "reveal/", votingRound)
+func getRevealData(votingRound int, protocol SubProtocol) ([]byte, error) {
+	url := fmt.Sprint(protocol.config.ApiEndpoint, "reveal/", votingRound)
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("Error calling reveal API:", err)
-		return nil
+		return nil, errors.Wrap(err, "error calling reveal API")
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading reveal response:", err)
-		return nil
+		return nil, errors.Wrap(err, "error reading reveal response")
 	}
 
 	bodyString := strings.TrimPrefix(string(body), "0x")
-	revealData, _ := hex.DecodeString(bodyString)
+	revealData, err := hex.DecodeString(bodyString)
+	if err != nil {
+		return nil, errors.Wrap(err, "error decoding reveal data")
+	}
 
 	fmt.Println("Reveal data: ", bodyString)
 
-	return revealData
+	return revealData, nil
 }
 
-// TODO: Handle error status codes
-func getResultsData(votingRound int, protocol subProtocol) []byte {
-	url := fmt.Sprint(protocol.apiEndpoint, "result/", votingRound)
+func getResultsData(votingRound int, protocol SubProtocol) ([]byte, error) {
+	url, err := url.JoinPath(protocol.config.ApiEndpoint, fmt.Sprintf("result/%d", votingRound))
+	if err != nil {
+		return nil, errors.Wrap(err, "error joining url path")
+	}
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("Error calling results API:", err)
-		return nil
+		return nil, errors.Wrap(err, "error calling results API")
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading results response:", err)
-		return nil
+		return nil, errors.Wrap(err, "error reading results response")
 	}
 
 	bodyString := strings.TrimPrefix(string(body), "0x")
@@ -264,11 +278,11 @@ func getResultsData(votingRound int, protocol subProtocol) []byte {
 	fmt.Println("Result data: ", bodyString)
 
 	if len(merkleRoot) != 32 {
-		panic(errors.New("merkle root is not 32 bytes long"))
+		return nil, errors.New("merkle root is not 32 bytes long")
 	}
 	fmt.Println("Result data: ", hex.EncodeToString(merkleRoot))
 
-	return merkleRoot
+	return merkleRoot, nil
 }
 
 func uint16toBytes(i uint16) (arr [2]byte) {

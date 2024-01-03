@@ -4,14 +4,14 @@ import (
 	"flag"
 	"flare-tlc/client/config"
 	globalConfig "flare-tlc/config"
-	// "flare-tlc/database"
+	"flare-tlc/database"
 
-	// "gorm.io/gorm"
+	"gorm.io/gorm"
 )
 
 type ClientContext interface {
 	Config() *config.ClientConfig
-	// DB() *gorm.DB
+	DB() *gorm.DB
 	Flags() *ClientFlags
 }
 
@@ -22,7 +22,7 @@ type ClientFlags struct {
 
 type clientContext struct {
 	config *config.ClientConfig
-	// db     *gorm.DB
+	db     *gorm.DB
 	flags  *ClientFlags
 }
 
@@ -34,21 +34,21 @@ func BuildContext() (ClientContext, error) {
 	}
 	globalConfig.GlobalConfigCallback.Call(cfg)
 
-	// db, err := database.ConnectAndInitialize(&cfg.DB)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	db, err := database.Connect(&cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientContext{
 		config: cfg,
-		// db:     db,
+		db:     db,
 		flags:  flags,
 	}, nil
 }
 
 func (c *clientContext) Config() *config.ClientConfig { return c.config }
 
-// func (c *clientContext) DB() *gorm.DB { return c.db }
+func (c *clientContext) DB() *gorm.DB { return c.db }
 
 func (c *clientContext) Flags() *ClientFlags { return c.flags }
 

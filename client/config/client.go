@@ -2,27 +2,31 @@ package config
 
 import (
 	"flare-tlc/config"
-	// "time"
+	"time"
 )
 
 type ClientConfig struct {
-	// DB      config.DBConfig     `toml:"db"`
+	DB                config.DBConfig          `toml:"db"`
 	Logger            config.LoggerConfig      `toml:"logger"`
 	Chain             config.ChainConfig       `toml:"chain"`
 	Metrics           MetricsConfig            `toml:"metrics"`
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
+
+	VoterRegistration VoterRegistrationConfig `toml:"voter_registration"`
+
+	Ftso ProtocolConfig `toml:"ftso"`
 }
 
 type MetricsConfig struct {
 	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
 }
 
-// type CronjobConfig struct {
-// 	Enabled   bool          `toml:"enabled"`
-// 	Timeout   time.Duration `toml:"timeout"`
-// 	BatchSize int64         `toml:"batch_size"`
-// 	Delay     time.Duration `toml:"delay"`
-// }
+type VoterRegistrationConfig struct {
+	EpochStart  time.Time     `toml:"epoch_start"`  // Temporary, get from some contract
+	EpochPeriod time.Duration `toml:"epoch_period"` // Temporary, get from some contract
+	Topic0      string        `toml:"topic0"`
+	Address     string        `toml:"address"`
+}
 
 func newConfig() *ClientConfig {
 	return &ClientConfig{

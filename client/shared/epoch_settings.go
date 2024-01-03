@@ -12,7 +12,7 @@ type EpochSettings struct {
 }
 
 func (e *EpochSettings) VotingEpochForTime(t time.Time) uint64 {
-	unixSeconds := uint64(t.UnixMilli() / 1000)
+	unixSeconds := uint64(t.Unix())
 	return (unixSeconds - e.FirstVotingEpochStartSec) / e.VotingEpochDurationSec
 }
 
@@ -23,6 +23,6 @@ func (e *EpochSettings) NextVotingEpochStart(t time.Time) time.Time {
 }
 
 func (e *EpochSettings) RewardEpochForTime(t time.Time) uint64 {
-	unixSeconds := uint64(t.UnixMilli() / 1000)
+	unixSeconds := uint64(t.Unix())
 	return (unixSeconds - e.RewardEpochStartSec) / e.RewardEpochDurationSec
 }

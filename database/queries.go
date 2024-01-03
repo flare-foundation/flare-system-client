@@ -1,19 +1,15 @@
 package database
 
-import (
-	"gorm.io/gorm"
-)
+import "gorm.io/gorm"
 
-func FetchMigrations(db *gorm.DB) ([]Migration, error) {
-	var migrations []Migration
-	err := db.Order("version asc").Find(&migrations).Error
-	return migrations, err
-}
-
-func CreateMigration(db *gorm.DB, m *Migration) error {
-	return db.Create(m).Error
-}
-
-func UpdateMigration(db *gorm.DB, m *Migration) error {
-	return db.Save(m).Error
+// Fetch all logs matching address and topic0 from timestamp range [from, to), order by timestamp
+func FetchLogsByAddressAndTopic0(db *gorm.DB, address string, topic0 string,
+	from int64, to int64) ([]Log, error) {
+	var logs []Log
+	err := db.Where("address = ? AND topic0 = ? AND timestamp >= ? AND timestamp < ?",
+		address, topic0, from, to).Order("timestamp").Find(&logs).Error
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
 }
