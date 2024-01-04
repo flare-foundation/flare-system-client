@@ -97,6 +97,7 @@ type ContractAddresses struct {
 	Submission    common.Address `toml:"submission" envconfig:"SUBMISSION_CONTRACT_ADDRESS"`
 	SystemManager common.Address `toml:"system_manager" envconfig:"SYSTEM_MANAGER_CONTRACT_ADDRESS"`
 	VoterRegistry common.Address `toml:"voter_registry" envconfig:"VOTER_REGISTRY_CONTRACT_ADDRESS"`
+	Relay         common.Address `toml:"relay" envconfig:"RELAY_CONTRACT_ADDRESS"`
 }
 
 func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error {

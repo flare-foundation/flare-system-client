@@ -13,6 +13,7 @@ type ClientConfig struct {
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
 
 	VoterRegistration VoterRegistrationConfig `toml:"voter_registration"`
+	SigningPolicy     SigningPolicyConfig     `toml:"signing_policy"`
 
 	Ftso ProtocolConfig `toml:"ftso"`
 }
@@ -26,6 +27,11 @@ type VoterRegistrationConfig struct {
 	EpochPeriod time.Duration `toml:"epoch_period"` // Temporary, get from some contract
 	Topic0      string        `toml:"topic0"`
 	Address     string        `toml:"address"`
+}
+
+type SigningPolicyConfig struct {
+	Topic0  string `toml:"topic0"`
+	Address string `toml:"address"`
 }
 
 func newConfig() *ClientConfig {

@@ -14,14 +14,8 @@ import (
 	"gorm.io/gorm"
 )
 
-type PowerBlockData struct {
-	RewardEpoch    int64
-	VotePowerBlock uint64
-	Timestamp      uint64
-}
-
 type votePowerBlockSelectedListener struct {
-	C <-chan *PowerBlockData
+	C <-chan *system.FlareSystemManagerVotePowerBlockSelected
 
 	epoch   *utils.Epoch
 	address string
@@ -51,8 +45,8 @@ func NewVotePowerBlockSelectedListener(
 	return listener
 }
 
-func (c *votePowerBlockSelectedListener) votePowerBlockChannel() <-chan *PowerBlockData {
-	out := make(chan *PowerBlockData)
+func (c *votePowerBlockSelectedListener) votePowerBlockChannel() <-chan *system.FlareSystemManagerVotePowerBlockSelected {
+	out := make(chan *system.FlareSystemManagerVotePowerBlockSelected)
 	go func() {
 		ticker := time.NewTicker(10 * time.Second) // read from config
 		eventRangeStart := c.epoch.StartTime(c.epoch.EpochIndex(c.mockableTime.Now()) - 1).Unix()
@@ -79,7 +73,7 @@ func (c *votePowerBlockSelectedListener) votePowerBlockChannel() <-chan *PowerBl
 	return out
 }
 
-func (c *votePowerBlockSelectedListener) parseVotePowerBlockSelectedEvent(dbLog database.Log) (*PowerBlockData, error) {
+func (c *votePowerBlockSelectedListener) parseVotePowerBlockSelectedEvent(dbLog database.Log) (*system.FlareSystemManagerVotePowerBlockSelected, error) {
 	data, err := hex.DecodeString(dbLog.Data)
 	if err != nil {
 		return nil, err
@@ -94,13 +88,5 @@ func (c *votePowerBlockSelectedListener) parseVotePowerBlockSelectedEvent(dbLog 
 		Data: data,
 		// Other fields are not used by log decoder
 	}
-	parsedData, err := c.systemManagerFilterer.ParseVotePowerBlockSelected(contractLog)
-	if err != nil {
-		return nil, err
-	}
-	return &PowerBlockData{
-		RewardEpoch:    parsedData.RewardEpochId.Int64(),
-		VotePowerBlock: parsedData.VotePowerBlock,
-		Timestamp:      parsedData.Timestamp,
-	}, nil
+	return c.systemManagerFilterer.ParseVotePowerBlockSelected(contractLog)
 }
