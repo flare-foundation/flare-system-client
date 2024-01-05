@@ -2,7 +2,6 @@ package config
 
 import (
 	"flare-tlc/config"
-	"time"
 )
 
 type ClientConfig struct {
@@ -12,8 +11,9 @@ type ClientConfig struct {
 	Metrics           MetricsConfig            `toml:"metrics"`
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
 
-	VoterRegistration VoterRegistrationConfig `toml:"voter_registration"`
-	SigningPolicy     SigningPolicyConfig     `toml:"signing_policy"`
+	VotePowerBlock    VotePowerBlockConfig   `toml:"vote_power_block"`
+	VoterRegistration VoteRegistrationConfig `toml:"voter_registration"`
+	SigningPolicy     SigningPolicyConfig    `toml:"signing_policy"`
 
 	Ftso ProtocolConfig `toml:"ftso"`
 }
@@ -22,16 +22,16 @@ type MetricsConfig struct {
 	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
 }
 
-type VoterRegistrationConfig struct {
-	EpochStart  time.Time     `toml:"epoch_start"`  // Temporary, get from some contract
-	EpochPeriod time.Duration `toml:"epoch_period"` // Temporary, get from some contract
-	Topic0      string        `toml:"topic0"`
-	Address     string        `toml:"address"`
+type VotePowerBlockConfig struct {
+	Topic0 string `toml:"topic0"`
+}
+
+type VoteRegistrationConfig struct {
+	Address string `toml:"address"`
 }
 
 type SigningPolicyConfig struct {
-	Topic0  string `toml:"topic0"`
-	Address string `toml:"address"`
+	Topic0 string `toml:"topic0"`
 }
 
 func newConfig() *ClientConfig {

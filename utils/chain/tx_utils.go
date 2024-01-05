@@ -83,8 +83,13 @@ func unpackError(result []byte) (string, error) {
 }
 
 func TransactOptsFromPrivateKey(privateKey string, chainID int) (*bind.TransactOpts, error) {
+	opts, _, err := CredentialsFromPrivateKey(privateKey, chainID)
+	return opts, err
+}
+
+func CredentialsFromPrivateKey(privateKey string, chainID int) (*bind.TransactOpts, *ecdsa.PrivateKey, error) {
 	if len(privateKey) < 2 {
-		return nil, errors.New("privateKey is too short")
+		return nil, nil, errors.New("privateKey is too short")
 	}
 
 	if privateKey[:2] == "0x" {
@@ -93,17 +98,17 @@ func TransactOptsFromPrivateKey(privateKey string, chainID int) (*bind.TransactO
 
 	pk, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "crypto.HexToECDSA")
+		return nil, nil, errors.Wrap(err, "crypto.HexToECDSA")
 	}
 
 	opts, err := bind.NewKeyedTransactorWithChainID(
 		pk, big.NewInt(int64(chainID)),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+		return nil, nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
 	// bind.N
-	return opts, nil
+	return opts, pk, nil
 }
 
 func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.Address, data []byte) error {

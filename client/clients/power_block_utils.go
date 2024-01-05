@@ -1,16 +1,14 @@
 package clients
 
 import (
-	"encoding/hex"
+	"flare-tlc/client/shared"
 	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils"
-	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/system"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -21,28 +19,33 @@ type votePowerBlockSelectedListener struct {
 	address string
 	topic0  string
 
-	systemManagerFilterer *system.FlareSystemManagerFilterer
-	db                    *gorm.DB
-	mockableTime          utils.TimeProvider
+	systemManager *system.FlareSystemManager
+	db            *gorm.DB
+	mockableTime  utils.TimeProvider
 }
 
 func NewVotePowerBlockSelectedListener(
 	db *gorm.DB,
-	systemManagerFilterer *system.FlareSystemManagerFilterer,
-	epoch *utils.Epoch,
+	systemManager *system.FlareSystemManager,
 	address string,
 	topic0 string,
-) *votePowerBlockSelectedListener {
+) (*votePowerBlockSelectedListener, error) {
+	epoch, err := EpochFromChain(systemManager)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting epoch from chain")
+	}
+
 	listener := &votePowerBlockSelectedListener{
-		epoch:                 epoch,
-		address:               address,
-		topic0:                topic0,
-		systemManagerFilterer: systemManagerFilterer,
-		db:                    db,
-		mockableTime:          &utils.RealTimeProvider{},
+		epoch:         epoch,
+		address:       address,
+		topic0:        topic0,
+		systemManager: systemManager,
+		db:            db,
+		mockableTime:  &utils.RealTimeProvider{},
 	}
 	listener.C = listener.votePowerBlockChannel()
-	return listener
+
+	return listener, nil
 }
 
 func (c *votePowerBlockSelectedListener) votePowerBlockChannel() <-chan *system.FlareSystemManagerVotePowerBlockSelected {
@@ -74,19 +77,24 @@ func (c *votePowerBlockSelectedListener) votePowerBlockChannel() <-chan *system.
 }
 
 func (c *votePowerBlockSelectedListener) parseVotePowerBlockSelectedEvent(dbLog database.Log) (*system.FlareSystemManagerVotePowerBlockSelected, error) {
-	data, err := hex.DecodeString(dbLog.Data)
+	contractLog, err := shared.ConvertDatabaseLogToChainLog(dbLog)
 	if err != nil {
 		return nil, err
 	}
-	contractLog := types.Log{
-		Topics: []common.Hash{
-			chain.ParseTopic(dbLog.Topic0),
-			chain.ParseTopic(dbLog.Topic1),
-			chain.ParseTopic(dbLog.Topic2),
-			chain.ParseTopic(dbLog.Topic3),
-		},
-		Data: data,
-		// Other fields are not used by log decoder
+	return c.systemManager.FlareSystemManagerFilterer.ParseVotePowerBlockSelected(*contractLog)
+}
+
+func EpochFromChain(systemManager *system.FlareSystemManager) (*utils.Epoch, error) {
+	epochStart, err := systemManager.RewardEpochsStartTs(nil)
+	if err != nil {
+		return nil, err
 	}
-	return c.systemManagerFilterer.ParseVotePowerBlockSelected(contractLog)
+	epochPeriod, err := systemManager.RewardEpochDurationSeconds(nil)
+	if err != nil {
+		return nil, err
+	}
+	return &utils.Epoch{
+		Start:  time.Unix(int64(epochStart), 0),
+		Period: time.Duration(epochPeriod) * time.Second,
+	}, nil
 }

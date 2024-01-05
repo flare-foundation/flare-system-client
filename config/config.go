@@ -89,10 +89,6 @@ func (chain *ChainConfig) getRPCURL() (string, error) {
 	return u.String(), nil
 }
 
-type EpochConfig struct {
-	First int64 `toml:"first" envconfig:"EPOCH_FIRST"`
-}
-
 type ContractAddresses struct {
 	Submission    common.Address `toml:"submission" envconfig:"SUBMISSION_CONTRACT_ADDRESS"`
 	SystemManager common.Address `toml:"system_manager" envconfig:"SYSTEM_MANAGER_CONTRACT_ADDRESS"`
