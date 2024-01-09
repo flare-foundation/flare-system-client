@@ -46,8 +46,6 @@ func NewSubProtocol(config config.ProtocolConfig) SubProtocol {
 	}
 }
 
-var currentPriceEpoch = 1452560
-
 func NewVotingClient(ctx clientContext.ClientContext) (*VotingClient, error) {
 	config := ctx.Config()
 	subProtocols := []SubProtocol{
@@ -114,9 +112,9 @@ func newSelectors() contractSelectors {
 		panic(err)
 	}
 	return contractSelectors{
-		commit: submissionABI.Methods["commit"].ID,
-		reveal: submissionABI.Methods["reveal"].ID,
-		sign:   submissionABI.Methods["sign"].ID,
+		commit: submissionABI.Methods["submit1"].ID,
+		reveal: submissionABI.Methods["submit2"].ID,
+		sign:   submissionABI.Methods["submitSignatures"].ID,
 	}
 }
 
@@ -128,11 +126,14 @@ func (c *VotingClient) Run() error {
 		fmt.Println("Next epoch starts at:", votingEpochStart)
 		time.Sleep(time.Until(votingEpochStart))
 
-		if err := processCommits(c); err != nil {
+		currentPriceEpoch := int(c.epochSettings.VotingEpochForTime(currentTime))
+
+		fmt.Println("Processing epoch:", currentPriceEpoch)
+		if err := processCommits(c, currentPriceEpoch); err != nil {
 			return errors.Wrap(err, "error processing commits")
 		}
 
-		if err := processReveals(c); err != nil {
+		if err := processReveals(c, currentPriceEpoch); err != nil {
 			return errors.Wrap(err, "error processing reveals")
 		}
 
@@ -141,7 +142,7 @@ func (c *VotingClient) Run() error {
 		time.Sleep(time.Until(revealDeadline))
 
 		// Get results
-		if err := processResults(c); err != nil {
+		if err := processResults(c, currentPriceEpoch); err != nil {
 			return errors.Wrap(err, "error processing results")
 		}
 		currentPriceEpoch++
@@ -155,7 +156,7 @@ func (c *VotingClient) Run() error {
 // - 1 byte: protocol id
 // - 2 bytes: length of data
 // - n bytes: data
-func processCommits(c *VotingClient) error {
+func processCommits(c *VotingClient, currentPriceEpoch int) error {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(c.contractSelectors.commit)
 
@@ -179,7 +180,7 @@ func processCommits(c *VotingClient) error {
 	return chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, commitPayload)
 }
 
-func processReveals(c *VotingClient) error {
+func processReveals(c *VotingClient, currentPriceEpoch int) error {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(c.contractSelectors.reveal)
 	for _, protocol := range c.subProtocols {
@@ -200,7 +201,7 @@ func processReveals(c *VotingClient) error {
 	return chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, revealPayload)
 }
 
-func processResults(c *VotingClient) error {
+func processResults(c *VotingClient, currentPriceEpoch int) error {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(c.contractSelectors.sign)
 	for _, protocol := range c.subProtocols {

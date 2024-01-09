@@ -31,7 +31,7 @@ var (
 
 // SubmissionMetaData contains all meta data concerning the Submission contract.
 var SubmissionMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_submitMethodEnabled\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"NewVotingRoundInitiated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"commit\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"finalisation\",\"outputs\":[{\"internalType\":\"contractFinalisation\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"finalise\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_commitSubmitAddresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_revealAddresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_signingAddresses\",\"type\":\"address[]\"}],\"name\":\"initNewVotingRound\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"relay\",\"outputs\":[{\"internalType\":\"contractRelay\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"reveal\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"name\":\"setSubmitMethodEnabled\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"sign\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitMethodEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_submit3MethodEnabled\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"NewVotingRoundInitiated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemManager\",\"outputs\":[{\"internalType\":\"contractFlareSystemManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_submit1Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submit2Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submit3Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submitSignaturesAddresses\",\"type\":\"address[]\"}],\"name\":\"initNewVotingRound\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"name\":\"setSubmit3MethodEnabled\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_submitAndPassContract\",\"type\":\"address\"},{\"internalType\":\"bytes4\",\"name\":\"_submitAndPassSelector\",\"type\":\"bytes4\"}],\"name\":\"setSubmitAndPassData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit1\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit2\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit3\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit3MethodEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"submitAndPass\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitAndPassContract\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitAndPassSelector\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitSignatures\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // SubmissionABI is the input ABI used to generate the binding from.
@@ -180,12 +180,12 @@ func (_Submission *SubmissionTransactorRaw) Transact(opts *bind.TransactOpts, me
 	return _Submission.Contract.contract.Transact(opts, method, params...)
 }
 
-// Finalisation is a free data retrieval call binding the contract method 0x8bcd285c.
+// FlareSystemManager is a free data retrieval call binding the contract method 0xbb25d5df.
 //
-// Solidity: function finalisation() view returns(address)
-func (_Submission *SubmissionCaller) Finalisation(opts *bind.CallOpts) (common.Address, error) {
+// Solidity: function flareSystemManager() view returns(address)
+func (_Submission *SubmissionCaller) FlareSystemManager(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _Submission.contract.Call(opts, &out, "finalisation")
+	err := _Submission.contract.Call(opts, &out, "flareSystemManager")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -197,18 +197,18 @@ func (_Submission *SubmissionCaller) Finalisation(opts *bind.CallOpts) (common.A
 
 }
 
-// Finalisation is a free data retrieval call binding the contract method 0x8bcd285c.
+// FlareSystemManager is a free data retrieval call binding the contract method 0xbb25d5df.
 //
-// Solidity: function finalisation() view returns(address)
-func (_Submission *SubmissionSession) Finalisation() (common.Address, error) {
-	return _Submission.Contract.Finalisation(&_Submission.CallOpts)
+// Solidity: function flareSystemManager() view returns(address)
+func (_Submission *SubmissionSession) FlareSystemManager() (common.Address, error) {
+	return _Submission.Contract.FlareSystemManager(&_Submission.CallOpts)
 }
 
-// Finalisation is a free data retrieval call binding the contract method 0x8bcd285c.
+// FlareSystemManager is a free data retrieval call binding the contract method 0xbb25d5df.
 //
-// Solidity: function finalisation() view returns(address)
-func (_Submission *SubmissionCallerSession) Finalisation() (common.Address, error) {
-	return _Submission.Contract.Finalisation(&_Submission.CallOpts)
+// Solidity: function flareSystemManager() view returns(address)
+func (_Submission *SubmissionCallerSession) FlareSystemManager() (common.Address, error) {
+	return _Submission.Contract.FlareSystemManager(&_Submission.CallOpts)
 }
 
 // GetAddressUpdater is a free data retrieval call binding the contract method 0x5267a15d.
@@ -366,43 +366,12 @@ func (_Submission *SubmissionCallerSession) ProductionMode() (bool, error) {
 	return _Submission.Contract.ProductionMode(&_Submission.CallOpts)
 }
 
-// Relay is a free data retrieval call binding the contract method 0xb59589d1.
+// Submit3MethodEnabled is a free data retrieval call binding the contract method 0x32de7a9f.
 //
-// Solidity: function relay() view returns(address)
-func (_Submission *SubmissionCaller) Relay(opts *bind.CallOpts) (common.Address, error) {
+// Solidity: function submit3MethodEnabled() view returns(bool)
+func (_Submission *SubmissionCaller) Submit3MethodEnabled(opts *bind.CallOpts) (bool, error) {
 	var out []interface{}
-	err := _Submission.contract.Call(opts, &out, "relay")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// Relay is a free data retrieval call binding the contract method 0xb59589d1.
-//
-// Solidity: function relay() view returns(address)
-func (_Submission *SubmissionSession) Relay() (common.Address, error) {
-	return _Submission.Contract.Relay(&_Submission.CallOpts)
-}
-
-// Relay is a free data retrieval call binding the contract method 0xb59589d1.
-//
-// Solidity: function relay() view returns(address)
-func (_Submission *SubmissionCallerSession) Relay() (common.Address, error) {
-	return _Submission.Contract.Relay(&_Submission.CallOpts)
-}
-
-// SubmitMethodEnabled is a free data retrieval call binding the contract method 0xb8f3a5db.
-//
-// Solidity: function submitMethodEnabled() view returns(bool)
-func (_Submission *SubmissionCaller) SubmitMethodEnabled(opts *bind.CallOpts) (bool, error) {
-	var out []interface{}
-	err := _Submission.contract.Call(opts, &out, "submitMethodEnabled")
+	err := _Submission.contract.Call(opts, &out, "submit3MethodEnabled")
 
 	if err != nil {
 		return *new(bool), err
@@ -414,18 +383,80 @@ func (_Submission *SubmissionCaller) SubmitMethodEnabled(opts *bind.CallOpts) (b
 
 }
 
-// SubmitMethodEnabled is a free data retrieval call binding the contract method 0xb8f3a5db.
+// Submit3MethodEnabled is a free data retrieval call binding the contract method 0x32de7a9f.
 //
-// Solidity: function submitMethodEnabled() view returns(bool)
-func (_Submission *SubmissionSession) SubmitMethodEnabled() (bool, error) {
-	return _Submission.Contract.SubmitMethodEnabled(&_Submission.CallOpts)
+// Solidity: function submit3MethodEnabled() view returns(bool)
+func (_Submission *SubmissionSession) Submit3MethodEnabled() (bool, error) {
+	return _Submission.Contract.Submit3MethodEnabled(&_Submission.CallOpts)
 }
 
-// SubmitMethodEnabled is a free data retrieval call binding the contract method 0xb8f3a5db.
+// Submit3MethodEnabled is a free data retrieval call binding the contract method 0x32de7a9f.
 //
-// Solidity: function submitMethodEnabled() view returns(bool)
-func (_Submission *SubmissionCallerSession) SubmitMethodEnabled() (bool, error) {
-	return _Submission.Contract.SubmitMethodEnabled(&_Submission.CallOpts)
+// Solidity: function submit3MethodEnabled() view returns(bool)
+func (_Submission *SubmissionCallerSession) Submit3MethodEnabled() (bool, error) {
+	return _Submission.Contract.Submit3MethodEnabled(&_Submission.CallOpts)
+}
+
+// SubmitAndPassContract is a free data retrieval call binding the contract method 0x93953af1.
+//
+// Solidity: function submitAndPassContract() view returns(address)
+func (_Submission *SubmissionCaller) SubmitAndPassContract(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Submission.contract.Call(opts, &out, "submitAndPassContract")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// SubmitAndPassContract is a free data retrieval call binding the contract method 0x93953af1.
+//
+// Solidity: function submitAndPassContract() view returns(address)
+func (_Submission *SubmissionSession) SubmitAndPassContract() (common.Address, error) {
+	return _Submission.Contract.SubmitAndPassContract(&_Submission.CallOpts)
+}
+
+// SubmitAndPassContract is a free data retrieval call binding the contract method 0x93953af1.
+//
+// Solidity: function submitAndPassContract() view returns(address)
+func (_Submission *SubmissionCallerSession) SubmitAndPassContract() (common.Address, error) {
+	return _Submission.Contract.SubmitAndPassContract(&_Submission.CallOpts)
+}
+
+// SubmitAndPassSelector is a free data retrieval call binding the contract method 0xafd7f821.
+//
+// Solidity: function submitAndPassSelector() view returns(bytes4)
+func (_Submission *SubmissionCaller) SubmitAndPassSelector(opts *bind.CallOpts) ([4]byte, error) {
+	var out []interface{}
+	err := _Submission.contract.Call(opts, &out, "submitAndPassSelector")
+
+	if err != nil {
+		return *new([4]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([4]byte)).(*[4]byte)
+
+	return out0, err
+
+}
+
+// SubmitAndPassSelector is a free data retrieval call binding the contract method 0xafd7f821.
+//
+// Solidity: function submitAndPassSelector() view returns(bytes4)
+func (_Submission *SubmissionSession) SubmitAndPassSelector() ([4]byte, error) {
+	return _Submission.Contract.SubmitAndPassSelector(&_Submission.CallOpts)
+}
+
+// SubmitAndPassSelector is a free data retrieval call binding the contract method 0xafd7f821.
+//
+// Solidity: function submitAndPassSelector() view returns(bytes4)
+func (_Submission *SubmissionCallerSession) SubmitAndPassSelector() ([4]byte, error) {
+	return _Submission.Contract.SubmitAndPassSelector(&_Submission.CallOpts)
 }
 
 // TimelockedCalls is a free data retrieval call binding the contract method 0x74e6310e.
@@ -494,27 +525,6 @@ func (_Submission *SubmissionTransactorSession) CancelGovernanceCall(_selector [
 	return _Submission.Contract.CancelGovernanceCall(&_Submission.TransactOpts, _selector)
 }
 
-// Commit is a paid mutator transaction binding the contract method 0x3c7a3aff.
-//
-// Solidity: function commit() returns(bool)
-func (_Submission *SubmissionTransactor) Commit(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Submission.contract.Transact(opts, "commit")
-}
-
-// Commit is a paid mutator transaction binding the contract method 0x3c7a3aff.
-//
-// Solidity: function commit() returns(bool)
-func (_Submission *SubmissionSession) Commit() (*types.Transaction, error) {
-	return _Submission.Contract.Commit(&_Submission.TransactOpts)
-}
-
-// Commit is a paid mutator transaction binding the contract method 0x3c7a3aff.
-//
-// Solidity: function commit() returns(bool)
-func (_Submission *SubmissionTransactorSession) Commit() (*types.Transaction, error) {
-	return _Submission.Contract.Commit(&_Submission.TransactOpts)
-}
-
 // ExecuteGovernanceCall is a paid mutator transaction binding the contract method 0x5ff27079.
 //
 // Solidity: function executeGovernanceCall(bytes4 _selector) returns()
@@ -536,46 +546,25 @@ func (_Submission *SubmissionTransactorSession) ExecuteGovernanceCall(_selector 
 	return _Submission.Contract.ExecuteGovernanceCall(&_Submission.TransactOpts, _selector)
 }
 
-// Finalise is a paid mutator transaction binding the contract method 0x382e31b7.
+// InitNewVotingRound is a paid mutator transaction binding the contract method 0xf8ae8a2f.
 //
-// Solidity: function finalise(bytes _data) returns(bool)
-func (_Submission *SubmissionTransactor) Finalise(opts *bind.TransactOpts, _data []byte) (*types.Transaction, error) {
-	return _Submission.contract.Transact(opts, "finalise", _data)
+// Solidity: function initNewVotingRound(address[] _submit1Addresses, address[] _submit2Addresses, address[] _submit3Addresses, address[] _submitSignaturesAddresses) returns()
+func (_Submission *SubmissionTransactor) InitNewVotingRound(opts *bind.TransactOpts, _submit1Addresses []common.Address, _submit2Addresses []common.Address, _submit3Addresses []common.Address, _submitSignaturesAddresses []common.Address) (*types.Transaction, error) {
+	return _Submission.contract.Transact(opts, "initNewVotingRound", _submit1Addresses, _submit2Addresses, _submit3Addresses, _submitSignaturesAddresses)
 }
 
-// Finalise is a paid mutator transaction binding the contract method 0x382e31b7.
+// InitNewVotingRound is a paid mutator transaction binding the contract method 0xf8ae8a2f.
 //
-// Solidity: function finalise(bytes _data) returns(bool)
-func (_Submission *SubmissionSession) Finalise(_data []byte) (*types.Transaction, error) {
-	return _Submission.Contract.Finalise(&_Submission.TransactOpts, _data)
+// Solidity: function initNewVotingRound(address[] _submit1Addresses, address[] _submit2Addresses, address[] _submit3Addresses, address[] _submitSignaturesAddresses) returns()
+func (_Submission *SubmissionSession) InitNewVotingRound(_submit1Addresses []common.Address, _submit2Addresses []common.Address, _submit3Addresses []common.Address, _submitSignaturesAddresses []common.Address) (*types.Transaction, error) {
+	return _Submission.Contract.InitNewVotingRound(&_Submission.TransactOpts, _submit1Addresses, _submit2Addresses, _submit3Addresses, _submitSignaturesAddresses)
 }
 
-// Finalise is a paid mutator transaction binding the contract method 0x382e31b7.
+// InitNewVotingRound is a paid mutator transaction binding the contract method 0xf8ae8a2f.
 //
-// Solidity: function finalise(bytes _data) returns(bool)
-func (_Submission *SubmissionTransactorSession) Finalise(_data []byte) (*types.Transaction, error) {
-	return _Submission.Contract.Finalise(&_Submission.TransactOpts, _data)
-}
-
-// InitNewVotingRound is a paid mutator transaction binding the contract method 0x240d47ee.
-//
-// Solidity: function initNewVotingRound(address[] _commitSubmitAddresses, address[] _revealAddresses, address[] _signingAddresses) returns()
-func (_Submission *SubmissionTransactor) InitNewVotingRound(opts *bind.TransactOpts, _commitSubmitAddresses []common.Address, _revealAddresses []common.Address, _signingAddresses []common.Address) (*types.Transaction, error) {
-	return _Submission.contract.Transact(opts, "initNewVotingRound", _commitSubmitAddresses, _revealAddresses, _signingAddresses)
-}
-
-// InitNewVotingRound is a paid mutator transaction binding the contract method 0x240d47ee.
-//
-// Solidity: function initNewVotingRound(address[] _commitSubmitAddresses, address[] _revealAddresses, address[] _signingAddresses) returns()
-func (_Submission *SubmissionSession) InitNewVotingRound(_commitSubmitAddresses []common.Address, _revealAddresses []common.Address, _signingAddresses []common.Address) (*types.Transaction, error) {
-	return _Submission.Contract.InitNewVotingRound(&_Submission.TransactOpts, _commitSubmitAddresses, _revealAddresses, _signingAddresses)
-}
-
-// InitNewVotingRound is a paid mutator transaction binding the contract method 0x240d47ee.
-//
-// Solidity: function initNewVotingRound(address[] _commitSubmitAddresses, address[] _revealAddresses, address[] _signingAddresses) returns()
-func (_Submission *SubmissionTransactorSession) InitNewVotingRound(_commitSubmitAddresses []common.Address, _revealAddresses []common.Address, _signingAddresses []common.Address) (*types.Transaction, error) {
-	return _Submission.Contract.InitNewVotingRound(&_Submission.TransactOpts, _commitSubmitAddresses, _revealAddresses, _signingAddresses)
+// Solidity: function initNewVotingRound(address[] _submit1Addresses, address[] _submit2Addresses, address[] _submit3Addresses, address[] _submitSignaturesAddresses) returns()
+func (_Submission *SubmissionTransactorSession) InitNewVotingRound(_submit1Addresses []common.Address, _submit2Addresses []common.Address, _submit3Addresses []common.Address, _submitSignaturesAddresses []common.Address) (*types.Transaction, error) {
+	return _Submission.Contract.InitNewVotingRound(&_Submission.TransactOpts, _submit1Addresses, _submit2Addresses, _submit3Addresses, _submitSignaturesAddresses)
 }
 
 // Initialise is a paid mutator transaction binding the contract method 0xef88bf13.
@@ -599,88 +588,151 @@ func (_Submission *SubmissionTransactorSession) Initialise(_governanceSettings c
 	return _Submission.Contract.Initialise(&_Submission.TransactOpts, _governanceSettings, _initialGovernance)
 }
 
-// Reveal is a paid mutator transaction binding the contract method 0xa475b5dd.
+// SetSubmit3MethodEnabled is a paid mutator transaction binding the contract method 0x941877d0.
 //
-// Solidity: function reveal() returns(bool)
-func (_Submission *SubmissionTransactor) Reveal(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Submission.contract.Transact(opts, "reveal")
+// Solidity: function setSubmit3MethodEnabled(bool _enabled) returns()
+func (_Submission *SubmissionTransactor) SetSubmit3MethodEnabled(opts *bind.TransactOpts, _enabled bool) (*types.Transaction, error) {
+	return _Submission.contract.Transact(opts, "setSubmit3MethodEnabled", _enabled)
 }
 
-// Reveal is a paid mutator transaction binding the contract method 0xa475b5dd.
+// SetSubmit3MethodEnabled is a paid mutator transaction binding the contract method 0x941877d0.
 //
-// Solidity: function reveal() returns(bool)
-func (_Submission *SubmissionSession) Reveal() (*types.Transaction, error) {
-	return _Submission.Contract.Reveal(&_Submission.TransactOpts)
+// Solidity: function setSubmit3MethodEnabled(bool _enabled) returns()
+func (_Submission *SubmissionSession) SetSubmit3MethodEnabled(_enabled bool) (*types.Transaction, error) {
+	return _Submission.Contract.SetSubmit3MethodEnabled(&_Submission.TransactOpts, _enabled)
 }
 
-// Reveal is a paid mutator transaction binding the contract method 0xa475b5dd.
+// SetSubmit3MethodEnabled is a paid mutator transaction binding the contract method 0x941877d0.
 //
-// Solidity: function reveal() returns(bool)
-func (_Submission *SubmissionTransactorSession) Reveal() (*types.Transaction, error) {
-	return _Submission.Contract.Reveal(&_Submission.TransactOpts)
+// Solidity: function setSubmit3MethodEnabled(bool _enabled) returns()
+func (_Submission *SubmissionTransactorSession) SetSubmit3MethodEnabled(_enabled bool) (*types.Transaction, error) {
+	return _Submission.Contract.SetSubmit3MethodEnabled(&_Submission.TransactOpts, _enabled)
 }
 
-// SetSubmitMethodEnabled is a paid mutator transaction binding the contract method 0x9b3d3bd5.
+// SetSubmitAndPassData is a paid mutator transaction binding the contract method 0x9ee7fe4d.
 //
-// Solidity: function setSubmitMethodEnabled(bool _enabled) returns()
-func (_Submission *SubmissionTransactor) SetSubmitMethodEnabled(opts *bind.TransactOpts, _enabled bool) (*types.Transaction, error) {
-	return _Submission.contract.Transact(opts, "setSubmitMethodEnabled", _enabled)
+// Solidity: function setSubmitAndPassData(address _submitAndPassContract, bytes4 _submitAndPassSelector) returns()
+func (_Submission *SubmissionTransactor) SetSubmitAndPassData(opts *bind.TransactOpts, _submitAndPassContract common.Address, _submitAndPassSelector [4]byte) (*types.Transaction, error) {
+	return _Submission.contract.Transact(opts, "setSubmitAndPassData", _submitAndPassContract, _submitAndPassSelector)
 }
 
-// SetSubmitMethodEnabled is a paid mutator transaction binding the contract method 0x9b3d3bd5.
+// SetSubmitAndPassData is a paid mutator transaction binding the contract method 0x9ee7fe4d.
 //
-// Solidity: function setSubmitMethodEnabled(bool _enabled) returns()
-func (_Submission *SubmissionSession) SetSubmitMethodEnabled(_enabled bool) (*types.Transaction, error) {
-	return _Submission.Contract.SetSubmitMethodEnabled(&_Submission.TransactOpts, _enabled)
+// Solidity: function setSubmitAndPassData(address _submitAndPassContract, bytes4 _submitAndPassSelector) returns()
+func (_Submission *SubmissionSession) SetSubmitAndPassData(_submitAndPassContract common.Address, _submitAndPassSelector [4]byte) (*types.Transaction, error) {
+	return _Submission.Contract.SetSubmitAndPassData(&_Submission.TransactOpts, _submitAndPassContract, _submitAndPassSelector)
 }
 
-// SetSubmitMethodEnabled is a paid mutator transaction binding the contract method 0x9b3d3bd5.
+// SetSubmitAndPassData is a paid mutator transaction binding the contract method 0x9ee7fe4d.
 //
-// Solidity: function setSubmitMethodEnabled(bool _enabled) returns()
-func (_Submission *SubmissionTransactorSession) SetSubmitMethodEnabled(_enabled bool) (*types.Transaction, error) {
-	return _Submission.Contract.SetSubmitMethodEnabled(&_Submission.TransactOpts, _enabled)
+// Solidity: function setSubmitAndPassData(address _submitAndPassContract, bytes4 _submitAndPassSelector) returns()
+func (_Submission *SubmissionTransactorSession) SetSubmitAndPassData(_submitAndPassContract common.Address, _submitAndPassSelector [4]byte) (*types.Transaction, error) {
+	return _Submission.Contract.SetSubmitAndPassData(&_Submission.TransactOpts, _submitAndPassContract, _submitAndPassSelector)
 }
 
-// Sign is a paid mutator transaction binding the contract method 0x2ca15122.
+// Submit1 is a paid mutator transaction binding the contract method 0x6c532fae.
 //
-// Solidity: function sign() returns(bool)
-func (_Submission *SubmissionTransactor) Sign(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Submission.contract.Transact(opts, "sign")
+// Solidity: function submit1() returns(bool)
+func (_Submission *SubmissionTransactor) Submit1(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Submission.contract.Transact(opts, "submit1")
 }
 
-// Sign is a paid mutator transaction binding the contract method 0x2ca15122.
+// Submit1 is a paid mutator transaction binding the contract method 0x6c532fae.
 //
-// Solidity: function sign() returns(bool)
-func (_Submission *SubmissionSession) Sign() (*types.Transaction, error) {
-	return _Submission.Contract.Sign(&_Submission.TransactOpts)
+// Solidity: function submit1() returns(bool)
+func (_Submission *SubmissionSession) Submit1() (*types.Transaction, error) {
+	return _Submission.Contract.Submit1(&_Submission.TransactOpts)
 }
 
-// Sign is a paid mutator transaction binding the contract method 0x2ca15122.
+// Submit1 is a paid mutator transaction binding the contract method 0x6c532fae.
 //
-// Solidity: function sign() returns(bool)
-func (_Submission *SubmissionTransactorSession) Sign() (*types.Transaction, error) {
-	return _Submission.Contract.Sign(&_Submission.TransactOpts)
+// Solidity: function submit1() returns(bool)
+func (_Submission *SubmissionTransactorSession) Submit1() (*types.Transaction, error) {
+	return _Submission.Contract.Submit1(&_Submission.TransactOpts)
 }
 
-// Submit is a paid mutator transaction binding the contract method 0x5bcb2fc6.
+// Submit2 is a paid mutator transaction binding the contract method 0x9d00c9fd.
 //
-// Solidity: function submit() returns(bool)
-func (_Submission *SubmissionTransactor) Submit(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Submission.contract.Transact(opts, "submit")
+// Solidity: function submit2() returns(bool)
+func (_Submission *SubmissionTransactor) Submit2(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Submission.contract.Transact(opts, "submit2")
 }
 
-// Submit is a paid mutator transaction binding the contract method 0x5bcb2fc6.
+// Submit2 is a paid mutator transaction binding the contract method 0x9d00c9fd.
 //
-// Solidity: function submit() returns(bool)
-func (_Submission *SubmissionSession) Submit() (*types.Transaction, error) {
-	return _Submission.Contract.Submit(&_Submission.TransactOpts)
+// Solidity: function submit2() returns(bool)
+func (_Submission *SubmissionSession) Submit2() (*types.Transaction, error) {
+	return _Submission.Contract.Submit2(&_Submission.TransactOpts)
 }
 
-// Submit is a paid mutator transaction binding the contract method 0x5bcb2fc6.
+// Submit2 is a paid mutator transaction binding the contract method 0x9d00c9fd.
 //
-// Solidity: function submit() returns(bool)
-func (_Submission *SubmissionTransactorSession) Submit() (*types.Transaction, error) {
-	return _Submission.Contract.Submit(&_Submission.TransactOpts)
+// Solidity: function submit2() returns(bool)
+func (_Submission *SubmissionTransactorSession) Submit2() (*types.Transaction, error) {
+	return _Submission.Contract.Submit2(&_Submission.TransactOpts)
+}
+
+// Submit3 is a paid mutator transaction binding the contract method 0xe1b157e7.
+//
+// Solidity: function submit3() returns(bool)
+func (_Submission *SubmissionTransactor) Submit3(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Submission.contract.Transact(opts, "submit3")
+}
+
+// Submit3 is a paid mutator transaction binding the contract method 0xe1b157e7.
+//
+// Solidity: function submit3() returns(bool)
+func (_Submission *SubmissionSession) Submit3() (*types.Transaction, error) {
+	return _Submission.Contract.Submit3(&_Submission.TransactOpts)
+}
+
+// Submit3 is a paid mutator transaction binding the contract method 0xe1b157e7.
+//
+// Solidity: function submit3() returns(bool)
+func (_Submission *SubmissionTransactorSession) Submit3() (*types.Transaction, error) {
+	return _Submission.Contract.Submit3(&_Submission.TransactOpts)
+}
+
+// SubmitAndPass is a paid mutator transaction binding the contract method 0x833bf6c0.
+//
+// Solidity: function submitAndPass(bytes _data) returns(bool)
+func (_Submission *SubmissionTransactor) SubmitAndPass(opts *bind.TransactOpts, _data []byte) (*types.Transaction, error) {
+	return _Submission.contract.Transact(opts, "submitAndPass", _data)
+}
+
+// SubmitAndPass is a paid mutator transaction binding the contract method 0x833bf6c0.
+//
+// Solidity: function submitAndPass(bytes _data) returns(bool)
+func (_Submission *SubmissionSession) SubmitAndPass(_data []byte) (*types.Transaction, error) {
+	return _Submission.Contract.SubmitAndPass(&_Submission.TransactOpts, _data)
+}
+
+// SubmitAndPass is a paid mutator transaction binding the contract method 0x833bf6c0.
+//
+// Solidity: function submitAndPass(bytes _data) returns(bool)
+func (_Submission *SubmissionTransactorSession) SubmitAndPass(_data []byte) (*types.Transaction, error) {
+	return _Submission.Contract.SubmitAndPass(&_Submission.TransactOpts, _data)
+}
+
+// SubmitSignatures is a paid mutator transaction binding the contract method 0x57eed580.
+//
+// Solidity: function submitSignatures() returns(bool)
+func (_Submission *SubmissionTransactor) SubmitSignatures(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Submission.contract.Transact(opts, "submitSignatures")
+}
+
+// SubmitSignatures is a paid mutator transaction binding the contract method 0x57eed580.
+//
+// Solidity: function submitSignatures() returns(bool)
+func (_Submission *SubmissionSession) SubmitSignatures() (*types.Transaction, error) {
+	return _Submission.Contract.SubmitSignatures(&_Submission.TransactOpts)
+}
+
+// SubmitSignatures is a paid mutator transaction binding the contract method 0x57eed580.
+//
+// Solidity: function submitSignatures() returns(bool)
+func (_Submission *SubmissionTransactorSession) SubmitSignatures() (*types.Transaction, error) {
+	return _Submission.Contract.SubmitSignatures(&_Submission.TransactOpts)
 }
 
 // SwitchToProductionMode is a paid mutator transaction binding the contract method 0xf5a98383.

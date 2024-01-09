@@ -10,5 +10,10 @@ func Start(ctx context.ClientContext) {
 	if err != nil {
 		panic(err)
 	}
-	go client.Run()
+	go func() {
+		err := client.Run()
+		if err != nil {
+			panic(err)
+		}
+	}()
 }

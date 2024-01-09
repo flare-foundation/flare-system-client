@@ -18,7 +18,7 @@
       },
       {
         "internalType": "bool",
-        "name": "_submitMethodEnabled",
+        "name": "_submit3MethodEnabled",
         "type": "bool"
       }
     ],
@@ -134,19 +134,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "commit",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "bytes4",
@@ -161,34 +148,15 @@
   },
   {
     "inputs": [],
-    "name": "finalisation",
+    "name": "flareSystemManager",
     "outputs": [
       {
-        "internalType": "contract Finalisation",
+        "internalType": "contract FlareSystemManager",
         "name": "",
         "type": "address"
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes",
-        "name": "_data",
-        "type": "bytes"
-      }
-    ],
-    "name": "finalise",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -234,17 +202,22 @@
     "inputs": [
       {
         "internalType": "address[]",
-        "name": "_commitSubmitAddresses",
+        "name": "_submit1Addresses",
         "type": "address[]"
       },
       {
         "internalType": "address[]",
-        "name": "_revealAddresses",
+        "name": "_submit2Addresses",
         "type": "address[]"
       },
       {
         "internalType": "address[]",
-        "name": "_signingAddresses",
+        "name": "_submit3Addresses",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_submitSignaturesAddresses",
         "type": "address[]"
       }
     ],
@@ -304,11 +277,113 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "_enabled",
+        "type": "bool"
+      }
+    ],
+    "name": "setSubmit3MethodEnabled",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_submitAndPassContract",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes4",
+        "name": "_submitAndPassSelector",
+        "type": "bytes4"
+      }
+    ],
+    "name": "setSubmitAndPassData",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
-    "name": "relay",
+    "name": "submit1",
     "outputs": [
       {
-        "internalType": "contract Relay",
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "submit2",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "submit3",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "submit3MethodEnabled",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "_data",
+        "type": "bytes"
+      }
+    ],
+    "name": "submitAndPass",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "submitAndPassContract",
+    "outputs": [
+      {
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -318,67 +393,28 @@
   },
   {
     "inputs": [],
-    "name": "reveal",
+    "name": "submitAndPassSelector",
     "outputs": [
       {
-        "internalType": "bool",
+        "internalType": "bytes4",
         "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bool",
-        "name": "_enabled",
-        "type": "bool"
-      }
-    ],
-    "name": "setSubmitMethodEnabled",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "sign",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "submit",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "submitMethodEnabled",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
+        "type": "bytes4"
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "submitSignatures",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
