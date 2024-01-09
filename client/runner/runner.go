@@ -6,9 +6,21 @@ import (
 )
 
 func Start(ctx context.ClientContext) {
-	client, err := clients.NewVotingClient(ctx)
+	// votingClient, err := clients.NewVotingClient(ctx)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	registrationClient, err := clients.NewRegistratinClient(ctx)
 	if err != nil {
 		panic(err)
 	}
-	go client.Run()
+
+	// go votingClient.Run()
+	go func() {
+		err := registrationClient.Run()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 }

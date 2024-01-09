@@ -25,7 +25,6 @@ type registrationClient struct {
 
 	signingPolicyTopic0      string
 	voterRegistrationAddress string
-	votePowerBlockTopic0     string
 }
 
 func NewRegistratinClient(ctx context.ClientContext) (*registrationClient, error) {
@@ -79,7 +78,6 @@ func NewRegistratinClient(ctx context.ClientContext) (*registrationClient, error
 
 		signingPolicyTopic0:      config.SigningPolicy.Topic0,
 		voterRegistrationAddress: config.VoterRegistration.Address,
-		votePowerBlockTopic0:     config.VotePowerBlock.Topic0,
 	}, nil
 }
 
@@ -93,7 +91,7 @@ func (c *registrationClient) Run() error {
 
 	for {
 		// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
-		powerBlockData := <-c.systemManagerClient.VotePowerBlockSelectedListener(c.db, epoch, c.votePowerBlockTopic0)
+		powerBlockData := <-c.systemManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
 		logger.Info("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
 
 		// Call RegisterVoter function on VoterRegistry

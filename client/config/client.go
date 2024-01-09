@@ -11,7 +11,6 @@ type ClientConfig struct {
 	Metrics           MetricsConfig            `toml:"metrics"`
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
 
-	VotePowerBlock    VotePowerBlockConfig   `toml:"vote_power_block"`
 	VoterRegistration VoteRegistrationConfig `toml:"voter_registration"`
 	SigningPolicy     SigningPolicyConfig    `toml:"signing_policy"`
 
@@ -20,10 +19,6 @@ type ClientConfig struct {
 
 type MetricsConfig struct {
 	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
-}
-
-type VotePowerBlockConfig struct {
-	Topic0 string `toml:"topic0"`
 }
 
 type VoteRegistrationConfig struct {

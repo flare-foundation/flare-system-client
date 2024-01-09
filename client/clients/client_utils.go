@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	ListenerInterval time.Duration = 10 * time.Second
+	ListenerInterval time.Duration = 1 * time.Second // TODO: change to 10 seconds or read from config
 	MaxTxSendRetries int           = 5
 	TxRetryInterval  time.Duration = 5 * time.Second
 )
@@ -26,7 +26,7 @@ func ExecuteWithRetry(f func() error, maxRetries int) <-chan ExecuteStatus {
 				out <- ExecuteStatus{Success: true}
 				return
 			} else {
-				logger.Error("error executing in retry no. %d: %w", ri, err)
+				logger.Error("error executing in retry no. %d: %v", ri, err)
 			}
 			time.Sleep(TxRetryInterval)
 		}

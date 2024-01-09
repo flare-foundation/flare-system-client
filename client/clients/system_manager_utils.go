@@ -98,9 +98,13 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 	return hash
 }
 
-func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB, epoch *utils.Epoch, topic0 string) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
-
+func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB, epoch *utils.Epoch) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
 	out := make(chan *system.FlareSystemManagerVotePowerBlockSelected)
+	topic0, err := chain.EventIDFromMetadata(system.FlareSystemManagerMetaData, "VotePowerBlockSelected")
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
 	go func() {
 		ticker := time.NewTicker(ListenerInterval)
 		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 1).Unix()
@@ -109,13 +113,13 @@ func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB
 			now := time.Now().Unix()
 			logs, err := database.FetchLogsByAddressAndTopic0(db, s.address.Hex(), topic0, eventRangeStart, now)
 			if err != nil {
-				logger.Error("Error fetching logs %w", err)
+				logger.Error("Error fetching logs %v", err)
 				continue
 			}
 			if len(logs) > 0 {
 				powerBlockData, err := s.parseVotePowerBlockSelectedEvent(logs[len(logs)-1])
 				if err != nil {
-					logger.Error("Error parsing VotePowerBlockSelected event %w", err)
+					logger.Error("Error parsing VotePowerBlockSelected event %v", err)
 					continue
 				}
 				out <- powerBlockData
