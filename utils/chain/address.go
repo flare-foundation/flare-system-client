@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"crypto/ecdsa"
 	"flare-tlc/config"
 	"fmt"
 
@@ -48,4 +49,19 @@ func PublicKeyToEthAddress(publicKey crypto.PublicKey) (common.Address, error) {
 		return ethCrypto.PubkeyToAddress(*pk.ToECDSA()), nil
 	}
 	return common.Address{}, ErrInvalidPublicKeyType
+}
+
+func PrivateKeyToEthAddress(privateKeyHex string) (common.Address, error) {
+	privateKey, err := ethCrypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, err
+	}
+
+	return ethCrypto.PubkeyToAddress(*publicKeyECDSA), nil
 }
