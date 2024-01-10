@@ -119,22 +119,24 @@ func newSelectors() contractSelectors {
 }
 
 func (c *VotingClient) Run() error {
-
 	for {
-		currentTime := time.Now()
-		votingEpochStart := c.epochSettings.NextVotingEpochStart(currentTime)
+		votingEpochStart := c.epochSettings.NextVotingEpochStart(time.Now())
 		fmt.Println("Next epoch starts at:", votingEpochStart)
 		time.Sleep(time.Until(votingEpochStart))
 
-		currentPriceEpoch := int(c.epochSettings.VotingEpochForTime(currentTime))
+		currentVotingEpoch := int(c.epochSettings.VotingEpochForTime(time.Now()))
+		fmt.Println("Current voting epoch:", currentVotingEpoch, "time", time.Now())
+		previousVotingEpoch := currentVotingEpoch - 1
 
-		fmt.Println("Processing epoch:", currentPriceEpoch)
-		if err := processCommits(c, currentPriceEpoch); err != nil {
+		fmt.Println("Processing epoch:", currentVotingEpoch)
+		if err := processCommits(c, currentVotingEpoch); err != nil {
 			return errors.Wrap(err, "error processing commits")
 		}
 
-		if err := processReveals(c, currentPriceEpoch); err != nil {
-			return errors.Wrap(err, "error processing reveals")
+		fmt.Println("Processing reveals:", previousVotingEpoch, time.Now())
+		if err := processReveals(c, previousVotingEpoch); err != nil {
+			logger.Info("Error processing reveals, aborting voting round: %v", err)
+			continue
 		}
 
 		// Wait until reveal deadline
@@ -142,10 +144,9 @@ func (c *VotingClient) Run() error {
 		time.Sleep(time.Until(revealDeadline))
 
 		// Get results
-		if err := processResults(c, currentPriceEpoch); err != nil {
+		if err := processResults(c, previousVotingEpoch); err != nil {
 			return errors.Wrap(err, "error processing results")
 		}
-		currentPriceEpoch++
 	}
 }
 
@@ -165,11 +166,6 @@ func processCommits(c *VotingClient, currentPriceEpoch int) error {
 		if err != nil {
 			return err
 		}
-
-		buffer.WriteByte(protocol.config.Id)
-		// TODO: Handle overflow errors
-		lengthBytes := uint16toBytes(uint16(len(commitData)))
-		buffer.Write(lengthBytes[:])
 		buffer.Write(commitData)
 
 		fmt.Println("Total encoded:", buffer.Len())
@@ -180,18 +176,16 @@ func processCommits(c *VotingClient, currentPriceEpoch int) error {
 	return chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, commitPayload)
 }
 
-func processReveals(c *VotingClient, currentPriceEpoch int) error {
+func processReveals(c *VotingClient, previousVotingEpoch int) error {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(c.contractSelectors.reveal)
 	for _, protocol := range c.subProtocols {
-		revealData, err := getRevealData(currentPriceEpoch, protocol)
+		revealData, err := getRevealData(previousVotingEpoch, protocol)
+		fmt.Println("Reveal data:", revealData, "error:", err)
 		if err != nil {
 			return errors.Wrap(err, "processReveals: error getting reveal data")
 		}
 
-		buffer.WriteByte(protocol.config.Id)
-		length := uint16toBytes(uint16(len(revealData)))
-		buffer.Write(length[:])
 		buffer.Write(revealData)
 
 		fmt.Println("Total encoded:", buffer.Len())
@@ -201,11 +195,11 @@ func processReveals(c *VotingClient, currentPriceEpoch int) error {
 	return chain.SendRawTx(*c.eth, c.privateKey, c.contractAddresses.Submission, revealPayload)
 }
 
-func processResults(c *VotingClient, currentPriceEpoch int) error {
+func processResults(c *VotingClient, previousVotingEpoch int) error {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(c.contractSelectors.sign)
 	for _, protocol := range c.subProtocols {
-		resultData, err := getResultsData(currentPriceEpoch, protocol)
+		resultData, err := getResultsData(previousVotingEpoch, protocol)
 		if err != nil {
 			return errors.Wrap(err, "processResults: error getting result data")
 		}
@@ -241,14 +235,11 @@ func getCommitData(votingRound int, protocol SubProtocol) ([]byte, error) {
 	}
 
 	bodyString := strings.TrimPrefix(string(body), "0x")
-	commitHash, _ := hex.DecodeString(bodyString)
+	commitData, _ := hex.DecodeString(bodyString)
 
-	if len(commitHash) != 32 {
-		return nil, errors.New("merkle root is not 32 bytes long")
-	}
-	fmt.Println("Commit data: ", string(body), len(body), len(commitHash))
+	fmt.Println("Commit data: ", string(body), len(body), len(commitData))
 
-	return commitHash, nil
+	return commitData, nil
 }
 
 // TODO: Handle error status codes
@@ -259,6 +250,10 @@ func getRevealData(votingRound int, protocol SubProtocol) ([]byte, error) {
 		return nil, errors.Wrap(err, "error calling reveal API")
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("error getting reveal data: " + resp.Status)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -271,7 +266,7 @@ func getRevealData(votingRound int, protocol SubProtocol) ([]byte, error) {
 		return nil, errors.Wrap(err, "error decoding reveal data")
 	}
 
-	fmt.Println("Reveal data: ", bodyString)
+	fmt.Println("Reveal data: ", revealData)
 
 	return revealData, nil
 }
