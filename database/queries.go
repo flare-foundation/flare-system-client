@@ -12,8 +12,8 @@ func FetchLogsByAddressAndTopic0(db *gorm.DB, address string, topic0 string,
 	var logs []Log
 	err := db.Where(
 		"address = ? AND topic0 = ? AND timestamp >= ? AND timestamp < ?",
-		strings.TrimPrefix(address, "0x"),
-		strings.TrimPrefix(topic0, "0x"),
+		strings.ToLower(strings.TrimPrefix(address, "0x")),
+		strings.ToLower(strings.TrimPrefix(topic0, "0x")),
 		from, to,
 	).Order("timestamp").Find(&logs).Error
 	if err != nil {

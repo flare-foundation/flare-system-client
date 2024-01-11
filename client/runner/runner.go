@@ -10,7 +10,7 @@ func Start(ctx context.ClientContext) {
 	// if err != nil {
 	// 	panic(err)
 	// }
-	registrationClient, err := clients.NewRegistratinClient(ctx)
+	registrationClient, err := clients.NewRegistrationClient(ctx)
 	if err != nil {
 		panic(err)
 	}

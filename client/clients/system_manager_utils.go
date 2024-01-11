@@ -23,21 +23,17 @@ import (
 type SystemManagerContractClient struct {
 	address            common.Address
 	flareSystemManager *system.FlareSystemManager
-	txOpts             *bind.TransactOpts
+	senderTxOpts       *bind.TransactOpts
 	txVerifier         *chain.TxVerifier
-	privateKey         *ecdsa.PrivateKey
+	signerPrivateKey   *ecdsa.PrivateKey
 }
 
 func NewSystemManagerClient(
-	chainID int,
 	ethClient *ethclient.Client,
 	address common.Address,
-	privateKeyString string,
+	senderTxOpts *bind.TransactOpts,
+	signerPrivateKey *ecdsa.PrivateKey,
 ) (*SystemManagerContractClient, error) {
-	txOpts, privateKey, err := chain.CredentialsFromPrivateKey(privateKeyString, chainID)
-	if err != nil {
-		return nil, err
-	}
 	flareSystemManager, err := system.NewFlareSystemManager(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -46,9 +42,9 @@ func NewSystemManagerClient(
 	return &SystemManagerContractClient{
 		address:            address,
 		flareSystemManager: flareSystemManager,
-		txOpts:             txOpts,
+		senderTxOpts:       senderTxOpts,
 		txVerifier:         chain.NewTxVerifier(ethClient),
-		privateKey:         privateKey,
+		signerPrivateKey:   signerPrivateKey,
 	}, nil
 }
 
@@ -64,22 +60,22 @@ func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.In
 
 func (s *SystemManagerContractClient) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
 	newSigningPolicyHash := SigningPolicyHash(signingPolicy)
-	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.privateKey)
+	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.signerPrivateKey)
 	if err != nil {
 		return err
 	}
 
 	signature := system.FlareSystemManagerSignature{
-		V: hashSignature[0],
-		R: [32]byte(hashSignature[1:33]),
-		S: [32]byte(hashSignature[33:65]),
+		R: [32]byte(hashSignature[0:32]),
+		S: [32]byte(hashSignature[32:64]),
+		V: hashSignature[64] + 27,
 	}
 
-	tx, err := s.flareSystemManager.SignNewSigningPolicy(s.txOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
+	tx, err := s.flareSystemManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
 		return err
 	}
-	err = s.txVerifier.WaitUntilMined(s.txOpts.From, tx, chain.DefaultTxTimeout)
+	err = s.txVerifier.WaitUntilMined(s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -112,11 +108,13 @@ func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB
 			<-ticker.C
 			now := time.Now().Unix()
 			logs, err := database.FetchLogsByAddressAndTopic0(db, s.address.Hex(), topic0, eventRangeStart, now)
+			// logger.Debug("Fetched logs from %v to %v for address %v and topic %v", eventRangeStart, now, s.address.Hex(), topic0)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue
 			}
 			if len(logs) > 0 {
+				logger.Debug("Found %v logs", len(logs))
 				powerBlockData, err := s.parseVotePowerBlockSelectedEvent(logs[len(logs)-1])
 				if err != nil {
 					logger.Error("Error parsing VotePowerBlockSelected event %v", err)
@@ -124,6 +122,7 @@ func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB
 				}
 				out <- powerBlockData
 			}
+			eventRangeStart = now
 		}
 	}()
 	return out
