@@ -103,12 +103,13 @@ func (c *registrationClient) Run() error {
 
 	for {
 		// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
+		logger.Debug("Waiting for VotePowerBlockSelected event")
 		powerBlockData := <-vpbsListener
 		logger.Info("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
 
 		id, _ := c.systemManagerClient.flareSystemManager.GetCurrentRewardEpochId(nil)
-		logger.Info("Current reward epoch id %v", id)
-		logger.Info("Reward epoch id %v", powerBlockData.RewardEpochId)
+		logger.Debug("Current reward epoch id %v", id)
+		logger.Debug("Reward epoch id %v", powerBlockData.RewardEpochId)
 
 		// Call RegisterVoter function on VoterRegistry
 		registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.identityAddress)

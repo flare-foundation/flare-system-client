@@ -20,6 +20,12 @@ import (
 	"gorm.io/gorm"
 )
 
+var (
+	nonFatalSignNewSigningPolicyErrors = []string{
+		"new signing policy already signed",
+	}
+)
+
 type SystemManagerContractClient struct {
 	address            common.Address
 	flareSystemManager *system.FlareSystemManager
@@ -73,6 +79,10 @@ func (s *SystemManagerContractClient) sendSignNewSigningPolicy(rewardEpochId *bi
 
 	tx, err := s.flareSystemManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
+		if ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
+			logger.Info("Non fatal error sending sign new signing policy: %v", err)
+			return nil
+		}
 		return err
 	}
 	err = s.txVerifier.WaitUntilMined(s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
@@ -108,7 +118,6 @@ func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB
 			<-ticker.C
 			now := time.Now().Unix()
 			logs, err := database.FetchLogsByAddressAndTopic0(db, s.address.Hex(), topic0, eventRangeStart, now)
-			// logger.Debug("Fetched logs from %v to %v for address %v and topic %v", eventRangeStart, now, s.address.Hex(), topic0)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue
