@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"golang.org/x/crypto/sha3"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -225,18 +225,29 @@ func processResults(c *VotingClient, previousVotingEpoch int, signingAddress com
 		if err != nil {
 			return errors.Wrap(err, "processResults: error getting signing key")
 		}
-		signature, err := crypto.Sign(accounts.TextHash(resultData), key)
+
+		hasher := sha3.NewLegacyKeccak256()
+		hasher.Write([]byte(resultData))
+		hash := hasher.Sum(nil)
+		signature, err := crypto.Sign(hash, key)
 		if err != nil {
 			return errors.Wrap(err, "processResults: error signing result data")
 		}
+		fmt.Println("Hash to sign:", hex.EncodeToString(hash))
+		fmt.Println("Signature v:", signature[0])
+		fmt.Println("Signature r:", hex.EncodeToString(signature[1:33]))
+		fmt.Println("Signature s:", hex.EncodeToString(signature[33:65]))
 
-		fmt.Println("Result data len:", len(resultData))
+		epochBytes := uint32toBytes(uint32(previousVotingEpoch))
+		lengthBytes := uint16toBytes(104)
 
-		buffer.WriteByte(0)            // Type (1 byte)
-		buffer.Write(resultData)       // Message (38 bytes)
-		buffer.WriteByte(signature[0]) // V (1 byte)
-		buffer.Write(signature[1:33])  // R (32 bytes)
-		buffer.Write(signature[33:65]) // S (32 bytes)
+		buffer.WriteByte(100)        // Protocol ID (1 byte)
+		buffer.Write(epochBytes[:])  // Epoch (4 bytes)
+		buffer.Write(lengthBytes[:]) // Length (2 bytes)
+
+		buffer.WriteByte(0)        // Type (1 byte)
+		buffer.Write(resultData)   // Message (38 bytes)
+		buffer.Write(signature[:]) // Signature (65 bytes) V (1 byte) + R (32 bytes) + S (32 bytes)
 
 		fmt.Println("Total encoded:", buffer.Len())
 	}
@@ -372,6 +383,11 @@ func getResultsData(votingRound int, protocol SubProtocol, signingAddress string
 }
 
 func uint16toBytes(i uint16) (arr [2]byte) {
-	binary.LittleEndian.PutUint16(arr[0:2], i)
+	binary.BigEndian.PutUint16(arr[0:2], i)
+	return
+}
+
+func uint32toBytes(i uint32) (arr [4]byte) {
+	binary.BigEndian.PutUint32(arr[0:4], i)
 	return
 }
