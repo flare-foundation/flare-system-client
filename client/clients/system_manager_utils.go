@@ -54,13 +54,13 @@ func NewSystemManagerClient(
 	}, nil
 }
 
-func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan ExecuteStatus {
-	return ExecuteWithRetry(func() error {
+func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan ExecuteStatus[any] {
+	return ExecuteWithRetry(func() (any, error) {
 		err := s.sendSignNewSigningPolicy(rewardEpochId, signingPolicy)
 		if err != nil {
-			return errors.Wrap(err, "error sending sign new signing policy")
+			return nil, errors.Wrap(err, "error sending sign new signing policy")
 		}
-		return nil
+		return nil, nil
 	}, MaxTxSendRetries)
 }
 
@@ -102,6 +102,16 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 		hash = crypto.Keccak256(hash, signingPolicy[i*32:(i+1)*32])
 	}
 	return hash
+}
+
+func (s *SystemManagerContractClient) GetCurrentRewardEpochId() <-chan ExecuteStatus[*big.Int] {
+	return ExecuteWithRetry(func() (*big.Int, error) {
+		id, err := s.flareSystemManager.GetCurrentRewardEpochId(nil)
+		if err != nil {
+			return nil, err
+		}
+		return id, nil
+	}, MaxTxSendRetries)
 }
 
 func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB, epoch *utils.Epoch) <-chan *system.FlareSystemManagerVotePowerBlockSelected {

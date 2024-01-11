@@ -61,13 +61,13 @@ func NewRegistryContractClient(
 
 }
 
-func (r *RegistryContractClient) RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan ExecuteStatus {
-	return ExecuteWithRetry(func() error {
+func (r *RegistryContractClient) RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan ExecuteStatus[any] {
+	return ExecuteWithRetry(func() (any, error) {
 		err := r.sendRegisterVoter(nextRewardEpochId, address)
 		if err != nil {
-			return errors.Wrap(err, "error sending register voter")
+			return nil, errors.Wrap(err, "error sending register voter")
 		}
-		return nil
+		return nil, nil
 	}, MaxTxSendRetries)
 }
 

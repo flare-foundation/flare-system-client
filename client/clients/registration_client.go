@@ -5,6 +5,7 @@ import (
 	"flare-tlc/config"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
+	"math/big"
 
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -110,9 +111,10 @@ func (c *registrationClient) Run() error {
 		powerBlockData := <-vpbsListener
 		logger.Info("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
 
-		id, _ := c.systemManagerClient.flareSystemManager.GetCurrentRewardEpochId(nil)
-		logger.Debug("Current reward epoch id %v", id)
-		logger.Debug("Reward epoch id %v", powerBlockData.RewardEpochId)
+		if !c.verifyEpoch(powerBlockData.RewardEpochId) {
+			logger.Info("Skipping registration process for epoch %v", powerBlockData.RewardEpochId)
+			continue
+		}
 
 		// Call RegisterVoter function on VoterRegistry
 		registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.identityAddress)
@@ -136,4 +138,18 @@ func (c *registrationClient) Run() error {
 		}
 
 	}
+}
+
+func (c *registrationClient) verifyEpoch(epochId *big.Int) bool {
+	epochIdResult := <-c.systemManagerClient.GetCurrentRewardEpochId()
+	if !epochIdResult.Success {
+		logger.Error("GetCurrentRewardEpochId failed %s", epochIdResult.Message)
+		return false
+	}
+	currentEpochId := epochIdResult.Value
+	if epochId.Cmp(currentEpochId) <= 0 {
+		logger.Warn("Epoch mismatch: current %v >= next %v", currentEpochId, epochId)
+		return false
+	}
+	return true
 }
