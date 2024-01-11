@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -226,9 +226,7 @@ func processResults(c *VotingClient, previousVotingEpoch int, signingAddress com
 			return errors.Wrap(err, "processResults: error getting signing key")
 		}
 
-		hasher := sha3.NewLegacyKeccak256()
-		hasher.Write([]byte(resultData))
-		hash := hasher.Sum(nil)
+		hash := accounts.TextHash(crypto.Keccak256(resultData))
 		signature, err := crypto.Sign(hash, key)
 		if err != nil {
 			return errors.Wrap(err, "processResults: error signing result data")
@@ -245,9 +243,12 @@ func processResults(c *VotingClient, previousVotingEpoch int, signingAddress com
 		buffer.Write(epochBytes[:])  // Epoch (4 bytes)
 		buffer.Write(lengthBytes[:]) // Length (2 bytes)
 
-		buffer.WriteByte(0)        // Type (1 byte)
-		buffer.Write(resultData)   // Message (38 bytes)
-		buffer.Write(signature[:]) // Signature (65 bytes) V (1 byte) + R (32 bytes) + S (32 bytes)
+		buffer.WriteByte(0)      // Type (1 byte)
+		buffer.Write(resultData) // Message (38 bytes)
+
+		buffer.WriteByte(signature[64] + 27) // V (1 byte)
+		buffer.Write(signature[0:32])        // R (32 bytes)
+		buffer.Write(signature[32:64])       // S (32 bytes)
 
 		fmt.Println("Total encoded:", buffer.Len())
 	}
