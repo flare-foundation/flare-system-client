@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -88,17 +89,9 @@ func TransactOptsFromPrivateKey(privateKey string, chainID int) (*bind.TransactO
 }
 
 func CredentialsFromPrivateKey(privateKey string, chainID int) (*bind.TransactOpts, *ecdsa.PrivateKey, error) {
-	if len(privateKey) < 2 {
-		return nil, nil, errors.New("privateKey is too short")
-	}
-
-	if privateKey[:2] == "0x" {
-		privateKey = privateKey[2:]
-	}
-
-	pk, err := crypto.HexToECDSA(privateKey)
+	pk, err := PrivateKeyFromHex(privateKey)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "crypto.HexToECDSA")
+		return nil, nil, err
 	}
 
 	opts, err := bind.NewKeyedTransactorWithChainID(
@@ -109,6 +102,20 @@ func CredentialsFromPrivateKey(privateKey string, chainID int) (*bind.TransactOp
 	}
 	// bind.N
 	return opts, pk, nil
+}
+
+func PrivateKeyFromHex(privateKey string) (*ecdsa.PrivateKey, error) {
+	if len(privateKey) < 2 {
+		return nil, errors.New("privateKey is too short")
+	}
+
+	privateKey = strings.TrimPrefix(privateKey, "0x")
+
+	pk, err := crypto.HexToECDSA(privateKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "crypto.HexToECDSA")
+	}
+	return pk, nil
 }
 
 func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.Address, data []byte) error {

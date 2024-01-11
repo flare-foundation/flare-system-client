@@ -11,27 +11,26 @@ type ClientConfig struct {
 	Metrics           MetricsConfig            `toml:"metrics"`
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
 
-	VotePowerBlock    VotePowerBlockConfig   `toml:"vote_power_block"`
-	VoterRegistration VoteRegistrationConfig `toml:"voter_registration"`
-	SigningPolicy     SigningPolicyConfig    `toml:"signing_policy"`
+	Credentials CredentialsConfig `toml:"credentials"`
+	Voting      VotingConfig      `toml:"voting"`
 
-	Ftso ProtocolConfig `toml:"ftso"`
+	Protocol ProtocolConfig `toml:"protocol"`
 }
 
 type MetricsConfig struct {
 	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
 }
 
-type VotePowerBlockConfig struct {
-	Topic0 string `toml:"topic0"`
+type CredentialsConfig struct {
+	RunScheduler                      bool   `toml:"run_scheduler"`
+	IdentityAddress                   string `toml:"identity_address"`
+	SystemManagerSenderPrivateKeyFile string `toml:"system_manager_sender_private_key_file"`
+	SigningPolicyPrivateKeyFile       string `toml:"signing_policy_private_key_file"`
 }
 
-type VoteRegistrationConfig struct {
-	Address string `toml:"address"`
-}
-
-type SigningPolicyConfig struct {
-	Topic0 string `toml:"topic0"`
+type VotingConfig struct {
+	EnabledRegistration   bool `toml:"enabled_registration"`
+	EnabledProtocolVoting bool `toml:"enabled_protocol_voting"`
 }
 
 func newConfig() *ClientConfig {

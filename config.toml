@@ -1,30 +1,42 @@
 # This file serves as a template for the configuration file. Copy it and edit the values as needed.
 # Use --config parameter to specify the path to the configuration file.
 
+# Database filled with data from the ftso (c-chain) indexer
+[db]
+host = "localhost"
+port = 3306
+database = "flare_ftso_indexer"
+username = "indexeruser"
+password = "P.a.s.s.W.O.R.D"
+# log_queries = true
 
 [logger]
-level = "INFO"
+level = "DEBUG"
 file = "./logs/flare-tlc.log"
 console = true
 
 [metrics]
-# used for prometheus metrics of the client
-# currently, no specific data are included in the metrics in addition to the default ones
-prometheus_address = "localhost:2112"
+# prometheus_address = "localhost:2112"
 
 [chain]
-node_url = "http://127.0.0.1:8545"
+node_url = "http://127.0.0.1:8545/"
 address_hrp = "localflare"
-chain_id = 162
-# eth_rpc_url is needed for services
-eth_rpc_url = "http://127.0.0.1:8545"
-# api key may be needed for access to production nodes
-api_key = ""
-# private_key_file is needed for voting and mirroring clients
-private_key_file = "./privateKey"
+chain_id = 31337
+eth_rpc_url = "http://127.0.0.1:8545/ext/C/rpc"
 
 [contract_addresses]
-submission = "0x6082731fdAba4761277Fb31299ebC782AD3bCf24"
-system_manager = "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F"
+submission = "0xfae0fd738dabc8a0426f47437322b6d026a9fd95"
+system_manager = "0x22474d350ec2da53d717e30b96e9a2b7628ede5b"
+voter_registry = "0xa4bcdf64cdd5451b6ac3743b414124a6299b65ff"
+relay = "0x18b9306737eaf6e8fc8e737f488a1ae077b18053"
 
-[ftso_v2]
+[credentials]
+identity_address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity account not private key
+system_manager_sender_private_key_file = "../credentials/standard-account-0000.txt" # any account
+signing_policy_private_key_file = "../credentials/policy-signing-account.txt" # for signing and submitting votes
+
+[voting]
+enabled_registration = true
+enabled_protocol_voting = false
+
+# [protocol]

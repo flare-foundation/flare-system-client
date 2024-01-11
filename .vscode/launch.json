@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/client/main/client.go",
-            "args": ["--config", "${workspaceFolder}/config.costwo.toml"],
+            "args": ["--config", "${workspaceFolder}/config.hardhat.toml"],
             "cwd": "${workspaceFolder}"
         }
     ]

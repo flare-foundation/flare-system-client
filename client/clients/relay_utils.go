@@ -22,15 +22,9 @@ type RelayContractClient struct {
 }
 
 func NewRelayContractClient(
-	chainID int,
 	ethClient *ethclient.Client,
 	address common.Address,
-	privateKey string,
 ) (*RelayContractClient, error) {
-	txOpts, _, err := chain.CredentialsFromPrivateKey(privateKey, chainID)
-	if err != nil {
-		return nil, err
-	}
 	relay, err := relay.NewRelay(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -39,12 +33,16 @@ func NewRelayContractClient(
 	return &RelayContractClient{
 		address:    address,
 		relay:      relay,
-		txOpts:     txOpts,
 		txVerifier: chain.NewTxVerifier(ethClient),
 	}, nil
 }
 
-func (r *RelayContractClient) SigningPolicyInitializedListener(db *gorm.DB, startTimestamp uint64, topic0 string) <-chan *relay.RelaySigningPolicyInitialized {
+func (r *RelayContractClient) SigningPolicyInitializedListener(db *gorm.DB, startTimestamp uint64) <-chan *relay.RelaySigningPolicyInitialized {
+	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
 	out := make(chan *relay.RelaySigningPolicyInitialized)
 	go func() {
 		ticker := time.NewTicker(ListenerInterval)
@@ -53,16 +51,17 @@ func (r *RelayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 			now := time.Now().Unix()
 			logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), topic0, int64(startTimestamp), now)
 			if err != nil {
-				logger.Error("Error fetching logs %w", err)
+				logger.Error("Error fetching logs %v", err)
 				continue
 			}
 			if len(logs) > 0 {
 				policyData, err := r.parseSigningPolicyInitializedEvent(logs[len(logs)-1])
 				if err != nil {
-					logger.Error("Error parsing SigningPolicyInitialized event %w", err)
+					logger.Error("Error parsing SigningPolicyInitialized event %v", err)
 					continue
 				}
 				out <- policyData
+				break
 			}
 		}
 	}()

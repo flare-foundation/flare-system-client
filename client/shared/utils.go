@@ -3,7 +3,6 @@ package shared
 import (
 	"encoding/hex"
 	"flare-tlc/database"
-	"flare-tlc/utils/chain"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,14 +15,24 @@ func ConvertDatabaseLogToChainLog(dbLog database.Log) (*types.Log, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var topics []common.Hash
+
+	if dbLog.Topic0 != "NULL" {
+		topics = append(topics, common.HexToHash(dbLog.Topic0))
+	}
+	if dbLog.Topic1 != "NULL" {
+		topics = append(topics, common.HexToHash(dbLog.Topic1))
+	}
+	if dbLog.Topic2 != "NULL" {
+		topics = append(topics, common.HexToHash(dbLog.Topic2))
+	}
+	if dbLog.Topic3 != "NULL" {
+		topics = append(topics, common.HexToHash(dbLog.Topic3))
+	}
 	return &types.Log{
-		Topics: []common.Hash{
-			chain.ParseTopic(dbLog.Topic0),
-			chain.ParseTopic(dbLog.Topic1),
-			chain.ParseTopic(dbLog.Topic2),
-			chain.ParseTopic(dbLog.Topic3),
-		},
-		Data: data,
+		Topics: topics,
+		Data:   data,
 		// Other fields are not used by log decoder
 	}, nil
 }
