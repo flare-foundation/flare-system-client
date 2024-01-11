@@ -117,21 +117,23 @@ func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
+			// logger.Debug("Fetching logs %v < timestamp <= %v", eventRangeStart, now)
 			logs, err := database.FetchLogsByAddressAndTopic0(db, s.address.Hex(), topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue
 			}
 			if len(logs) > 0 {
-				logger.Debug("Found %v logs", len(logs))
+				// logger.Debug("Found %v logs", len(logs))
 				powerBlockData, err := s.parseVotePowerBlockSelectedEvent(logs[len(logs)-1])
 				if err != nil {
 					logger.Error("Error parsing VotePowerBlockSelected event %v", err)
 					continue
 				}
 				out <- powerBlockData
+				// logger.Debug("Sent VotePowerBlockSelected event")
+				eventRangeStart = int64(powerBlockData.Timestamp)
 			}
-			eventRangeStart = now
 		}
 	}()
 	return out

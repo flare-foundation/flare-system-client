@@ -6,12 +6,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// Fetch all logs matching address and topic0 from timestamp range [from, to), order by timestamp
+// Fetch all logs matching address and topic0 from timestamp range (from, to], order by timestamp
 func FetchLogsByAddressAndTopic0(db *gorm.DB, address string, topic0 string,
 	from int64, to int64) ([]Log, error) {
 	var logs []Log
 	err := db.Where(
-		"address = ? AND topic0 = ? AND timestamp >= ? AND timestamp < ?",
+		"address = ? AND topic0 = ? AND timestamp > ? AND timestamp <= ?",
 		strings.ToLower(strings.TrimPrefix(address, "0x")),
 		strings.ToLower(strings.TrimPrefix(topic0, "0x")),
 		from, to,
