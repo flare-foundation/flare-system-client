@@ -48,8 +48,13 @@ func NewSubProtocol(config config.ProtocolConfig) SubProtocol {
 
 func NewVotingClient(ctx clientContext.ClientContext) (*VotingClient, error) {
 	config := ctx.Config()
+
+	if !config.Voting.EnabledProtocolVoting {
+		return nil, nil
+	}
+
 	subProtocols := []SubProtocol{
-		NewSubProtocol(config.Ftso),
+		NewSubProtocol(config.Protocol),
 	}
 
 	chainConfig := config.ChainConfig()

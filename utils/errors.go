@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-// Use errors.Join when upgrading to Go 1.2	0
+// Use errors.Join when upgrading to Go 1.20
 func Join(errs ...error) error {
 	var errStr string
 	for _, err := range errs {

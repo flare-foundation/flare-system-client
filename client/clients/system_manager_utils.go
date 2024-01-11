@@ -20,24 +20,26 @@ import (
 	"gorm.io/gorm"
 )
 
+var (
+	nonFatalSignNewSigningPolicyErrors = []string{
+		"new signing policy already signed",
+	}
+)
+
 type SystemManagerContractClient struct {
 	address            common.Address
 	flareSystemManager *system.FlareSystemManager
-	txOpts             *bind.TransactOpts
+	senderTxOpts       *bind.TransactOpts
 	txVerifier         *chain.TxVerifier
-	privateKey         *ecdsa.PrivateKey
+	signerPrivateKey   *ecdsa.PrivateKey
 }
 
 func NewSystemManagerClient(
-	chainID int,
 	ethClient *ethclient.Client,
 	address common.Address,
-	privateKeyString string,
+	senderTxOpts *bind.TransactOpts,
+	signerPrivateKey *ecdsa.PrivateKey,
 ) (*SystemManagerContractClient, error) {
-	txOpts, privateKey, err := chain.CredentialsFromPrivateKey(privateKeyString, chainID)
-	if err != nil {
-		return nil, err
-	}
 	flareSystemManager, err := system.NewFlareSystemManager(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -46,9 +48,9 @@ func NewSystemManagerClient(
 	return &SystemManagerContractClient{
 		address:            address,
 		flareSystemManager: flareSystemManager,
-		txOpts:             txOpts,
+		senderTxOpts:       senderTxOpts,
 		txVerifier:         chain.NewTxVerifier(ethClient),
-		privateKey:         privateKey,
+		signerPrivateKey:   signerPrivateKey,
 	}, nil
 }
 
@@ -64,22 +66,26 @@ func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.In
 
 func (s *SystemManagerContractClient) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
 	newSigningPolicyHash := SigningPolicyHash(signingPolicy)
-	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.privateKey)
+	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.signerPrivateKey)
 	if err != nil {
 		return err
 	}
 
 	signature := system.FlareSystemManagerSignature{
-		V: hashSignature[0],
-		R: [32]byte(hashSignature[1:33]),
-		S: [32]byte(hashSignature[33:65]),
+		R: [32]byte(hashSignature[0:32]),
+		S: [32]byte(hashSignature[32:64]),
+		V: hashSignature[64] + 27,
 	}
 
-	tx, err := s.flareSystemManager.SignNewSigningPolicy(s.txOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
+	tx, err := s.flareSystemManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
+		if ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
+			logger.Info("Non fatal error sending sign new signing policy: %v", err)
+			return nil
+		}
 		return err
 	}
-	err = s.txVerifier.WaitUntilMined(s.txOpts.From, tx, chain.DefaultTxTimeout)
+	err = s.txVerifier.WaitUntilMined(s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -98,27 +104,35 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 	return hash
 }
 
-func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB, epoch *utils.Epoch, topic0 string) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
-
+func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB, epoch *utils.Epoch) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
 	out := make(chan *system.FlareSystemManagerVotePowerBlockSelected)
+	topic0, err := chain.EventIDFromMetadata(system.FlareSystemManagerMetaData, "VotePowerBlockSelected")
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
 	go func() {
 		ticker := time.NewTicker(ListenerInterval)
 		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 1).Unix()
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
+			// logger.Debug("Fetching logs %v < timestamp <= %v", eventRangeStart, now)
 			logs, err := database.FetchLogsByAddressAndTopic0(db, s.address.Hex(), topic0, eventRangeStart, now)
 			if err != nil {
-				logger.Error("Error fetching logs %w", err)
+				logger.Error("Error fetching logs %v", err)
 				continue
 			}
 			if len(logs) > 0 {
+				// logger.Debug("Found %v logs", len(logs))
 				powerBlockData, err := s.parseVotePowerBlockSelectedEvent(logs[len(logs)-1])
 				if err != nil {
-					logger.Error("Error parsing VotePowerBlockSelected event %w", err)
+					logger.Error("Error parsing VotePowerBlockSelected event %v", err)
 					continue
 				}
 				out <- powerBlockData
+				// logger.Debug("Sent VotePowerBlockSelected event")
+				eventRangeStart = int64(powerBlockData.Timestamp)
 			}
 		}
 	}()

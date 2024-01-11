@@ -2,8 +2,11 @@ package clients
 
 import (
 	"flare-tlc/client/context"
+	"flare-tlc/config"
 	"flare-tlc/logger"
+	"flare-tlc/utils/chain"
 
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -23,49 +26,62 @@ type registrationClient struct {
 	relayClient         *RelayContractClient
 	registryClient      *RegistryContractClient
 
-	signingPolicyTopic0      string
-	voterRegistrationAddress string
-	votePowerBlockTopic0     string
+	identityAddress string
 }
 
-func NewRegistratinClient(ctx context.ClientContext) (*registrationClient, error) {
-	config := ctx.Config()
-	chainConfig := config.ChainConfig()
-	ethClient, err := chainConfig.DialETH()
+func NewRegistrationClient(ctx context.ClientContext) (*registrationClient, error) {
+	cfg := ctx.Config()
+	if !cfg.Voting.EnabledRegistration {
+		return nil, nil
+	}
+
+	chainCfg := cfg.ChainConfig()
+	ethClient, err := chainCfg.DialETH()
 	if err != nil {
 		return nil, err
 	}
 
-	pkString, err := chainConfig.GetPrivateKey()
+	senderPk, err := config.ReadFileToString(cfg.Credentials.SystemManagerSenderPrivateKeyFile)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error reading sender private key")
+	}
+	senderTxOpts, _, err := chain.CredentialsFromPrivateKey(senderPk, chainCfg.ChainID)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating sender register tx opts")
+	}
+
+	signerPkString, err := config.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "error reading signer private key")
+	}
+	signerPk, err := chain.PrivateKeyFromHex(signerPkString)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating signer private key")
 	}
 
 	systemManagerClient, err := NewSystemManagerClient(
-		chainConfig.ChainID,
 		ethClient,
-		config.ContractAddresses.SystemManager,
-		pkString,
+		cfg.ContractAddresses.SystemManager,
+		senderTxOpts,
+		signerPk,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	relayClient, err := NewRelayContractClient(
-		chainConfig.ChainID,
 		ethClient,
-		config.ContractAddresses.Relay,
-		pkString,
+		cfg.ContractAddresses.Relay,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	registryClient, err := NewRegistryContractClient(
-		chainConfig.ChainID,
 		ethClient,
-		config.ContractAddresses.VoterRegistry,
-		pkString,
+		cfg.ContractAddresses.VoterRegistry,
+		senderTxOpts,
+		signerPk,
 	)
 	if err != nil {
 		return nil, err
@@ -76,28 +92,30 @@ func NewRegistratinClient(ctx context.ClientContext) (*registrationClient, error
 		systemManagerClient: systemManagerClient,
 		relayClient:         relayClient,
 		registryClient:      registryClient,
-
-		signingPolicyTopic0:      config.SigningPolicy.Topic0,
-		voterRegistrationAddress: config.VoterRegistration.Address,
-		votePowerBlockTopic0:     config.VotePowerBlock.Topic0,
+		identityAddress:     cfg.Credentials.IdentityAddress,
 	}, nil
 }
 
 // Run runs the registration client, should be called in a goroutine
 func (c *registrationClient) Run() error {
-
 	epoch, err := c.systemManagerClient.EpochFromChain()
 	if err != nil {
 		return err
 	}
+	vpbsListener := c.systemManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
 
 	for {
 		// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
-		powerBlockData := <-c.systemManagerClient.VotePowerBlockSelectedListener(c.db, epoch, c.votePowerBlockTopic0)
+		logger.Debug("Waiting for VotePowerBlockSelected event")
+		powerBlockData := <-vpbsListener
 		logger.Info("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
 
+		id, _ := c.systemManagerClient.flareSystemManager.GetCurrentRewardEpochId(nil)
+		logger.Debug("Current reward epoch id %v", id)
+		logger.Debug("Reward epoch id %v", powerBlockData.RewardEpochId)
+
 		// Call RegisterVoter function on VoterRegistry
-		registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.voterRegistrationAddress)
+		registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.identityAddress)
 		if !registerResult.Success {
 			logger.Error("RegisterVoter failed %s", registerResult.Message)
 			continue
@@ -107,7 +125,8 @@ func (c *registrationClient) Run() error {
 		// Already in RegisterVoter
 
 		// Wait until SigningPolicyInitialized event is emitted
-		signingPolicy := <-c.relayClient.SigningPolicyInitializedListener(c.db, powerBlockData.Timestamp, c.signingPolicyTopic0)
+		signingPolicy := <-c.relayClient.SigningPolicyInitializedListener(c.db, powerBlockData.Timestamp)
+		logger.Info("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
 
 		// Call signNewSigningPolicy
 		signingResult := <-c.systemManagerClient.SignNewSigningPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)

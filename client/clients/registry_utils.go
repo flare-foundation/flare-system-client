@@ -21,11 +21,11 @@ var (
 )
 
 func init() {
-	uint256Ty, _ := abi.NewType("uint256", "uint256", nil)
-	addressTy, _ := abi.NewType("address", "adddress", nil)
+	uint32Ty, _ := abi.NewType("uint32", "uint32", nil)
+	addressTy, _ := abi.NewType("address", "address", nil)
 	registratorArguments = abi.Arguments{
 		{ // nextRewardEpochId
-			Type: uint256Ty,
+			Type: uint32Ty,
 		},
 		{ // address
 			Type: addressTy,
@@ -34,33 +34,29 @@ func init() {
 }
 
 type RegistryContractClient struct {
-	address    common.Address
-	registry   *registry.Registry
-	txOpts     *bind.TransactOpts
-	txVerifier *chain.TxVerifier
-	privateKey *ecdsa.PrivateKey
+	address          common.Address
+	registry         *registry.Registry
+	senderTxOpts     *bind.TransactOpts
+	txVerifier       *chain.TxVerifier
+	signerPrivateKey *ecdsa.PrivateKey
 }
 
 func NewRegistryContractClient(
-	chainID int,
 	ethClient *ethclient.Client,
 	address common.Address,
-	privateKeyString string,
+	senderTxOpts *bind.TransactOpts,
+	signerPk *ecdsa.PrivateKey,
 ) (*RegistryContractClient, error) {
-	txOpts, privateKey, err := chain.CredentialsFromPrivateKey(privateKeyString, chainID)
-	if err != nil {
-		return nil, err
-	}
 	registry, err := registry.NewRegistry(address, ethClient)
 	if err != nil {
 		return nil, err
 	}
 	return &RegistryContractClient{
-		address:    address,
-		registry:   registry,
-		txOpts:     txOpts,
-		txVerifier: chain.NewTxVerifier(ethClient),
-		privateKey: privateKey,
+		address:          address,
+		registry:         registry,
+		senderTxOpts:     senderTxOpts,
+		txVerifier:       chain.NewTxVerifier(ethClient),
+		signerPrivateKey: signerPk,
 	}, nil
 
 }
@@ -75,21 +71,24 @@ func (r *RegistryContractClient) RegisterVoter(nextRewardEpochId *big.Int, addre
 	}, MaxTxSendRetries)
 }
 
-func (r *RegistryContractClient) sendRegisterVoter(nextRewardEpochId *big.Int, address string) error {
-	signature, err := r.createSignature(nextRewardEpochId, address)
+func (r *RegistryContractClient) sendRegisterVoter(nextRewardEpochId *big.Int, addressString string) error {
+	epochId := uint32(nextRewardEpochId.Uint64())
+	address := common.HexToAddress(addressString)
+	signature, err := r.createSignature(epochId, address)
 	if err != nil {
 		return err
 	}
 	vrsSignature := registry.VoterRegistrySignature{
-		V: signature[0],
-		R: [32]byte(signature[1:33]),
-		S: [32]byte(signature[33:65]),
+		R: [32]byte(signature[0:32]),
+		S: [32]byte(signature[32:64]),
+		V: signature[64] + 27,
 	}
-	tx, err := r.registry.RegisterVoter(r.txOpts, r.txOpts.From, vrsSignature)
+	r.senderTxOpts.GasPrice = big.NewInt(50 * 1e9)
+	tx, err := r.registry.RegisterVoter(r.senderTxOpts, address, vrsSignature)
 	if err != nil {
 		return err
 	}
-	err = r.txVerifier.WaitUntilMined(r.txOpts.From, tx, chain.DefaultTxTimeout)
+	err = r.txVerifier.WaitUntilMined(r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -97,11 +96,11 @@ func (r *RegistryContractClient) sendRegisterVoter(nextRewardEpochId *big.Int, a
 	return nil
 }
 
-func (r *RegistryContractClient) createSignature(nextRewardEpochId *big.Int, address string) ([]byte, error) {
+func (r *RegistryContractClient) createSignature(nextRewardEpochId uint32, address common.Address) ([]byte, error) {
 	message, err := registratorArguments.Pack(nextRewardEpochId, address)
 	if err != nil {
 		return nil, err
 	}
 	messageHash := crypto.Keccak256(message)
-	return crypto.Sign(accounts.TextHash(messageHash), r.privateKey)
+	return crypto.Sign(accounts.TextHash(messageHash), r.signerPrivateKey)
 }

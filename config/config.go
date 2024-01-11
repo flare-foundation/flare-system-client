@@ -120,3 +120,11 @@ func ReadEnv(cfg interface{}) error {
 	}
 	return nil
 }
+
+func ReadFileToString(fileName string) (string, error) {
+	content, err := os.ReadFile(fileName)
+	if err != nil {
+		return "", fmt.Errorf("error opening file: %w", err)
+	}
+	return strings.TrimSpace(string(content)), nil
+}
