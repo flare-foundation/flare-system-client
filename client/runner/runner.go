@@ -1,8 +1,9 @@
 package runner
 
 import (
-	"flare-tlc/client/clients"
 	"flare-tlc/client/context"
+	clients "flare-tlc/client/protocol"
+	"flare-tlc/client/registration"
 	"reflect"
 )
 
@@ -28,7 +29,7 @@ func Start(ctx context.ClientContext) {
 	if err != nil {
 		panic(err)
 	}
-	registrationClient, err := clients.NewRegistrationClient(ctx)
+	registrationClient, err := registration.NewRegistrationClient(ctx)
 	if err != nil {
 		panic(err)
 	}

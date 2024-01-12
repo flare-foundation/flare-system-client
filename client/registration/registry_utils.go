@@ -1,7 +1,8 @@
-package clients
+package registration
 
 import (
 	"crypto/ecdsa"
+	"flare-tlc/client/shared"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/registry"
@@ -61,14 +62,14 @@ func NewRegistryContractClient(
 
 }
 
-func (r *RegistryContractClient) RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan ExecuteStatus[any] {
-	return ExecuteWithRetry(func() (any, error) {
+func (r *RegistryContractClient) RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetry(func() (any, error) {
 		err := r.sendRegisterVoter(nextRewardEpochId, address)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending register voter")
 		}
 		return nil, nil
-	}, MaxTxSendRetries)
+	}, shared.MaxTxSendRetries)
 }
 
 func (r *RegistryContractClient) sendRegisterVoter(nextRewardEpochId *big.Int, addressString string) error {

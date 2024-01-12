@@ -1,4 +1,4 @@
-package clients
+package protocol
 
 import (
 	"bytes"
@@ -31,10 +31,11 @@ import (
 )
 
 type VotingClient struct {
-	subProtocols      []SubProtocol
-	eth               *ethclient.Client
-	submitKey         string
-	signingKey        string
+	subProtocols []SubProtocol
+	eth          *ethclient.Client
+	// missing signaturessubmit key
+	submitKey         string // submit
+	signingKey        string // same as registration
 	contractAddresses globalConfig.ContractAddresses
 	contractSelectors contractSelectors
 	epochSettings     shared.EpochSettings
@@ -101,7 +102,7 @@ func NewVotingClient(ctx clientContext.ClientContext) (*VotingClient, error) {
 
 	selectors := newSelectors()
 
-	fmt.Println("Selectors :", hex.EncodeToString(selectors.commit), hex.EncodeToString(selectors.reveal), hex.EncodeToString(selectors.sign))
+	fmt.Println("Selectors :", hex.EncodeToString(selectors.submit1), hex.EncodeToString(selectors.submit2), hex.EncodeToString(selectors.submitSignatures))
 
 	return &VotingClient{
 		eth:               cl,
@@ -116,9 +117,10 @@ func NewVotingClient(ctx clientContext.ClientContext) (*VotingClient, error) {
 }
 
 type contractSelectors struct {
-	commit []byte
-	reveal []byte
-	sign   []byte
+	submit1          []byte
+	submit2          []byte
+	submit3          []byte
+	submitSignatures []byte
 }
 
 func newSelectors() contractSelectors {
@@ -127,9 +129,10 @@ func newSelectors() contractSelectors {
 		panic(err)
 	}
 	return contractSelectors{
-		commit: submissionABI.Methods["submit1"].ID,
-		reveal: submissionABI.Methods["submit2"].ID,
-		sign:   submissionABI.Methods["submitSignatures"].ID,
+		submit1:          submissionABI.Methods["submit1"].ID,
+		submit2:          submissionABI.Methods["submit2"].ID,
+		submit3:          submissionABI.Methods["submit3"].ID,
+		submitSignatures: submissionABI.Methods["submitSignatures"].ID,
 	}
 }
 
@@ -179,7 +182,7 @@ func (c *VotingClient) Run() error {
 // - n bytes: data
 func processCommits(c *VotingClient, currentPriceEpoch int, signingAddress common.Address) error {
 	buffer := bytes.NewBuffer(nil)
-	buffer.Write(c.contractSelectors.commit)
+	buffer.Write(c.contractSelectors.submit1)
 
 	for _, protocol := range c.subProtocols {
 		commitData, err := getCommitData(currentPriceEpoch, protocol, signingAddress.Hex())
@@ -198,7 +201,7 @@ func processCommits(c *VotingClient, currentPriceEpoch int, signingAddress commo
 
 func processReveals(c *VotingClient, previousVotingEpoch int, signingAddress common.Address) error {
 	buffer := bytes.NewBuffer(nil)
-	buffer.Write(c.contractSelectors.reveal)
+	buffer.Write(c.contractSelectors.submit2)
 
 	for _, protocol := range c.subProtocols {
 		revealData, err := getRevealData(previousVotingEpoch, protocol, signingAddress.Hex())
@@ -218,7 +221,7 @@ func processReveals(c *VotingClient, previousVotingEpoch int, signingAddress com
 
 func processResults(c *VotingClient, previousVotingEpoch int, signingAddress common.Address) error {
 	buffer := bytes.NewBuffer(nil)
-	buffer.Write(c.contractSelectors.sign)
+	buffer.Write(c.contractSelectors.submitSignatures)
 
 	for _, protocol := range c.subProtocols {
 		resultData, err := getResultsData(previousVotingEpoch, protocol, signingAddress.Hex())
@@ -242,7 +245,7 @@ func processResults(c *VotingClient, previousVotingEpoch int, signingAddress com
 		fmt.Println("Signature s:", hex.EncodeToString(signature[33:65]))
 
 		epochBytes := uint32toBytes(uint32(previousVotingEpoch))
-		lengthBytes := uint16toBytes(104)
+		lengthBytes := uint16toBytes(104) // 104 + length of additional data
 
 		buffer.WriteByte(100)        // Protocol ID (1 byte)
 		buffer.Write(epochBytes[:])  // Epoch (4 bytes)
@@ -254,6 +257,8 @@ func processResults(c *VotingClient, previousVotingEpoch int, signingAddress com
 		buffer.WriteByte(signature[64] + 27) // V (1 byte)
 		buffer.Write(signature[0:32])        // R (32 bytes)
 		buffer.Write(signature[32:64])       // S (32 bytes)
+
+		// append additional data
 
 		fmt.Println("Total encoded:", buffer.Len())
 	}

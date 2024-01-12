@@ -1,4 +1,4 @@
-package clients
+package registration
 
 import (
 	"flare-tlc/client/context"

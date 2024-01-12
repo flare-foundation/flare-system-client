@@ -1,4 +1,4 @@
-package clients
+package registration
 
 import (
 	"crypto/ecdsa"
@@ -54,14 +54,14 @@ func NewSystemManagerClient(
 	}, nil
 }
 
-func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan ExecuteStatus[any] {
-	return ExecuteWithRetry(func() (any, error) {
+func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetry(func() (any, error) {
 		err := s.sendSignNewSigningPolicy(rewardEpochId, signingPolicy)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign new signing policy")
 		}
 		return nil, nil
-	}, MaxTxSendRetries)
+	}, shared.MaxTxSendRetries)
 }
 
 func (s *SystemManagerContractClient) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
@@ -79,7 +79,7 @@ func (s *SystemManagerContractClient) sendSignNewSigningPolicy(rewardEpochId *bi
 
 	tx, err := s.flareSystemManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
-		if ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
+		if shared.ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
 			logger.Info("Non fatal error sending sign new signing policy: %v", err)
 			return nil
 		}
@@ -104,14 +104,14 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 	return hash
 }
 
-func (s *SystemManagerContractClient) GetCurrentRewardEpochId() <-chan ExecuteStatus[*big.Int] {
-	return ExecuteWithRetry(func() (*big.Int, error) {
+func (s *SystemManagerContractClient) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
+	return shared.ExecuteWithRetry(func() (*big.Int, error) {
 		id, err := s.flareSystemManager.GetCurrentRewardEpochId(nil)
 		if err != nil {
 			return nil, err
 		}
 		return id, nil
-	}, MaxTxSendRetries)
+	}, shared.MaxTxSendRetries)
 }
 
 func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB, epoch *utils.Epoch) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
@@ -122,7 +122,7 @@ func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB
 		panic(err)
 	}
 	go func() {
-		ticker := time.NewTicker(ListenerInterval)
+		ticker := time.NewTicker(shared.ListenerInterval)
 		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 1).Unix()
 		for {
 			<-ticker.C

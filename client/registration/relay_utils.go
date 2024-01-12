@@ -1,4 +1,4 @@
-package clients
+package registration
 
 import (
 	"flare-tlc/client/shared"
@@ -45,7 +45,7 @@ func (r *RelayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 	}
 	out := make(chan *relay.RelaySigningPolicyInitialized)
 	go func() {
-		ticker := time.NewTicker(ListenerInterval)
+		ticker := time.NewTicker(shared.ListenerInterval)
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
