@@ -622,6 +622,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "getRewardEpochSwitchoverTriggerContracts",
+    "outputs": [
+      {
+        "internalType": "contract IRewardEpochSwitchoverTrigger[]",
+        "name": "",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint64",
@@ -752,19 +765,26 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_rewardEpoch",
-        "type": "uint256"
-      }
-    ],
+    "inputs": [],
     "name": "isVoterRegistrationEnabled",
     "outputs": [
       {
         "internalType": "bool",
         "name": "",
         "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "lastInitialisedVotingRoundId",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
       }
     ],
     "stateMutability": "view",
@@ -908,6 +928,19 @@
   },
   {
     "inputs": [],
+    "name": "rewardEpochIdToExpireNext",
+    "outputs": [
+      {
+        "internalType": "uint24",
+        "name": "",
+        "type": "uint24"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "rewardEpochsStartTs",
     "outputs": [
       {
@@ -936,6 +969,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IRewardEpochSwitchoverTrigger[]",
+        "name": "_contracts",
+        "type": "address[]"
+      }
+    ],
+    "name": "setRewardEpochSwitchoverTriggerContracts",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
