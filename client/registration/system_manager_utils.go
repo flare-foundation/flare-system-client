@@ -157,12 +157,31 @@ func (s *SystemManagerContractClient) parseVotePowerBlockSelectedEvent(dbLog dat
 	return s.flareSystemManager.FlareSystemManagerFilterer.ParseVotePowerBlockSelected(*contractLog)
 }
 
-func (s *SystemManagerContractClient) EpochFromChain() (*utils.Epoch, error) {
-	epochStart, err := s.flareSystemManager.RewardEpochsStartTs(nil)
+func (s *SystemManagerContractClient) RewardEpochFromChain() (*utils.Epoch, error) {
+	return RewardEpochFromChain(s.flareSystemManager)
+}
+
+func RewardEpochFromChain(fsm *system.FlareSystemManager) (*utils.Epoch, error) {
+	epochStart, err := fsm.RewardEpochsStartTs(nil)
 	if err != nil {
 		return nil, err
 	}
-	epochPeriod, err := s.flareSystemManager.RewardEpochDurationSeconds(nil)
+	epochPeriod, err := fsm.RewardEpochDurationSeconds(nil)
+	if err != nil {
+		return nil, err
+	}
+	return &utils.Epoch{
+		Start:  time.Unix(int64(epochStart), 0),
+		Period: time.Duration(epochPeriod) * time.Second,
+	}, nil
+}
+
+func VotingEpochFromChain(fsm *system.FlareSystemManager) (*utils.Epoch, error) {
+	epochStart, err := fsm.FirstVotingRoundStartTs(nil)
+	if err != nil {
+		return nil, err
+	}
+	epochPeriod, err := fsm.VotingEpochDurationSeconds(nil)
 	if err != nil {
 		return nil, err
 	}

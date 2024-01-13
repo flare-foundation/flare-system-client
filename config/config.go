@@ -44,33 +44,11 @@ type DBConfig struct {
 }
 
 type ChainConfig struct {
-	NodeURL           string `toml:"node_url" envconfig:"CHAIN_NODE_URL"`
-	ChainAddressHRP   string `toml:"address_hrp" envconfig:"CHAIN_ADDRESS_HRP"`
-	ChainID           int    `toml:"chain_id" envconfig:"CHAIN_ID"`
-	EthRPCURL         string `toml:"eth_rpc_url" envconfig:"ETH_RPC_URL"`
-	ApiKey            string `toml:"api_key" envconfig:"API_KEY"`
-	SubmissionKeyFile string `toml:"submission_key_file" envconfig:"SUBMISSION_KEY_FILE"`
-	SigningKeyFile    string `toml:"signing_key_file" envconfig:"SIGNING_KEY_FILE"`
-}
-
-func (cfg ChainConfig) GetPrivateKey() (string, error) {
-	return cfg.GetSigningKey()
-}
-
-func (cfg ChainConfig) GetSubmissionKey() (string, error) {
-	content, err := os.ReadFile(cfg.SubmissionKeyFile)
-	if err != nil {
-		return "", fmt.Errorf("error opening private key file: %w", err)
-	}
-	return strings.TrimSpace(string(content)), nil
-}
-
-func (cfg ChainConfig) GetSigningKey() (string, error) {
-	content, err := os.ReadFile(cfg.SigningKeyFile)
-	if err != nil {
-		return "", fmt.Errorf("error opening private key file: %w", err)
-	}
-	return strings.TrimSpace(string(content)), nil
+	NodeURL         string `toml:"node_url" envconfig:"CHAIN_NODE_URL"`
+	ChainAddressHRP string `toml:"address_hrp" envconfig:"CHAIN_ADDRESS_HRP"`
+	ChainID         int    `toml:"chain_id" envconfig:"CHAIN_ID"`
+	EthRPCURL       string `toml:"eth_rpc_url" envconfig:"ETH_RPC_URL"`
+	ApiKey          string `toml:"api_key" envconfig:"API_KEY"`
 }
 
 // Dial the chain node and return an ethclient.Client.

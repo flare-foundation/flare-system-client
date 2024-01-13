@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"fmt"
+	"flare-tlc/logger"
 	"math/big"
 	"strings"
 	"time"
@@ -118,16 +118,11 @@ func PrivateKeyFromHex(privateKey string) (*ecdsa.PrivateKey, error) {
 	return pk, nil
 }
 
-func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.Address, data []byte) error {
-	privateKey, err := crypto.HexToECDSA(privateKeyHex)
-	if err != nil {
-		return err
-	}
-
+func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return err
+		return errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
 
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
@@ -156,7 +151,7 @@ func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.A
 		return err
 	}
 
-	fmt.Println("Sending signed tx: ", signedTx.Hash().Hex())
+	logger.Debug("Sending signed tx: %s", signedTx.Hash().Hex())
 
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
@@ -167,15 +162,15 @@ func SendRawTx(client ethclient.Client, privateKeyHex string, toAddress common.A
 	if err != nil {
 		return err
 	}
-	fmt.Println("Receipt: ", rec.Status)
+	logger.Debug("Receipt status: %v", rec.Status)
 
-	verifier := NewTxVerifier(&client)
+	verifier := NewTxVerifier(client)
 
-	fmt.Println("Waiting for tx to be mined...", time.Now())
-	err = verifier.WaitUntilMined(fromAddress, signedTx, 10*time.Second)
+	logger.Debug("Waiting for tx to be mined...")
+	err = verifier.WaitUntilMined(fromAddress, signedTx, DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Tx mined ", time.Now())
+	logger.Debug("Tx mined")
 	return nil
 }

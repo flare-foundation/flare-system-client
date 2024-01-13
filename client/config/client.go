@@ -2,30 +2,53 @@ package config
 
 import (
 	"flare-tlc/config"
+	"time"
 )
 
 type ClientConfig struct {
-	DB                config.DBConfig          `toml:"db"`
-	Logger            config.LoggerConfig      `toml:"logger"`
-	Chain             config.ChainConfig       `toml:"chain"`
-	Metrics           MetricsConfig            `toml:"metrics"`
+	DB      config.DBConfig     `toml:"db"`
+	Logger  config.LoggerConfig `toml:"logger"`
+	Chain   config.ChainConfig  `toml:"chain"`
+	Metrics MetricsConfig       `toml:"metrics"`
+
+	Voting VotingConfig `toml:"voting"`
+
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
+	Identity          IdentityConfig           `toml:"identity"`
+	Credentials       CredentialsConfig        `toml:"credentials"`
 
-	Credentials CredentialsConfig `toml:"credentials"`
-	Voting      VotingConfig      `toml:"voting"`
+	Protocol map[string]ProtocolConfig `toml:"protocol"`
 
-	Protocol ProtocolConfig `toml:"protocol"`
+	Submit1            SubmitConfig `toml:"submit1"`
+	Submit2            SubmitConfig `toml:"submit2"`
+	SignatureSubmitter SubmitConfig `toml:"signature_submitter"`
 }
 
 type MetricsConfig struct {
 	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
 }
 
+type IdentityConfig struct {
+	Address string `toml:"address"`
+}
+
 type CredentialsConfig struct {
-	RunScheduler                      bool   `toml:"run_scheduler"`
-	IdentityAddress                   string `toml:"identity_address"`
-	SystemManagerSenderPrivateKeyFile string `toml:"system_manager_sender_private_key_file"`
-	SigningPolicyPrivateKeyFile       string `toml:"signing_policy_private_key_file"`
+	// Sign all data
+	SigningPolicyPrivateKeyFile string `toml:"signing_policy_private_key_file"`
+
+	// Send RegisterVoter and SignNewSigningPolicy transactions
+	SystemClientSenderPrivateKeyFile string `toml:"system_client_sender_private_key_file"`
+
+	// Submit protocol data (submit1, submit2, submit3)
+	ProtocolManagerSubmitPrivateKeyFile string `toml:"protocol_manager_submit_private_key_file"`
+
+	// Submit protocol signatures
+	ProtocolManagerSubmitSignaturesPrivateKeyFile string `toml:"protocol_manager_submit_signatures_private_key_file"`
+}
+
+type SubmitConfig struct {
+	// offset from the start of the epoch
+	StartOffset time.Duration `toml:"start_offset"`
 }
 
 type VotingConfig struct {

@@ -25,7 +25,7 @@ func RunAsync(r Runner) {
 }
 
 func Start(ctx context.ClientContext) {
-	votingClient, err := clients.NewVotingClient(ctx)
+	protocolClient, err := clients.NewProtocolClient(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -33,6 +33,6 @@ func Start(ctx context.ClientContext) {
 	if err != nil {
 		panic(err)
 	}
-	RunAsync(votingClient)
+	RunAsync(protocolClient)
 	RunAsync(registrationClient)
 }

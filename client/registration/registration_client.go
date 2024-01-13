@@ -42,7 +42,7 @@ func NewRegistrationClient(ctx context.ClientContext) (*registrationClient, erro
 		return nil, err
 	}
 
-	senderPk, err := config.ReadFileToString(cfg.Credentials.SystemManagerSenderPrivateKeyFile)
+	senderPk, err := config.ReadFileToString(cfg.Credentials.SystemClientSenderPrivateKeyFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading sender private key")
 	}
@@ -93,13 +93,13 @@ func NewRegistrationClient(ctx context.ClientContext) (*registrationClient, erro
 		systemManagerClient: systemManagerClient,
 		relayClient:         relayClient,
 		registryClient:      registryClient,
-		identityAddress:     cfg.Credentials.IdentityAddress,
+		identityAddress:     cfg.Identity.Address,
 	}, nil
 }
 
 // Run runs the registration client, should be called in a goroutine
 func (c *registrationClient) Run() error {
-	epoch, err := c.systemManagerClient.EpochFromChain()
+	epoch, err := c.systemManagerClient.RewardEpochFromChain()
 	if err != nil {
 		return err
 	}

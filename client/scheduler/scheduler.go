@@ -6,72 +6,52 @@ import (
 	"time"
 )
 
-type SchedulerBase struct {
-	Job ScheduledJob
-
-	// We use a time provider to make testing easier (can mock time)
-	TimeProvider utils.TimeProvider
-}
-
-type EpochScheduler struct {
-	SchedulerBase
-
-	Config EpochSchedulerConfig
-}
-
-type RetryableScheduler struct {
-	SchedulerBase
-
-	Config RetryableSchedulerConfig
-}
-
-type EpochSchedulerConfig struct {
-	Epoch *utils.Epoch
-
-	// SendOffset is the time *before* the end of the epoch to send the transaction
-	SendOffset time.Duration
-}
-
-type RetryableSchedulerConfig struct {
-	Epoch *utils.Epoch
-
-	// SendOffset is the time after the start of the epoch to send the transaction
-	SendOffset time.Duration
-
-	// RetryDelay is the time to wait before retrying a failed try
-	RetryDelay time.Duration
-}
-
 type ScheduledJob interface {
 	// Run runs the job for the given epoch
 	// Returns false if the job was skipped (e.g. because it was already executed) and true otherwise
 	Run(epoch int64) (bool, error)
 }
 
-func NewEpochScheduler(config EpochSchedulerConfig, job ScheduledJob) *EpochScheduler {
+type EpochScheduler struct {
+	Epoch       *utils.Epoch
+	StartOffset time.Duration
+
+	Job ScheduledJob
+
+	// We use a time provider to make testing easier (can mock time)
+	TimeProvider utils.TimeProvider
+}
+
+type RetryableScheduler struct {
+	EpochScheduler
+
+	// RetryDelay is the time to wait before retrying a failed try
+	RetryDelay time.Duration
+}
+
+func NewEpochScheduler(epoch *utils.Epoch, startOffset time.Duration, job ScheduledJob) *EpochScheduler {
 	return &EpochScheduler{
-		SchedulerBase: SchedulerBase{
-			Job:          job,
-			TimeProvider: utils.RealTimeProvider{},
-		},
-		Config: config,
+		Epoch:        epoch,
+		StartOffset:  startOffset,
+		Job:          job,
+		TimeProvider: utils.RealTimeProvider{},
 	}
 }
 
 func (s *EpochScheduler) nextScheduledTimeInEpoch(epoch int64) <-chan time.Time {
 	now := s.TimeProvider.Now()
-	sendTime := s.Config.Epoch.EndTime(epoch).Add(-s.Config.SendOffset)
-	sendDuration := sendTime.Sub(now)
+	tickTime := s.Epoch.StartTime(epoch).Add(s.StartOffset)
+	tickDuration := tickTime.Sub(now)
 
-	if sendDuration >= 0 {
-		return time.NewTimer(sendDuration).C
+	if tickDuration >= 0 {
+		return time.NewTimer(tickDuration).C
 	} else {
-		return time.NewTimer(sendDuration + s.Config.Epoch.Period).C
+		return time.NewTimer(tickDuration + s.Epoch.Period).C
 	}
 }
 
 func (s *EpochScheduler) Run() {
-	et := utils.NewEpochTicker(s.Config.Epoch.Period-s.Config.SendOffset, s.Config.Epoch)
+	et := utils.NewEpochTicker(s.StartOffset, s.Epoch)
 	for {
 		epoch := <-et.C
 		_, err := s.Job.Run(epoch)
@@ -82,18 +62,15 @@ func (s *EpochScheduler) Run() {
 	}
 }
 
-func NewRetryableScheduler(config RetryableSchedulerConfig, job ScheduledJob) *RetryableScheduler {
+func NewRetryableScheduler(epoch *utils.Epoch, startOffset time.Duration, retryDelay time.Duration, job ScheduledJob) *RetryableScheduler {
 	return &RetryableScheduler{
-		SchedulerBase: SchedulerBase{
-			Job:          job,
-			TimeProvider: utils.RealTimeProvider{},
-		},
-		Config: config,
+		EpochScheduler: *NewEpochScheduler(epoch, startOffset, job),
+		RetryDelay:     retryDelay,
 	}
 }
 
 func (s *RetryableScheduler) Run() {
-	ret := utils.NewRetriableEpochTicker(s.Config.SendOffset, s.Config.RetryDelay, s.Config.Epoch)
+	ret := utils.NewRetriableEpochTicker(s.StartOffset, s.RetryDelay, s.Epoch)
 	for {
 		epoch := <-ret.C
 		didRun, err := s.Job.Run(epoch)

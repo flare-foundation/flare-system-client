@@ -51,16 +51,11 @@ func PublicKeyToEthAddress(publicKey crypto.PublicKey) (common.Address, error) {
 	return common.Address{}, ErrInvalidPublicKeyType
 }
 
-func PrivateKeyToEthAddress(privateKeyHex string) (common.Address, error) {
-	privateKey, err := ethCrypto.HexToECDSA(privateKeyHex)
-	if err != nil {
-		return common.Address{}, err
-	}
-
+func PrivateKeyToEthAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return common.Address{}, err
+		return common.Address{}, errors.New("error casting public key to ECDSA")
 	}
 
 	return ethCrypto.PubkeyToAddress(*publicKeyECDSA), nil
