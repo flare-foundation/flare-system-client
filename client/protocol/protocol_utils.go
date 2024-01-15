@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"flare-tlc/client/config"
@@ -18,18 +17,22 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	subProtocolTimeout = 2 * time.Second
-)
+type DataVerifier interface {
+	VerifyResponse(*SubProtocolResponse) error
+}
 
 type SubProtocol struct {
 	Id          uint8
 	ApiEndpoint string
-
-	client http.Client
 }
 
-type DataProviderResponse struct {
+type SubProtocolResponse struct {
+	Status         string `json:"status"`
+	Data           []byte `json:"data"`
+	AdditionalData []byte `json:"additionalData"`
+}
+
+type dataProviderResponse struct {
 	Status         string `json:"status"`
 	Data           string `json:"data"`
 	AdditionalData string `json:"additionalData"`
@@ -39,26 +42,26 @@ func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 	return &SubProtocol{
 		Id:          config.Id,
 		ApiEndpoint: config.ApiEndpoint,
-		client: http.Client{
-			Timeout: subProtocolTimeout,
-		},
 	}
 }
 
-func (sp *SubProtocol) getData(votingRound int64, submitName string, signingAddress string) ([]byte, error) {
+func (sp *SubProtocol) getData(votingRound int64, submitName string, signingAddress string, timeout time.Duration) (*SubProtocolResponse, error) {
 	url, err := getUrl(votingRound, sp, submitName, signingAddress)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting url")
 	}
 
-	resp, err := sp.client.Get(url.String())
+	client := http.Client{
+		Timeout: timeout,
+	}
+	resp, err := client.Get(url.String())
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling protocol client API")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("protocol client returned status %v", resp.Status)
+		return nil, fmt.Errorf("protocol client returned http status %v", resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -66,49 +69,57 @@ func (sp *SubProtocol) getData(votingRound int64, submitName string, signingAddr
 		return nil, errors.Wrap(err, "error reading protocol client response")
 	}
 
-	var response DataProviderResponse
+	var response dataProviderResponse
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, errors.Wrap(err, "cannot parse protocol client response body")
 	}
 
 	if response.Status != "OK" {
-		return nil, fmt.Errorf("protocol client returned status %v", response.Status)
+		return &SubProtocolResponse{Status: resp.Status}, nil
 	}
 
-	bodyString := strings.TrimPrefix(string(response.Data), "0x")
+	bodyString := strings.TrimPrefix(response.Data, "0x")
 	data, err := hex.DecodeString(bodyString)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot decode protocol client response body")
 	}
 
-	return data, nil
+	var addData []byte
+	addDataString := strings.TrimPrefix(response.AdditionalData, "0x")
+	if len(addDataString) > 0 {
+		addData, err = hex.DecodeString(addDataString)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot decode protocol client response additional data")
+		}
+	}
+
+	return &SubProtocolResponse{
+		Status:         response.Status,
+		Data:           data,
+		AdditionalData: addData,
+	}, nil
 }
 
-// func (sp *SubProtocol) getDataAsync(votingRound int64, endpoint string, signingAddress string) <-chan []byte {
-// 	ch := make(chan []byte)
-// 	go func() {
-// 		data, err := sp.getData(votingRound, endpoint, signingAddress)
-// 		if err != nil {
-// 			logger.Info("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
-// 				sp.Id, sp.ApiEndpoint, votingRound, err)
-// 			ch <- nil
-// 			return
-// 		}
-// 		ch <- data
-// 	}()
-// 	return ch
-// }
-
-func (sp *SubProtocol) getDataWithRetry(votingRound int64, endpoint string, signingAddress string, nRetries int) <-chan shared.ExecuteStatus[[]byte] {
-	return shared.ExecuteWithRetry(func() ([]byte, error) {
-		data, err := sp.getData(votingRound, endpoint, signingAddress)
+func (sp *SubProtocol) getDataWithRetry(
+	votingRound int64,
+	endpoint string,
+	signingAddress string,
+	nRetries int,
+	timeout time.Duration,
+	dataVerifier DataVerifier,
+) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
+	return shared.ExecuteWithRetry(func() (*SubProtocolResponse, error) {
+		data, err := sp.getData(votingRound, endpoint, signingAddress, timeout)
+		if err == nil {
+			err = dataVerifier.VerifyResponse(data)
+		}
 		if err != nil {
 			logger.Info("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
 				sp.Id, sp.ApiEndpoint, votingRound, err)
 			return nil, err
 		}
 		return data, nil
-	}, nRetries)
+	}, nRetries, 0)
 }
 
 func getUrl(votingRound int64, protocol *SubProtocol, endpoint string, signingAddress string) (*url.URL, error) {
@@ -130,14 +141,4 @@ func getUrl(votingRound int64, protocol *SubProtocol, endpoint string, signingAd
 		url.RawQuery = query.Encode()
 	}
 	return url, nil
-}
-
-func uint16toBytes(i uint16) (arr [2]byte) {
-	binary.BigEndian.PutUint16(arr[0:2], i)
-	return
-}
-
-func uint32toBytes(i uint32) (arr [4]byte) {
-	binary.BigEndian.PutUint32(arr[0:4], i)
-	return
 }

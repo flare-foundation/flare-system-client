@@ -19,9 +19,9 @@ type ClientConfig struct {
 
 	Protocol map[string]ProtocolConfig `toml:"protocol"`
 
-	Submit1            SubmitConfig `toml:"submit1"`
-	Submit2            SubmitConfig `toml:"submit2"`
-	SignatureSubmitter SubmitConfig `toml:"signature_submitter"`
+	Submit1          SubmitConfig           `toml:"submit1"`
+	Submit2          SubmitConfig           `toml:"submit2"`
+	SubmitSignatures SubmitSignaturesConfig `toml:"submit_signatures"`
 }
 
 type MetricsConfig struct {
@@ -48,7 +48,15 @@ type CredentialsConfig struct {
 
 type SubmitConfig struct {
 	// offset from the start of the epoch
-	StartOffset time.Duration `toml:"start_offset"`
+	StartOffset     time.Duration `toml:"start_offset"`
+	TxSubmitRetries int           `toml:"tx_submit_retries"`
+}
+
+type SubmitSignaturesConfig struct {
+	SubmitConfig
+
+	DataFetchRetries int `toml:"data_fetch_retries"`
+	MaxRounds        int `toml:"max_rounds"`
 }
 
 type VotingConfig struct {

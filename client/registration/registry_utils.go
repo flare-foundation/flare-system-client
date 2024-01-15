@@ -69,7 +69,7 @@ func (r *RegistryContractClient) RegisterVoter(nextRewardEpochId *big.Int, addre
 			return nil, errors.Wrap(err, "error sending register voter")
 		}
 		return nil, nil
-	}, shared.MaxTxSendRetries)
+	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
 func (r *RegistryContractClient) sendRegisterVoter(nextRewardEpochId *big.Int, addressString string) error {

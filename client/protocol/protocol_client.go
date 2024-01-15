@@ -72,7 +72,7 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 	pc.submitter2 = newSubmitter(cl, protocolContext, votingEpoch,
 		&cfg.Submit2, selectors.submit2, subProtocols, -1, "submit2")
 	pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingEpoch,
-		&cfg.SignatureSubmitter, selectors.submitSignatures, subProtocols)
+		&cfg.SubmitSignatures, selectors.submitSignatures, subProtocols)
 
 	return pc, nil
 }

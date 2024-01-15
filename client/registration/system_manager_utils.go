@@ -61,7 +61,7 @@ func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.In
 			return nil, errors.Wrap(err, "error sending sign new signing policy")
 		}
 		return nil, nil
-	}, shared.MaxTxSendRetries)
+	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
 func (s *SystemManagerContractClient) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
@@ -111,7 +111,7 @@ func (s *SystemManagerContractClient) GetCurrentRewardEpochId() <-chan shared.Ex
 			return nil, err
 		}
 		return id, nil
-	}, shared.MaxTxSendRetries)
+	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
 func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB, epoch *utils.Epoch) <-chan *system.FlareSystemManagerVotePowerBlockSelected {

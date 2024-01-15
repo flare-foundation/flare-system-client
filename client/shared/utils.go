@@ -17,7 +17,7 @@ type ExecuteStatus[T any] struct {
 	Value   T
 }
 
-func ExecuteWithRetry[T any](f func() (T, error), maxRetries int) <-chan ExecuteStatus[T] {
+func ExecuteWithRetry[T any](f func() (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
 	out := make(chan ExecuteStatus[T])
 	go func() {
 		for ri := 0; ri < maxRetries; ri++ {
@@ -28,7 +28,7 @@ func ExecuteWithRetry[T any](f func() (T, error), maxRetries int) <-chan Execute
 			} else {
 				logger.Error("error executing in retry no. %d: %v", ri, err)
 			}
-			time.Sleep(TxRetryInterval)
+			time.Sleep(delay)
 		}
 		out <- ExecuteStatus[T]{Success: false, Message: "max retries reached"}
 	}()

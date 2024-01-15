@@ -2,7 +2,7 @@ package runner
 
 import (
 	"flare-tlc/client/context"
-	clients "flare-tlc/client/protocol"
+	"flare-tlc/client/protocol"
 	"flare-tlc/client/registration"
 	"reflect"
 )
@@ -25,7 +25,7 @@ func RunAsync(r Runner) {
 }
 
 func Start(ctx context.ClientContext) {
-	protocolClient, err := clients.NewProtocolClient(ctx)
+	protocolClient, err := protocol.NewProtocolClient(ctx)
 	if err != nil {
 		panic(err)
 	}
