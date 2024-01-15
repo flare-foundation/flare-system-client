@@ -13,14 +13,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-type protocolCredentials struct {
+// Private keys and addresses needed for protocol voter
+type protocolContext struct {
 	submitPrivateKey       *ecdsa.PrivateKey  // sign tx for submit1, submit2, submit3
 	submitSignaturesTxOpts *bind.TransactOpts // submitSignatures
 	signerPrivateKey       *ecdsa.PrivateKey  // sign data for submitSignatures
-}
 
-type protocolAddresses struct {
-	SubmitContractAddress common.Address
+	submitContractAddress common.Address
 	signingAddress        common.Address // address of signerPrivateKey
 }
 
@@ -31,52 +30,44 @@ type contractSelectors struct {
 	submitSignatures []byte
 }
 
-func newProtocolCredentials(
-	chainID int,
-	cfg *config.CredentialsConfig,
-) (*protocolCredentials, error) {
-	signerPkString, err := globalConfig.ReadFileToString(cfg.SigningPolicyPrivateKeyFile)
+func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
+	ctx := &protocolContext{}
+
+	chainID := cfg.ChainConfig().ChainID
+	var err error
+
+	// Credentials
+	signerPkString, err := globalConfig.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading signer private key")
 	}
-	signerPk, err := chain.PrivateKeyFromHex(signerPkString)
+	ctx.signerPrivateKey, err = chain.PrivateKeyFromHex(signerPkString)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating signer private key")
 	}
 
-	submitPkString, err := globalConfig.ReadFileToString(cfg.ProtocolManagerSubmitPrivateKeyFile)
+	submitPkString, err := globalConfig.ReadFileToString(cfg.Credentials.ProtocolManagerSubmitPrivateKeyFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading submit private key")
 	}
-	submitPk, err := chain.PrivateKeyFromHex(submitPkString)
+	ctx.submitPrivateKey, err = chain.PrivateKeyFromHex(submitPkString)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating submit private key")
 	}
 
-	submitSignaturesTxOpts, _, err := chain.CredentialsFromPrivateKey(cfg.ProtocolManagerSubmitSignaturesPrivateKeyFile, chainID)
+	ctx.submitSignaturesTxOpts, _, err = chain.CredentialsFromPrivateKey(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile, chainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating submit signatures tx opts")
 	}
 
-	return &protocolCredentials{
-		submitPrivateKey:       submitPk,
-		submitSignaturesTxOpts: submitSignaturesTxOpts,
-		signerPrivateKey:       signerPk,
-	}, nil
-}
-
-func newProtocolAddresses(
-	pc *protocolCredentials,
-	cfg *globalConfig.ContractAddresses,
-) (*protocolAddresses, error) {
-	signingAddress, err := chain.PrivateKeyToEthAddress(pc.signerPrivateKey)
+	// Addresses
+	ctx.signingAddress, err = chain.PrivateKeyToEthAddress(ctx.signerPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting signing address")
 	}
-	return &protocolAddresses{
-		SubmitContractAddress: cfg.Submission,
-		signingAddress:        signingAddress,
-	}, nil
+	ctx.submitContractAddress = cfg.ContractAddresses.Submission
+
+	return ctx, nil
 }
 
 func newContractSelectors() contractSelectors {

@@ -2,35 +2,26 @@ package protocol
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"flare-tlc/client/config"
-	"flare-tlc/logger"
 	"flare-tlc/utils"
-	"flare-tlc/utils/chain"
-	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
 )
 
 type Submitter struct {
-	ethClient             *ethclient.Client
-	submitPrivateKey      *ecdsa.PrivateKey
-	submitContractAddress common.Address
-	signingAddress        common.Address
+	SubmitterBase
+}
 
-	epoch        *utils.Epoch
-	startOffset  time.Duration
-	selector     []byte
-	subProtocols []*SubProtocol
-	epochOffset  int64  // 0, -1
-	name         string // e.g., "submit1", "submit2", "submit3"
+type SignatureSubmitter struct {
+	SubmitterBase
 }
 
 func newSubmitter(
 	ethClient *ethclient.Client,
-	pc *protocolCredentials,
-	pa *protocolAddresses,
+	pc *protocolContext,
 	epoch *utils.Epoch,
 	submitCfg *config.SubmitConfig,
 	selector []byte,
@@ -38,49 +29,76 @@ func newSubmitter(
 	epochOffset int64,
 	name string,
 ) *Submitter {
-	return &Submitter{
-		ethClient:             ethClient,
-		submitPrivateKey:      pc.submitPrivateKey,
-		submitContractAddress: pa.SubmitContractAddress,
-		signingAddress:        pa.signingAddress,
-		epoch:                 epoch,
-		startOffset:           submitCfg.StartOffset,
-		selector:              selector,
-		subProtocols:          subProtocols,
-		epochOffset:           epochOffset,
-		name:                  name,
+	submitter := &Submitter{
+		SubmitterBase: SubmitterBase{
+			ethClient:       ethClient,
+			protocolContext: pc,
+			epoch:           epoch,
+			startOffset:     submitCfg.StartOffset,
+			nRetries:        1,
+			selector:        selector,
+			subProtocols:    subProtocols,
+			epochOffset:     epochOffset,
+			name:            name,
+		},
 	}
+	submitter.payloadProvider = submitter
+	return submitter
 }
 
-func (s *Submitter) GetPayload(currentEpoch int64) []byte {
-	channels := make([]<-chan []byte, len(s.subProtocols))
-	for i, protocol := range s.subProtocols {
-		channels[i] = protocol.getDataAsync(currentEpoch+s.epochOffset, s.name, s.signingAddress.Hex())
-	}
-
-	buffer := bytes.NewBuffer(nil)
-	buffer.Write(s.selector)
-	for _, channel := range channels {
-		data := <-channel
-		buffer.Write(data)
-	}
-	return buffer.Bytes()
+func (s *Submitter) WritePayload(buffer *bytes.Buffer, currentEpoch int64, data []byte) error {
+	buffer.Write(data)
+	return nil
 }
 
-func (s *Submitter) submit(payload []byte) {
-	err := chain.SendRawTx(s.ethClient, s.submitPrivateKey, s.submitContractAddress, payload)
+func newSignatureSubmitter(
+	ethClient *ethclient.Client,
+	pc *protocolContext,
+	epoch *utils.Epoch,
+	submitCfg *config.SubmitConfig,
+	selector []byte,
+	subProtocols []*SubProtocol,
+) *SignatureSubmitter {
+	submitter := &SignatureSubmitter{
+		SubmitterBase: SubmitterBase{
+			ethClient:       ethClient,
+			protocolContext: pc,
+			epoch:           epoch,
+			startOffset:     submitCfg.StartOffset,
+			nRetries:        4,
+			selector:        selector,
+			subProtocols:    subProtocols,
+			epochOffset:     -1,
+			name:            "submitSignatures",
+		},
+	}
+	submitter.payloadProvider = submitter
+	return submitter
+}
+
+func (s *SignatureSubmitter) WritePayload(buffer *bytes.Buffer, currentEpoch int64, data []byte) error {
+	dataHash := accounts.TextHash(crypto.Keccak256(data))
+	signature, err := crypto.Sign(dataHash, s.protocolContext.signerPrivateKey)
 	if err != nil {
-		logger.Error("error sending submit tx for submitter %s tx: %v", s.name, err)
-		return
+		return errors.Wrap(err, "error signing submitSignatures data")
 	}
-	logger.Info("submitter %s submitted tx", s.name)
-}
 
-func (s *Submitter) Run() {
-	ticker := utils.NewEpochTicker(s.startOffset, s.epoch)
-	for {
-		currentEpoch := <-ticker.C
-		payload := s.GetPayload(currentEpoch)
-		s.submit(payload)
-	}
+	epochBytes := uint32toBytes(uint32(currentEpoch - 1))
+	lengthBytes := uint16toBytes(104) // 104 + length of additional data
+
+	buffer.WriteByte(100)        // Protocol ID (1 byte)
+	buffer.Write(epochBytes[:])  // Epoch (4 bytes)
+	buffer.Write(lengthBytes[:]) // Length (2 bytes)
+
+	buffer.WriteByte(0) // Type (1 byte)
+	buffer.Write(data)  // Message (38 bytes)
+
+	buffer.WriteByte(signature[64] + 27) // V (1 byte)
+	buffer.Write(signature[0:32])        // R (32 bytes)
+	buffer.Write(signature[32:64])       // S (32 bytes)
+
+	buffer.Write(data)
+
+	// Todo: append additional data
+	return nil
 }

@@ -14,8 +14,7 @@ type ProtocolClient struct {
 	subProtocols []*SubProtocol
 	eth          *ethclient.Client
 
-	protocolCredentials *protocolCredentials
-	protocolAddresses   *protocolAddresses
+	protocolContext *protocolContext
 
 	submitter1         *Submitter
 	submitter2         *Submitter
@@ -48,12 +47,7 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 		return nil, errors.Wrap(err, "error getting voting epoch")
 	}
 
-	credentials, err := newProtocolCredentials(chainCfg.ChainID, &cfg.Credentials)
-	if err != nil {
-		return nil, err
-	}
-
-	addresses, err := newProtocolAddresses(credentials, &cfg.ContractAddresses)
+	protocolContext, err := newProtocolContext(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -64,21 +58,20 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 	}
 
 	pc := &ProtocolClient{
-		eth:                 cl,
-		protocolCredentials: credentials,
-		protocolAddresses:   addresses,
-		subProtocols:        subProtocols,
-		votingEpoch:         votingEpoch,
-		systemManager:       systemManager,
+		eth:             cl,
+		protocolContext: protocolContext,
+		subProtocols:    subProtocols,
+		votingEpoch:     votingEpoch,
+		systemManager:   systemManager,
 	}
 
 	selectors := newContractSelectors()
 
-	pc.submitter1 = newSubmitter(cl, credentials, addresses, votingEpoch,
+	pc.submitter1 = newSubmitter(cl, protocolContext, votingEpoch,
 		&cfg.Submit1, selectors.submit1, subProtocols, 0, "submit1")
-	pc.submitter2 = newSubmitter(cl, credentials, addresses, votingEpoch,
+	pc.submitter2 = newSubmitter(cl, protocolContext, votingEpoch,
 		&cfg.Submit2, selectors.submit2, subProtocols, -1, "submit2")
-	pc.signatureSubmitter = newSignatureSubmitter(cl, credentials, addresses, votingEpoch,
+	pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingEpoch,
 		&cfg.SignatureSubmitter, selectors.submitSignatures, subProtocols)
 
 	return pc, nil

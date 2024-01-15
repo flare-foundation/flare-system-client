@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"flare-tlc/client/config"
+	"flare-tlc/client/shared"
 	"flare-tlc/logger"
 	"fmt"
 	"io"
@@ -83,19 +84,31 @@ func (sp *SubProtocol) getData(votingRound int64, submitName string, signingAddr
 	return data, nil
 }
 
-func (sp *SubProtocol) getDataAsync(votingRound int64, endpoint string, signingAddress string) <-chan []byte {
-	ch := make(chan []byte)
-	go func() {
+// func (sp *SubProtocol) getDataAsync(votingRound int64, endpoint string, signingAddress string) <-chan []byte {
+// 	ch := make(chan []byte)
+// 	go func() {
+// 		data, err := sp.getData(votingRound, endpoint, signingAddress)
+// 		if err != nil {
+// 			logger.Info("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
+// 				sp.Id, sp.ApiEndpoint, votingRound, err)
+// 			ch <- nil
+// 			return
+// 		}
+// 		ch <- data
+// 	}()
+// 	return ch
+// }
+
+func (sp *SubProtocol) getDataWithRetry(votingRound int64, endpoint string, signingAddress string, nRetries int) <-chan shared.ExecuteStatus[[]byte] {
+	return shared.ExecuteWithRetry(func() ([]byte, error) {
 		data, err := sp.getData(votingRound, endpoint, signingAddress)
 		if err != nil {
 			logger.Info("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
 				sp.Id, sp.ApiEndpoint, votingRound, err)
-			ch <- nil
-			return
+			return nil, err
 		}
-		ch <- data
-	}()
-	return ch
+		return data, nil
+	}, nRetries)
 }
 
 func getUrl(votingRound int64, protocol *SubProtocol, endpoint string, signingAddress string) (*url.URL, error) {
