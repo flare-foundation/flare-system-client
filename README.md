@@ -34,19 +34,41 @@ node_url = "http://localhost:9650/"  # node client address
 address_hrp = "localflare"  # HRP (human readable part) of chain -- used to properly encode/decode addresses
 chain_id = 162  # chain id
 eth_rpc_url = "http://localhost:9650/ext/C/rpc"  # Ethereum RPC URL
-api_key = ""    # API key (in case the node is protected by API key), adds ?x-apikey=... to all requests if not empty
-private_key_file = "../credentials/pk.txt"  # file containing the private key of an account (for voting and mirroring clients), in hex
-
 
 [contract_addresses]
-voting = "0xf956df3800379fdFA31D0A45FDD5001D02F4109c"       # voting contract address
-mirroring = "0xE64Df6a7e4f4c277C5299f0FE12D7BbB8A207175"    # mirror contract address
+submission = "0xfae0fd738dabc8a0426f47437322b6d026a9fd95"
+system_manager = "0x22474d350ec2da53d717e30b96e9a2b7628ede5b"
+voter_registry = "0xa4bcdf64cdd5451b6ac3743b414124a6299b65ff"
+relay = "0x18b9306737eaf6e8fc8e737f488a1ae077b18053"
+
+[credentials]
+identity_address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity account not private key
+system_manager_sender_private_key_file = "../credentials/standard-account-0000.txt" # any account
+signing_policy_private_key_file = "../credentials/policy-signing-account.txt" # for signing and submitting votes
+
+[voting]
+enabled_registration = true       # enable/disable registration - send RegisterVoter and SignNewSigningPolicy txs
+enabled_protocol_voting = false
+
+[protocol.ftso1]
+id = 1
+api_endpoint = "http://localhost:3000/ftso1"
+
+[protocol.ftso2]
+id = 2
+api_endpoint = "http://localhost:3000/ftso2"
+
+[submit1]
+start_offset = "10s"   # start fetching data and submitting txs after this offset from the start of the epoch
+tx_submit_retries = 1  # number of retries for submitting txs
+
+[submit2]
+start_offset = "80s"
+tx_submit_retries = 1
+
+[submit_signatures]
+start_offset = "30s"
+tx_submit_retries = 3
+data_fetch_retries = 5  # number of retries for fetching data from the API, timeout is 1 second
+max_rounds = 3          # max number of rounds to fetch data and submit signatures
 ```
-
-## Deployment configuration
-
-...
-
-## Running tests
-
-...

@@ -39,4 +39,24 @@ signing_policy_private_key_file = "../credentials/policy-signing-account.txt" # 
 enabled_registration = true
 enabled_protocol_voting = false
 
-# [protocol]
+[protocol.ftso1]
+id = 1
+api_endpoint = "http://localhost:3000/ftso1"
+
+[protocol.ftso2]
+id = 2
+api_endpoint = "http://localhost:3000/ftso2"
+
+[submit1]
+start_offset = "10s"
+tx_submit_retries = 1
+
+[submit2]
+start_offset = "80s"
+tx_submit_retries = 1
+
+[submit_signatures]
+start_offset = "30s"
+tx_submit_retries = 3
+data_fetch_retries = 5
+max_rounds = 3
