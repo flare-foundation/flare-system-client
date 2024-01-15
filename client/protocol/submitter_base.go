@@ -53,7 +53,7 @@ func (s *SubmitterBase) Run() {
 	ticker := utils.NewEpochTicker(s.startOffset, s.epoch)
 	for {
 		currentEpoch := <-ticker.C
-		s.RunEpoch(currentEpoch)
+		s.EpochRunner.RunEpoch(currentEpoch)
 	}
 }
 

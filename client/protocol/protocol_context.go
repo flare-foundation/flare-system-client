@@ -55,7 +55,11 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 		return nil, errors.Wrap(err, "error creating submit private key")
 	}
 
-	ctx.submitSignaturesTxOpts, _, err = chain.CredentialsFromPrivateKey(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile, chainID)
+	submitSignaturesPkString, err := globalConfig.ReadFileToString(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "error reading submit signatures private key")
+	}
+	ctx.submitSignaturesTxOpts, _, err = chain.CredentialsFromPrivateKey(submitSignaturesPkString, chainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating submit signatures tx opts")
 	}

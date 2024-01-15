@@ -45,7 +45,7 @@ func newSubmitter(
 	epochOffset int64,
 	name string,
 ) *Submitter {
-	return &Submitter{
+	submitter := &Submitter{
 		SubmitterBase: SubmitterBase{
 			ethClient:       ethClient,
 			protocolContext: pc,
@@ -57,6 +57,9 @@ func newSubmitter(
 			name:            name,
 		},
 	}
+	submitter.EpochRunner = submitter
+	submitter.DataVerifier = submitter
+	return submitter
 }
 
 func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
@@ -100,7 +103,7 @@ func newSignatureSubmitter(
 	selector []byte,
 	subProtocols []*SubProtocol,
 ) *SignatureSubmitter {
-	return &SignatureSubmitter{
+	submitter := &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
 			ethClient:       ethClient,
 			protocolContext: pc,
@@ -114,6 +117,9 @@ func newSignatureSubmitter(
 		maxRounds:        submitCfg.MaxRounds,
 		dataFetchRetries: submitCfg.DataFetchRetries,
 	}
+	submitter.EpochRunner = submitter
+	submitter.DataVerifier = submitter
+	return submitter
 }
 
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 104)
