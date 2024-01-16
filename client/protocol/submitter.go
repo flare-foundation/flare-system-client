@@ -124,7 +124,7 @@ func (s *Submitter) RunEpoch(currentEpoch int64) {
 	logger.Debug("  epoch is [%v, %v], now is %v", s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch), time.Now())
 
 	payload, err := s.GetPayload(currentEpoch)
-	if err != nil {
+	if err == nil {
 		s.submit(payload)
 	}
 }
