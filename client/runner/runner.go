@@ -2,6 +2,7 @@ package runner
 
 import (
 	"flare-tlc/client/context"
+	"flare-tlc/client/finalizer"
 	"flare-tlc/client/protocol"
 	"flare-tlc/client/registration"
 	"reflect"
@@ -33,6 +34,11 @@ func Start(ctx context.ClientContext) {
 	if err != nil {
 		panic(err)
 	}
+	finalizerClient, err := finalizer.NewFinalizerClient(ctx)
+	if err != nil {
+		panic(err)
+	}
 	RunAsync(protocolClient)
 	RunAsync(registrationClient)
+	RunAsync(finalizerClient)
 }

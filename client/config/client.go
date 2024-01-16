@@ -62,6 +62,7 @@ type SubmitSignaturesConfig struct {
 type VotingConfig struct {
 	EnabledRegistration   bool `toml:"enabled_registration"`
 	EnabledProtocolVoting bool `toml:"enabled_protocol_voting"`
+	EnabledFinalizer      bool `toml:"enabled_finalizer"`
 }
 
 func newConfig() *ClientConfig {

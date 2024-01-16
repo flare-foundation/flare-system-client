@@ -21,3 +21,19 @@ func FetchLogsByAddressAndTopic0(db *gorm.DB, address string, topic0 string,
 	}
 	return logs, nil
 }
+
+// Fetch all transactions matching toAddress and functionSig from timestamp range (from, to], order by timestamp
+func FetchTransactionsByAddressAndSelector(db *gorm.DB, toAddress string, functionSig string,
+	from int64, to int64) ([]Transaction, error) {
+	var transactions []Transaction
+	err := db.Where(
+		"to_address = ? AND function_sig = ? AND timestamp > ? AND timestamp <= ?",
+		strings.ToLower(strings.TrimPrefix(toAddress, "0x")),
+		strings.ToLower(strings.TrimPrefix(functionSig, "0x")),
+		from, to,
+	).Order("timestamp").Find(&transactions).Error
+	if err != nil {
+		return nil, err
+	}
+	return transactions, nil
+}
