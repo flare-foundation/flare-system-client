@@ -78,9 +78,9 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 }
 
 func (c *ProtocolClient) Run() error {
-	go c.submitter1.Run()
-	go c.submitter2.Run()
-	go c.signatureSubmitter.Run()
+	go Run(c.submitter1)
+	go Run(c.submitter2)
+	go Run(c.signatureSubmitter)
 
 	return nil
 }

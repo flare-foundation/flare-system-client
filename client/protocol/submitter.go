@@ -6,6 +6,8 @@ import (
 	"flare-tlc/client/shared"
 	"flare-tlc/logger"
 	"flare-tlc/utils"
+	"flare-tlc/utils/chain"
+	"fmt"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -21,11 +23,24 @@ const (
 	signatureSubmitterDataTimeout = 1 * time.Second
 )
 
+type SubmitterBase struct {
+	ethClient *ethclient.Client
+
+	protocolContext *protocolContext
+
+	epoch        *utils.Epoch
+	selector     []byte
+	subProtocols []*SubProtocol
+
+	startOffset   time.Duration
+	submitRetries int    // number of retries for submitting tx
+	name          string // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
+}
+
 type Submitter struct {
 	SubmitterBase
 
-	epochOffset int64  // offset from current epoch, e.g., -1, 0
-	name        string // e.g., "submit1", "submit2", "submit3"
+	epochOffset int64 // offset from current epoch, e.g., -1, 0
 }
 
 type SignatureSubmitter struct {
@@ -33,6 +48,24 @@ type SignatureSubmitter struct {
 
 	maxRounds        int // number of rounds for sending submitSignatures tx
 	dataFetchRetries int // number of retries for fetching data of each provider
+}
+
+func (s *SubmitterBase) submit(payload []byte) bool {
+	sendResult := <-shared.ExecuteWithRetry(func() (any, error) {
+		err := chain.SendRawTx(s.ethClient, s.protocolContext.submitPrivateKey, s.protocolContext.submitContractAddress, payload)
+		if err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
+		}
+		return nil, nil
+	}, s.submitRetries, shared.TxRetryInterval)
+	if sendResult.Success {
+		logger.Info("submitter %s submitted tx", s.name)
+	}
+	return sendResult.Success
+}
+
+func (s *SubmitterBase) GetEpochTicker() *utils.EpochTicker {
+	return utils.NewEpochTicker(s.startOffset, s.epoch)
 }
 
 func newSubmitter(
@@ -45,7 +78,7 @@ func newSubmitter(
 	epochOffset int64,
 	name string,
 ) *Submitter {
-	submitter := &Submitter{
+	return &Submitter{
 		SubmitterBase: SubmitterBase{
 			ethClient:       ethClient,
 			protocolContext: pc,
@@ -56,10 +89,8 @@ func newSubmitter(
 			submitRetries:   max(1, submitCfg.TxSubmitRetries),
 			name:            name,
 		},
+		epochOffset: epochOffset,
 	}
-	submitter.EpochRunner = submitter
-	submitter.DataVerifier = submitter
-	return submitter
 }
 
 func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
@@ -71,7 +102,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 			s.protocolContext.signingAddress.Hex(),
 			1,
 			submitterGetDataTimeout,
-			s,
+			IdentityDataVerifier,
 		)
 	}
 
@@ -89,6 +120,9 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 }
 
 func (s *Submitter) RunEpoch(currentEpoch int64) {
+	logger.Debug("submitter %s running epoch %d", s.name, currentEpoch)
+	logger.Debug("  epoch is [%v, %v], now is %v", s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch), time.Now())
+
 	payload, err := s.GetPayload(currentEpoch)
 	if err != nil {
 		s.submit(payload)
@@ -103,7 +137,7 @@ func newSignatureSubmitter(
 	selector []byte,
 	subProtocols []*SubProtocol,
 ) *SignatureSubmitter {
-	submitter := &SignatureSubmitter{
+	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
 			ethClient:       ethClient,
 			protocolContext: pc,
@@ -117,9 +151,6 @@ func newSignatureSubmitter(
 		maxRounds:        submitCfg.MaxRounds,
 		dataFetchRetries: submitCfg.DataFetchRetries,
 	}
-	submitter.EpochRunner = submitter
-	submitter.DataVerifier = submitter
-	return submitter
 }
 
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 104)
@@ -152,7 +183,13 @@ func (s *SignatureSubmitter) WritePayload(buffer *bytes.Buffer, currentEpoch int
 // 2. repeat 1 for each sub-protocol provider not giving valid answer
 // Repeat 1 and 2 until all sub-protocol providers give valid answer or we did 10 rounds
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
+	logger.Debug("signatureSubmitter %s running epoch %d", s.name, currentEpoch)
+	logger.Debug("  epoch is [%v, %v], now is %v", s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch), time.Now())
+
 	protocolsToSend := mapset.NewSet[int]()
+	for i := range s.subProtocols {
+		protocolsToSend.Add(i)
+	}
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 	for i := 0; i < s.maxRounds && protocolsToSend.Cardinality() > 0; i++ {
 		for i, protocol := range s.subProtocols {
@@ -165,7 +202,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 				s.protocolContext.signingAddress.Hex(),
 				s.dataFetchRetries,
 				signatureSubmitterDataTimeout,
-				s,
+				SignatureSubmitterDataVerifier,
 			)
 		}
 
@@ -179,7 +216,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 			}
 
 			data := <-channels[i]
-			if data.Success {
+			if !data.Success {
 				logger.Error("error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
@@ -190,9 +227,12 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 			}
 			protocolsToSend.Remove(i)
 		}
-
-		if !s.submit(buffer.Bytes()) {
-			protocolsToSend = protocolsToSendCopy
+		if protocolsToSendCopy.Cardinality() > protocolsToSend.Cardinality() {
+			if !s.submit(buffer.Bytes()) {
+				protocolsToSend = protocolsToSendCopy
+			}
+		} else {
+			logger.Info("signatureSubmitter %s did not get any new data", s.name)
 		}
 	}
 }

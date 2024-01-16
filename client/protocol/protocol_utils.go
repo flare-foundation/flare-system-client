@@ -8,6 +8,7 @@ import (
 	"flare-tlc/logger"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -17,9 +18,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type DataVerifier interface {
-	VerifyResponse(*SubProtocolResponse) error
-}
+type DataVerifier func(*SubProtocolResponse) error
 
 type SubProtocol struct {
 	Id          uint8
@@ -51,6 +50,7 @@ func (sp *SubProtocol) getData(votingRound int64, submitName string, signingAddr
 		return nil, errors.Wrap(err, "error getting url")
 	}
 
+	logger.Debug("Calling protocol client API: %s", url.String())
 	client := http.Client{
 		Timeout: timeout,
 	}
@@ -111,7 +111,7 @@ func (sp *SubProtocol) getDataWithRetry(
 	return shared.ExecuteWithRetry(func() (*SubProtocolResponse, error) {
 		data, err := sp.getData(votingRound, endpoint, signingAddress, timeout)
 		if err == nil {
-			err = dataVerifier.VerifyResponse(data)
+			err = dataVerifier(data)
 		}
 		if err != nil {
 			logger.Info("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
@@ -122,11 +122,31 @@ func (sp *SubProtocol) getDataWithRetry(
 	}, nRetries, 0)
 }
 
+func SignatureSubmitterDataVerifier(data *SubProtocolResponse) error {
+	if data.Status != "OK" {
+		return fmt.Errorf("status %s", data.Status)
+	}
+	if len(data.Data) != 38 {
+		return fmt.Errorf("data length %d is not 38", len(data.Data))
+	}
+	// Check if additional data is too long
+	// Length of data without additional data is 104 bytes: 1 (type) + 38 (message) + 65 (signature)
+	if len(data.AdditionalData) > math.MaxUint16-104 {
+		return errors.New("additional data too long")
+	}
+	return nil
+}
+
+func IdentityDataVerifier(data *SubProtocolResponse) error {
+	return nil
+}
+
 func getUrl(votingRound int64, protocol *SubProtocol, endpoint string, signingAddress string) (*url.URL, error) {
 	baseURL, err := url.JoinPath(
 		protocol.ApiEndpoint,
 		endpoint,
 		strconv.FormatInt(votingRound, 10),
+		signingAddress,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating url path")
@@ -135,10 +155,10 @@ func getUrl(votingRound int64, protocol *SubProtocol, endpoint string, signingAd
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating url")
 	}
-	if len(signingAddress) > 0 {
-		query := url.Query()
-		query.Set("signingAddress", signingAddress)
-		url.RawQuery = query.Encode()
-	}
+	// if len(signingAddress) > 0 {
+	// 	query := url.Query()
+	// 	query.Set("signingAddress", signingAddress)
+	// 	url.RawQuery = query.Encode()
+	// }
 	return url, nil
 }
