@@ -161,8 +161,8 @@ func (s *SignatureSubmitter) WritePayload(buffer *bytes.Buffer, currentEpoch int
 		return errors.Wrap(err, "error signing submitSignatures data")
 	}
 
-	epochBytes := uint32toBytes(uint32(currentEpoch - 1))
-	lengthBytes := uint16toBytes(uint16(104 + len(data.AdditionalData)))
+	epochBytes := shared.Uint32toBytes(uint32(currentEpoch - 1))
+	lengthBytes := shared.Uint16toBytes(uint16(104 + len(data.AdditionalData)))
 
 	buffer.WriteByte(100)        // Protocol ID (1 byte)
 	buffer.Write(epochBytes[:])  // Epoch (4 bytes)

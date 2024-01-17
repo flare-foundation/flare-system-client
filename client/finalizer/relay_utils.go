@@ -25,6 +25,11 @@ type relayContractClient struct {
 	txVerifier *chain.TxVerifier
 }
 
+type signingPolicyListenerResponse struct {
+	policyData *relay.RelaySigningPolicyInitialized
+	timestamp  int64
+}
+
 func NewRelayContractClient(
 	ethClient *ethclient.Client,
 	address common.Address,
@@ -43,8 +48,8 @@ func NewRelayContractClient(
 	}, nil
 }
 
-func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, startTime time.Time) <-chan *relay.RelaySigningPolicyInitialized {
-	out := make(chan *relay.RelaySigningPolicyInitialized, listenerBufferSize)
+func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, startTime time.Time) <-chan signingPolicyListenerResponse {
+	out := make(chan signingPolicyListenerResponse, listenerBufferSize)
 	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal
@@ -67,7 +72,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 					logger.Error("Error parsing SigningPolicyInitialized event %v", err)
 					break
 				}
-				out <- policyData
+				out <- signingPolicyListenerResponse{policyData, int64(log.Timestamp)}
 				// continue with timestamps > log.Timestamp,
 				// there should be only one such log per timestamp
 				eventRangeStart = int64(log.Timestamp)
@@ -75,4 +80,8 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 		}
 	}()
 	return out
+}
+
+func (r *relayContractClient) Submit() {
+	shared.Submit(r.relay, r.txOpts)
 }

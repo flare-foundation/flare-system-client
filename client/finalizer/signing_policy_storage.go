@@ -1,6 +1,8 @@
 package finalizer
 
 import (
+	"bytes"
+	"flare-tlc/client/shared"
 	"flare-tlc/utils/contracts/relay"
 	"fmt"
 	"math"
@@ -19,6 +21,19 @@ type signingPolicy struct {
 	seed               *big.Int
 	voters             []common.Address
 	weights            []uint16
+	rawBytes           []byte
+}
+
+func newSigningPolicy(r *relay.RelaySigningPolicyInitialized) *signingPolicy {
+	return &signingPolicy{
+		rewardEpochId:      r.RewardEpochId.Int64(),
+		startVotingRoundId: r.StartVotingRoundId,
+		threshold:          r.Threshold,
+		seed:               r.Seed,
+		voters:             r.Voters,
+		weights:            r.Weights,
+		rawBytes:           r.SigningPolicyBytes,
+	}
 }
 
 type voterData struct {
@@ -49,18 +64,7 @@ func newSigningPolicyStorage() *signingPolicyStorage {
 	}
 }
 
-func newSigningPolicy(r *relay.RelaySigningPolicyInitialized) *signingPolicy {
-	return &signingPolicy{
-		rewardEpochId:      r.RewardEpochId.Int64(),
-		startVotingRoundId: r.StartVotingRoundId,
-		threshold:          r.Threshold,
-		seed:               r.Seed,
-		voters:             r.Voters,
-		weights:            r.Weights,
-	}
-}
-
-func (s *signingPolicyStorage) add(sp *signingPolicy) error {
+func (s *signingPolicyStorage) Add(sp *signingPolicy) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -91,4 +95,46 @@ func (s *signingPolicyStorage) add(sp *signingPolicy) error {
 	}
 	s.maxRewardEpochId = sp.rewardEpochId
 	return nil
+}
+
+func (s *signingPolicyStorage) GetForVotingRound(votingRoundId uint32) *signingPolicy {
+	s.Lock()
+	defer s.Unlock()
+
+	if len(s.spMap) == 0 {
+		return nil
+	}
+	for i := s.maxRewardEpochId; i >= s.minRewardEpochId; i-- {
+		sp := s.spMap[i]
+		if sp.startVotingRoundId <= votingRoundId {
+			return sp
+		}
+	}
+	return nil
+}
+
+func (s *signingPolicy) Encode() ([]byte, error) {
+	buffer := bytes.NewBuffer(nil)
+
+	size := len(s.voters)
+	// TODO: size, epoch, voting round size checks?
+
+	sizeBytes := shared.Uint16toBytes(uint16(size))
+	epochBytes := shared.Uint32toBytes(uint32(s.rewardEpochId))
+	startVotingRoundBytes := shared.Uint32toBytes(s.startVotingRoundId)
+	thresholdBytes := shared.Uint16toBytes(s.threshold)
+
+	buffer.Write(sizeBytes[:])
+	buffer.Write(epochBytes[:])
+	buffer.Write(startVotingRoundBytes[:])
+	buffer.Write(thresholdBytes[:])
+	buffer.Write(s.seed.Bytes())
+
+	// voters and weights
+	for i := 0; i < size; i++ {
+		weightBytes := shared.Uint16toBytes(s.weights[i])
+		buffer.Write(s.voters[i].Bytes())
+		buffer.Write(weightBytes[:])
+	}
+	return buffer.Bytes(), nil
 }
