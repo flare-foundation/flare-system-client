@@ -83,5 +83,5 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 }
 
 func (r *relayContractClient) Submit() {
-	shared.Submit(r.relay, r.txOpts)
+
 }

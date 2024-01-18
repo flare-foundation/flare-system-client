@@ -5,6 +5,7 @@ import (
 	"flare-tlc/config"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -77,28 +78,28 @@ func (c *finalizerClient) Run() error {
 		}
 	}()
 
-	txListener := c.submissionClient.SubmissionTxListener(c.db, startTime)
 	go func() {
-		for {
-			submResponse := <-txListener
-
-			for _, payloadItem := range submResponse.payload {
-				sp := c.signingPolicyStorage.GetForVotingRound(payloadItem.votingRoundId)
-				if sp == nil {
-					logger.Error("No signing policy found for voting round %d", payloadItem.votingRoundId)
-					continue
-				}
-				addResult, err := c.submissionStorage.Add(payloadItem.payload, sp)
-				if err != nil {
-					logger.Error("Error adding submission %v", err)
-					continue
-				}
-				if addResult.thresholdReached {
-					logger.Info("Threshold reached for voting round %d", payloadItem.votingRoundId)
-					c.finalizerQueue.Add(payloadItem.votingRoundId, payloadItem.protocolId, payloadItem.payload.messageHash)
-				}
-			}
-		}
+		c.submissionClient.SubmissionTxListener(c.db, startTime, c)
 	}()
+	return nil
+}
+
+func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
+	for _, payloadItem := range slr.payload {
+		sp := c.signingPolicyStorage.GetForVotingRound(payloadItem.votingRoundId)
+		if sp == nil {
+			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)
+		}
+		addResult, err := c.submissionStorage.Add(payloadItem.payload, sp)
+		if err != nil {
+			// Error is non-fatal, skip this submission
+			logger.Warn("Error adding submission %v", err)
+			continue
+		}
+		if addResult.thresholdReached {
+			logger.Info("Threshold reached for voting round %d", payloadItem.votingRoundId)
+			c.finalizerQueue.Add(payloadItem)
+		}
+	}
 	return nil
 }
