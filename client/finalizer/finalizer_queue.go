@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -25,11 +26,19 @@ type finalizerQueue struct {
 
 type finalizerQueueProcessor struct {
 	queue finalizerQueue
+
+	submissionStorage *submissionStorage
+	relayClient       *relayContractClient
 }
 
-func newFinalizerQueueProcessor() *finalizerQueueProcessor {
+func newFinalizerQueueProcessor(
+	submissionStorage *submissionStorage,
+	relayClient *relayContractClient,
+) *finalizerQueueProcessor {
 	return &finalizerQueueProcessor{
-		queue: newFinalizerQueue(),
+		submissionStorage: submissionStorage,
+		relayClient:       relayClient,
+		queue:             newFinalizerQueue(),
 	}
 }
 
@@ -69,13 +78,45 @@ func (p *finalizerQueueProcessor) Add(item *submitterPayloadItem) {
 }
 
 // Infinite loop, should be run in a goroutine
-func (p *finalizerQueueProcessor) Process() {
+func (p *finalizerQueueProcessor) Run() {
 	ticker := time.NewTicker(finalizerQueueProcessorInterval)
 	for {
 		<-ticker.C
 
 		item := p.queue.Pop()
-		if item != nil {
+		selectedPayloads, signingPolicy := p.processItem(item)
+		p.relayClient.SubmitPayloads(selectedPayloads, signingPolicy)
+	}
+}
+
+func (p *finalizerQueueProcessor) processItem(item *queueItem) ([]*signedPayload, *signingPolicy) {
+	if item == nil {
+		return nil, nil
+	}
+	data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
+	if data == nil {
+		return nil, nil
+	}
+	// data.payload slice is a copy of the original slice, so we can sort it
+	// (sort descreasing by weight)
+	slices.SortFunc(data.payload, func(p, q *signedPayload) bool {
+		return data.signingPolicy.weights[p.index] > data.signingPolicy.weights[q.index]
+	})
+
+	// greedy select wuntil threshold is reached
+	weight := uint16(0)
+	var selected []*signedPayload
+	for _, payload := range data.payload {
+		weight += data.signingPolicy.weights[payload.index]
+		selected = append(selected, payload)
+		if weight > data.signingPolicy.threshold {
+			break
 		}
 	}
+
+	// sort selected payloads by index
+	slices.SortFunc(selected, func(p, q *signedPayload) bool {
+		return p.index < q.index
+	})
+	return selected, data.signingPolicy
 }

@@ -1,6 +1,8 @@
 package finalizer
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"flare-tlc/client/shared"
 	"flare-tlc/database"
 	"flare-tlc/logger"
@@ -8,9 +10,9 @@ import (
 	"flare-tlc/utils/contracts/relay"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -19,10 +21,13 @@ const (
 )
 
 type relayContractClient struct {
-	address    common.Address
+	address common.Address
+
+	ethClient  *ethclient.Client
 	relay      *relay.Relay
-	txOpts     *bind.TransactOpts
-	txVerifier *chain.TxVerifier
+	privateKey *ecdsa.PrivateKey
+
+	relaySelector []byte
 }
 
 type signingPolicyListenerResponse struct {
@@ -33,18 +38,25 @@ type signingPolicyListenerResponse struct {
 func NewRelayContractClient(
 	ethClient *ethclient.Client,
 	address common.Address,
-	txOpts *bind.TransactOpts,
+	privateKey *ecdsa.PrivateKey,
 ) (*relayContractClient, error) {
-	relay, err := relay.NewRelay(address, ethClient)
+	relayContract, err := relay.NewRelay(address, ethClient)
 	if err != nil {
 		return nil, err
 	}
 
+	relayABI, err := relay.RelayMetaData.GetAbi()
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+	relaySelectorBytes := relayABI.Methods["relay"].ID
+
 	return &relayContractClient{
-		address:    address,
-		relay:      relay,
-		txOpts:     txOpts,
-		txVerifier: chain.NewTxVerifier(ethClient),
+		address:       address,
+		relay:         relayContract,
+		privateKey:    privateKey,
+		relaySelector: relaySelectorBytes,
 	}, nil
 }
 
@@ -82,6 +94,33 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 	return out
 }
 
-func (r *relayContractClient) Submit() {
+func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingPolicy *signingPolicy) {
+	if len(payloads) == 0 || signingPolicy == nil {
+		return
+	}
 
+	buffer := bytes.NewBuffer(nil)
+	buffer.Write(r.relaySelector)
+	buffer.Write(signingPolicy.rawBytes)
+	buffer.Write(payloads[0].rawMessage)
+	signatureBytes, err := EncodeForRelay(payloads)
+	if err != nil {
+		logger.Error("Error encoding payloads %v", err)
+		return
+	}
+	buffer.Write(signatureBytes)
+	payload := buffer.Bytes()
+
+	// TODO: what happens if not successful
+	execStatus := <-shared.ExecuteWithRetry(func() (any, error) {
+		err := chain.SendRawTx(r.ethClient, r.privateKey, r.address, payload)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error sending relay tx")
+		}
+		return nil, nil
+	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+
+	if execStatus.Success {
+		logger.Info("Relay tx sent")
+	}
 }

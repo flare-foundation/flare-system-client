@@ -33,7 +33,7 @@ type signedPayload struct {
 	signer      common.Address
 	messageHash common.Hash
 
-	// index of voter in signing policy
+	// index of voter in signing policy, updated when inserting it into storage
 	index int
 }
 

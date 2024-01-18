@@ -9,8 +9,9 @@ import (
 )
 
 type messageData struct {
-	payload []*signedPayload
-	weight  uint16
+	payload       []*signedPayload
+	weight        uint16
+	signingPolicy *signingPolicy
 }
 
 type protocolData struct {
@@ -81,10 +82,45 @@ func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayload
 	if message.payload[voterIndex] != nil {
 		return addPayloadResult{added: false}, nil // already added
 	}
+	p.index = voterIndex
 	message.payload[voterIndex] = p
 	message.weight += sp.weights[voterIndex]
+	message.signingPolicy = sp
 	return addPayloadResult{
 		added:            true,
 		thresholdReached: message.weight > sp.threshold,
 	}, nil
+}
+
+func (s *submissionStorage) Get(
+	votingRoundId uint32,
+	protocolId byte,
+	messageHash common.Hash,
+) *messageData {
+	s.Lock()
+	defer s.Unlock()
+
+	vr, ok := s.vrMap[votingRoundId]
+	if !ok {
+		return nil
+	}
+	protocol, ok := vr.protocolMap[protocolId]
+	if !ok {
+		return nil
+	}
+	message, ok := protocol.messageMap[messageHash]
+	if !ok {
+		return nil
+	}
+	return message.Copy()
+}
+
+func (d *messageData) Copy() *messageData {
+	payload := make([]*signedPayload, len(d.payload))
+	copy(payload, d.payload)
+	return &messageData{
+		payload:       payload,
+		weight:        d.weight,
+		signingPolicy: d.signingPolicy,
+	}
 }

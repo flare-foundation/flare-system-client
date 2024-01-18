@@ -23,7 +23,7 @@ type finalizerClient struct {
 	submissionClient     *submissionContractClient
 	signingPolicyStorage *signingPolicyStorage
 	submissionStorage    *submissionStorage
-	finalizerQueue       *finalizerQueue
+	queueProcessor       *finalizerQueueProcessor
 }
 
 func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, error) {
@@ -38,31 +38,32 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		return nil, err
 	}
 
-	senderPk, err := config.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
+	senderPkString, err := config.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading sender private key")
 	}
-	senderTxOpts, _, err := chain.CredentialsFromPrivateKey(senderPk, chainCfg.ChainID)
+	senderPk, err := chain.PrivateKeyFromHex(senderPkString)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating sender register tx opts")
 	}
 	relayClient, err := NewRelayContractClient(
 		ethClient,
 		cfg.ContractAddresses.Relay,
-		senderTxOpts,
+		senderPk,
 	)
 	if err != nil {
 		return nil, err
 	}
 	submissionClient := NewSubmissionContractClient(cfg.ContractAddresses.Submission)
+	submissionStorage := newSubmissionStorage()
 
 	return &finalizerClient{
 		db:                   ctx.DB(),
 		relayClient:          relayClient,
 		signingPolicyStorage: newSigningPolicyStorage(),
+		submissionStorage:    submissionStorage,
 		submissionClient:     submissionClient,
-		submissionStorage:    newSubmissionStorage(),
-		finalizerQueue:       newFinalizerQueue(),
+		queueProcessor:       newFinalizerQueueProcessor(submissionStorage, relayClient),
 	}, nil
 }
 
@@ -77,9 +78,11 @@ func (c *finalizerClient) Run() error {
 			c.signingPolicyStorage.Add(newSigningPolicy(dbPolicy.policyData))
 		}
 	}()
-
 	go func() {
 		c.submissionClient.SubmissionTxListener(c.db, startTime, c)
+	}()
+	go func() {
+		c.queueProcessor.Run()
 	}()
 	return nil
 }
@@ -98,7 +101,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		}
 		if addResult.thresholdReached {
 			logger.Info("Threshold reached for voting round %d", payloadItem.votingRoundId)
-			c.finalizerQueue.Add(payloadItem)
+			c.queueProcessor.Add(payloadItem)
 		}
 	}
 	return nil
