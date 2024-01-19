@@ -35,9 +35,10 @@ identity_address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity accou
 system_manager_sender_private_key_file = "../credentials/standard-account-0000.txt" # any account
 signing_policy_private_key_file = "../credentials/policy-signing-account.txt" # for signing and submitting votes
 
-[voting]
+[clients]
 enabled_registration = true
 enabled_protocol_voting = false
+enabled_finalizer = false
 
 [protocol.ftso1]
 id = 1
@@ -60,3 +61,7 @@ start_offset = "30s"
 tx_submit_retries = 3
 data_fetch_retries = 5
 max_rounds = 3
+
+[finalizer]
+starting_reward_epoch = 0
+starting_voting_round = 1005

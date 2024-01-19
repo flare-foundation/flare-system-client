@@ -24,11 +24,13 @@ type finalizerClient struct {
 	signingPolicyStorage *signingPolicyStorage
 	submissionStorage    *submissionStorage
 	queueProcessor       *finalizerQueueProcessor
+
+	fnalizerContext *finalizerContext
 }
 
 func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, error) {
 	cfg := ctx.Config()
-	if !cfg.Voting.EnabledFinalizer {
+	if !cfg.Clients.EnabledFinalizer {
 		return nil, nil
 	}
 
@@ -37,6 +39,8 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 	if err != nil {
 		return nil, err
 	}
+
+	finalizerContext := newFinalizerContext(cfg)
 
 	senderPkString, err := config.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
 	if err != nil {
@@ -64,18 +68,21 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		submissionStorage:    submissionStorage,
 		submissionClient:     submissionClient,
 		queueProcessor:       newFinalizerQueueProcessor(submissionStorage, relayClient),
+		fnalizerContext:      finalizerContext,
 	}, nil
 }
 
 func (c *finalizerClient) Run() error {
 	startTime := time.Now().Add(-startOffset)
-	spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
 	go func() {
+		spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
 		for {
 			dbPolicy := <-spListener
-			// Todo: move to listener to avoid creating a channel and a goroutine
-			// Todo: synchronize with the epoch
-			c.signingPolicyStorage.Add(newSigningPolicy(dbPolicy.policyData))
+			policy := newSigningPolicy(dbPolicy.policyData)
+			if policy.rewardEpochId < c.fnalizerContext.startingRewardEpoch {
+				continue
+			}
+			c.signingPolicyStorage.Add(policy)
 		}
 	}()
 	go func() {
@@ -89,6 +96,10 @@ func (c *finalizerClient) Run() error {
 
 func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
 	for _, payloadItem := range slr.payload {
+		if payloadItem.votingRoundId < c.fnalizerContext.startingVotingRound {
+			continue
+		}
+
 		sp := c.signingPolicyStorage.GetForVotingRound(payloadItem.votingRoundId)
 		if sp == nil {
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)

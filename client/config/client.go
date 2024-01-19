@@ -11,7 +11,7 @@ type ClientConfig struct {
 	Chain   config.ChainConfig  `toml:"chain"`
 	Metrics MetricsConfig       `toml:"metrics"`
 
-	Voting VotingConfig `toml:"voting"`
+	Clients VotingClientsConfig `toml:"clients"`
 
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
 	Identity          IdentityConfig           `toml:"identity"`
@@ -22,6 +22,8 @@ type ClientConfig struct {
 	Submit1          SubmitConfig           `toml:"submit1"`
 	Submit2          SubmitConfig           `toml:"submit2"`
 	SubmitSignatures SubmitSignaturesConfig `toml:"submit_signatures"`
+
+	Finalizer FinalizerConfig `toml:"finalizer"`
 }
 
 type MetricsConfig struct {
@@ -59,10 +61,15 @@ type SubmitSignaturesConfig struct {
 	MaxRounds        int `toml:"max_rounds"`
 }
 
-type VotingConfig struct {
+type VotingClientsConfig struct {
 	EnabledRegistration   bool `toml:"enabled_registration"`
 	EnabledProtocolVoting bool `toml:"enabled_protocol_voting"`
 	EnabledFinalizer      bool `toml:"enabled_finalizer"`
+}
+
+type FinalizerConfig struct {
+	StartingRewardEpoch int64  `toml:"starting_reward_epoch"`
+	StartingVotingRound uint32 `toml:"starting_voting_round"`
 }
 
 func newConfig() *ClientConfig {

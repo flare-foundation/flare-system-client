@@ -111,7 +111,6 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 	buffer.Write(signatureBytes)
 	payload := buffer.Bytes()
 
-	// TODO: what happens if not successful
 	execStatus := <-shared.ExecuteWithRetry(func() (any, error) {
 		err := chain.SendRawTx(r.ethClient, r.privateKey, r.address, payload)
 		if err != nil {
@@ -120,6 +119,7 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 		return nil, nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 
+	// TODO: what happens if not successful
 	if execStatus.Success {
 		logger.Info("Relay tx sent")
 	}

@@ -5,7 +5,6 @@ import (
 	"flare-tlc/client/shared"
 	"flare-tlc/utils/contracts/relay"
 	"fmt"
-	"math"
 	"math/big"
 	"sync"
 
@@ -57,7 +56,7 @@ type signingPolicyStorage struct {
 
 func newSigningPolicyStorage() *signingPolicyStorage {
 	return &signingPolicyStorage{
-		minRewardEpochId: math.MaxInt64,
+		minRewardEpochId: -1,
 		maxRewardEpochId: -1,
 		spMap:            make(map[int64]*signingPolicy),
 		voterMap:         make(map[int64]map[common.Address]voterData),
@@ -90,7 +89,7 @@ func (s *signingPolicyStorage) Add(sp *signingPolicy) error {
 		}
 	}
 
-	if sp.rewardEpochId < 0 {
+	if s.minRewardEpochId < 0 {
 		s.minRewardEpochId = sp.rewardEpochId
 	}
 	s.maxRewardEpochId = sp.rewardEpochId

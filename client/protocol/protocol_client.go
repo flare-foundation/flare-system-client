@@ -27,7 +27,7 @@ type ProtocolClient struct {
 func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error) {
 	cfg := ctx.Config()
 
-	if !cfg.Voting.EnabledProtocolVoting {
+	if !cfg.Clients.EnabledProtocolVoting {
 		return nil, nil
 	}
 

@@ -58,23 +58,26 @@ func (s *submissionContractClient) SubmissionTxListener(
 		for _, tx := range txs {
 			inputBytes, err := hex.DecodeString(tx.Input)
 			if err != nil {
-				logger.Error("Error decoding input %v, retrying", err) // continue?
-				break
+				logger.Info("Error decoding signature submission input: %v, skipping", err)
 			}
 			payload, err := DecodeSubmitterPayload(inputBytes)
 			if err != nil {
-				logger.Error("Error parsing payload %v, retrying", err) // continue?
-				break
+				// if input cannot be decoded, it is not a valid submission and should be skipped
+				logger.Info("Error parsing signature submission payload: %v, skipping", err)
 			}
-			err = processor.ProcessSubmissionData(submissionListenerResponse{
-				payload:   payload,
-				timestamp: int64(tx.Timestamp),
-			})
-			if err != nil {
-				logger.Warn("Error processing payload %v, retrying", err)
-				break
+			if len(payload) > 0 {
+				err = processor.ProcessSubmissionData(submissionListenerResponse{
+					payload:   payload,
+					timestamp: int64(tx.Timestamp),
+				})
+				if err != nil {
+					// retry the full range, error occurs when the corresponding signing policy
+					// is not yet available
+					logger.Warn("Error processing signature submission payload: %v, retrying", err)
+					break
+				}
 			}
-			// -1 for a bit of overlap in case of an error and break above
+			// -1 for overlap in case of an error and retry above
 			// processor should be able to handle duplicates
 			eventRangeStart = int64(tx.Timestamp) - 1
 		}

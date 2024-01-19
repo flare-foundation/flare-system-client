@@ -32,7 +32,7 @@ type registrationClient struct {
 
 func NewRegistrationClient(ctx context.ClientContext) (*registrationClient, error) {
 	cfg := ctx.Config()
-	if !cfg.Voting.EnabledRegistration {
+	if !cfg.Clients.EnabledRegistration {
 		return nil, nil
 	}
 

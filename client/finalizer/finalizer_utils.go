@@ -45,8 +45,11 @@ type submittedPayload struct {
 }
 
 func DecodeSubmitterPayload(message []byte) ([]*submitterPayloadItem, error) {
+	if len(message) == 0 {
+		return nil, nil
+	}
 	var messages []*submitterPayloadItem
-	for i := 0; i < len(message); {
+	for i := 4; i < len(message); {
 		if len(message)-i < 7 {
 			return nil, fmt.Errorf("invalid payload length at index %d of %d", i, len(message))
 		}
@@ -73,6 +76,16 @@ func DecodeSubmitterPayload(message []byte) ([]*submitterPayloadItem, error) {
 	return messages, nil
 }
 
+// Transform signature to be used by go-ethereum crypto.SigToPub:
+// transforms [V || R || S] to [R || S || V - 27]
+// No checks are performed, we assume that signature array has length 65
+func transformSignature(signature []byte) (RSV [65]byte) {
+	copy(RSV[:], signature[1:33])
+	copy(RSV[32:], signature[33:65])
+	RSV[64] = signature[0] - 27
+	return RSV
+}
+
 func decodeSignedPayload(payload []byte) (*signedPayload, error) {
 	if len(payload) < 104 { // 104 = 1 + 38 + 65
 		return nil, errPayloadTooShort
@@ -85,7 +98,8 @@ func decodeSignedPayload(payload []byte) (*signedPayload, error) {
 	signature := payload[39:104]
 
 	messageHash := accounts.TextHash(crypto.Keccak256(rawMessage))
-	pk, err := crypto.SigToPub(messageHash, signature)
+	transformedSignature := transformSignature(signature)
+	pk, err := crypto.SigToPub(messageHash, transformedSignature[:])
 	if err != nil {
 		return nil, err
 	}
