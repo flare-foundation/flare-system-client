@@ -20,6 +20,12 @@ const (
 	listenerBufferSize = 10
 )
 
+var (
+	nonFatalRelayErrors = []string{
+		"Already relayed",
+	}
+)
+
 type relayContractClient struct {
 	address common.Address
 
@@ -53,6 +59,7 @@ func NewRelayContractClient(
 	relaySelectorBytes := relayABI.Methods["relay"].ID
 
 	return &relayContractClient{
+		ethClient:     ethClient,
 		address:       address,
 		relay:         relayContract,
 		privateKey:    privateKey,
@@ -114,7 +121,11 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 	execStatus := <-shared.ExecuteWithRetry(func() (any, error) {
 		err := chain.SendRawTx(r.ethClient, r.privateKey, r.address, payload)
 		if err != nil {
-			return nil, errors.Wrap(err, "Error sending relay tx")
+			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
+				logger.Info("Non fatal error sending relay tx: %v", err)
+			} else {
+				return nil, errors.Wrap(err, "Error sending relay tx")
+			}
 		}
 		return nil, nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)

@@ -97,16 +97,23 @@ func (p *finalizerQueueProcessor) processItem(item *queueItem) ([]*signedPayload
 	if data == nil {
 		return nil, nil
 	}
-	// data.payload slice is a copy of the original slice, so we can sort it
+
+	payloads := make([]*signedPayload, 0, len(data.payload))
+	for _, payload := range data.payload {
+		if payload != nil {
+			payloads = append(payloads, payload)
+		}
+	}
+
 	// (sort descreasing by weight)
-	slices.SortFunc(data.payload, func(p, q *signedPayload) bool {
+	slices.SortFunc(payloads, func(p, q *signedPayload) bool {
 		return data.signingPolicy.weights[p.index] > data.signingPolicy.weights[q.index]
 	})
 
 	// greedy select wuntil threshold is reached
 	weight := uint16(0)
 	var selected []*signedPayload
-	for _, payload := range data.payload {
+	for _, payload := range payloads {
 		weight += data.signingPolicy.weights[payload.index]
 		selected = append(selected, payload)
 		if weight > data.signingPolicy.threshold {
