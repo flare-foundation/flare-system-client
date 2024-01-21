@@ -14,32 +14,31 @@ type messageData struct {
 	signingPolicy *signingPolicy
 }
 
-type protocolData struct {
-	ProtocolId byte
-	messageMap map[common.Hash]*messageData
-}
-
-type votingRoundData struct {
+type storageItemKey struct {
 	votingRoundId uint32
-	protocolMap   map[byte]*protocolData
+	protocolId    byte
+	messageHash   common.Hash
 }
 
 type submissionStorage struct {
-	// votingRoundId -> votingRound
-	vrMap map[uint32]*votingRoundData
+	ssMap map[storageItemKey]*messageData
 
 	// mutex
 	sync.Mutex
 }
 
 type addPayloadResult struct {
-	added            bool
-	thresholdReached bool
+	added   bool
+	message *messageData
+}
+
+func (m *messageData) thresholdReached() bool {
+	return m.weight > m.signingPolicy.threshold
 }
 
 func newSubmissionStorage() *submissionStorage {
 	return &submissionStorage{
-		vrMap: make(map[uint32]*votingRoundData),
+		ssMap: make(map[storageItemKey]*messageData),
 	}
 }
 
@@ -50,31 +49,19 @@ func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayload
 	s.Lock()
 	defer s.Unlock()
 
-	vr, ok := s.vrMap[p.message.votingRoundId]
-	if !ok {
-		vr = &votingRoundData{
-			votingRoundId: p.message.votingRoundId,
-			protocolMap:   make(map[byte]*protocolData),
-		}
-		s.vrMap[p.message.votingRoundId] = vr
+	key := storageItemKey{
+		votingRoundId: p.message.votingRoundId,
+		protocolId:    p.message.protocolId,
+		messageHash:   p.messageHash,
 	}
-
-	protocol, ok := vr.protocolMap[p.message.protocolId]
-	if !ok {
-		protocol = &protocolData{
-			ProtocolId: p.message.protocolId,
-			messageMap: make(map[common.Hash]*messageData),
-		}
-		vr.protocolMap[p.message.protocolId] = protocol
-	}
-
-	message, ok := protocol.messageMap[p.messageHash]
+	message, ok := s.ssMap[key]
 	if !ok {
 		message = &messageData{
 			payload: make([]*signedPayload, len(sp.voters)),
 		}
-		protocol.messageMap[p.messageHash] = message
+		s.ssMap[key] = message
 	}
+
 	voterIndex := slices.Index(sp.voters, p.signer)
 	if voterIndex < 0 {
 		return addPayloadResult{}, fmt.Errorf("signer %s is not a voter", p.signer.Hex())
@@ -87,8 +74,8 @@ func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayload
 	message.weight += sp.weights[voterIndex]
 	message.signingPolicy = sp
 	return addPayloadResult{
-		added:            true,
-		thresholdReached: message.weight > sp.threshold,
+		added:   true,
+		message: message,
 	}, nil
 }
 
@@ -100,19 +87,15 @@ func (s *submissionStorage) Get(
 	s.Lock()
 	defer s.Unlock()
 
-	vr, ok := s.vrMap[votingRoundId]
-	if !ok {
-		return nil
+	key := storageItemKey{
+		votingRoundId: votingRoundId,
+		protocolId:    protocolId,
+		messageHash:   messageHash,
 	}
-	protocol, ok := vr.protocolMap[protocolId]
-	if !ok {
-		return nil
+	if message, ok := s.ssMap[key]; ok {
+		return message.Copy()
 	}
-	message, ok := protocol.messageMap[messageHash]
-	if !ok {
-		return nil
-	}
-	return message.Copy()
+	return nil
 }
 
 func (d *messageData) Copy() *messageData {

@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/slices"
 )
 
@@ -12,14 +11,9 @@ const (
 	finalizerQueueProcessorInterval = 100 * time.Millisecond
 )
 
-type queueItem struct {
-	votingRoundId uint32
-	protocolId    byte
-	messageHash   common.Hash
-}
-
 type finalizerQueue struct {
-	queue []*queueItem
+	// waiting to be processed
+	queue []*storageItemKey
 
 	sync.Mutex
 }
@@ -44,18 +38,18 @@ func newFinalizerQueueProcessor(
 
 func newFinalizerQueue() finalizerQueue {
 	return finalizerQueue{
-		queue: make([]*queueItem, 0, 256),
+		queue: make([]*storageItemKey, 0, 256),
 	}
 }
 
-func (q *finalizerQueue) Add(item *queueItem) {
+func (q *finalizerQueue) Add(item *storageItemKey) {
 	q.Lock()
 	defer q.Unlock()
 
 	q.queue = append(q.queue, item)
 }
 
-func (q *finalizerQueue) Pop() *queueItem {
+func (q *finalizerQueue) Pop() *storageItemKey {
 	q.Lock()
 	defer q.Unlock()
 
@@ -70,7 +64,7 @@ func (q *finalizerQueue) Pop() *queueItem {
 }
 
 func (p *finalizerQueueProcessor) Add(item *submitterPayloadItem) {
-	p.queue.Add(&queueItem{
+	p.queue.Add(&storageItemKey{
 		votingRoundId: item.votingRoundId,
 		protocolId:    item.protocolId,
 		messageHash:   item.payload.messageHash,
@@ -89,7 +83,7 @@ func (p *finalizerQueueProcessor) Run() {
 	}
 }
 
-func (p *finalizerQueueProcessor) processItem(item *queueItem) ([]*signedPayload, *signingPolicy) {
+func (p *finalizerQueueProcessor) processItem(item *storageItemKey) ([]*signedPayload, *signingPolicy) {
 	if item == nil {
 		return nil, nil
 	}

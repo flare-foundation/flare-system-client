@@ -110,7 +110,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			logger.Warn("Error adding submission %v", err)
 			continue
 		}
-		if addResult.thresholdReached {
+		if addResult.added && addResult.message.thresholdReached() {
 			logger.Info("Threshold reached for voting round %d", payloadItem.votingRoundId)
 			c.queueProcessor.Add(payloadItem)
 		}
