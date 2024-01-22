@@ -83,3 +83,7 @@ func (s *submissionContractClient) SubmissionTxListener(
 		}
 	}
 }
+
+func (s *submissionContractClient) NewSigningPolicyReceived(sp *signingPolicy) {
+
+}

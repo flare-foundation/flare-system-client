@@ -14,22 +14,28 @@ type messageData struct {
 	signingPolicy *signingPolicy
 }
 
-type storageItemKey struct {
-	votingRoundId uint32
-	protocolId    byte
-	messageHash   common.Hash
+type votingRoundKey struct {
+	protocolId  byte
+	messageHash common.Hash
+}
+
+type votingRoundItem struct {
+	msgMap map[votingRoundKey]*messageData
 }
 
 type submissionStorage struct {
-	ssMap map[storageItemKey]*messageData
+	// Map from voting round id to voting round item, a map from (protocol id, message hash) to message data
+	// We use two maps instead of one to make it easier to remove a voting round
+	vrMap map[uint32]*votingRoundItem
 
 	// mutex
 	sync.Mutex
 }
 
 type addPayloadResult struct {
-	added   bool
-	message *messageData
+	added            bool
+	message          *messageData
+	thresholdReached bool // true if the threshold was reached after adding this payload (and was below before)
 }
 
 func (m *messageData) thresholdReached() bool {
@@ -38,7 +44,7 @@ func (m *messageData) thresholdReached() bool {
 
 func newSubmissionStorage() *submissionStorage {
 	return &submissionStorage{
-		ssMap: make(map[storageItemKey]*messageData),
+		vrMap: make(map[uint32]*votingRoundItem),
 	}
 }
 
@@ -49,17 +55,25 @@ func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayload
 	s.Lock()
 	defer s.Unlock()
 
-	key := storageItemKey{
-		votingRoundId: p.message.votingRoundId,
-		protocolId:    p.message.protocolId,
-		messageHash:   p.messageHash,
+	vrItem, ok := s.vrMap[p.message.votingRoundId]
+	if !ok {
+		vrItem = &votingRoundItem{
+			msgMap: make(map[votingRoundKey]*messageData),
+		}
+		s.vrMap[p.message.votingRoundId] = vrItem
 	}
-	message, ok := s.ssMap[key]
+
+	key := votingRoundKey{
+		protocolId:  p.message.protocolId,
+		messageHash: p.messageHash,
+	}
+	message, ok := vrItem.msgMap[key]
 	if !ok {
 		message = &messageData{
-			payload: make([]*signedPayload, len(sp.voters)),
+			payload:       make([]*signedPayload, len(sp.voters)),
+			signingPolicy: sp,
 		}
-		s.ssMap[key] = message
+		vrItem.msgMap[key] = message
 	}
 
 	voterIndex := slices.Index(sp.voters, p.signer)
@@ -70,12 +84,14 @@ func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayload
 		return addPayloadResult{added: false}, nil // already added
 	}
 	p.index = voterIndex
+	thresholdAlreadyReached := message.thresholdReached()
+
 	message.payload[voterIndex] = p
 	message.weight += sp.weights[voterIndex]
-	message.signingPolicy = sp
 	return addPayloadResult{
-		added:   true,
-		message: message,
+		added:            true,
+		message:          message,
+		thresholdReached: !thresholdAlreadyReached && message.thresholdReached(),
 	}, nil
 }
 
@@ -87,13 +103,14 @@ func (s *submissionStorage) Get(
 	s.Lock()
 	defer s.Unlock()
 
-	key := storageItemKey{
-		votingRoundId: votingRoundId,
-		protocolId:    protocolId,
-		messageHash:   messageHash,
-	}
-	if message, ok := s.ssMap[key]; ok {
-		return message.Copy()
+	if vrItem, ok := s.vrMap[votingRoundId]; ok {
+		key := votingRoundKey{
+			protocolId:  protocolId,
+			messageHash: messageHash,
+		}
+		if message, ok := vrItem.msgMap[key]; ok {
+			return message.Copy()
+		}
 	}
 	return nil
 }

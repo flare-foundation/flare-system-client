@@ -2,7 +2,7 @@ package protocol
 
 import (
 	clientContext "flare-tlc/client/context"
-	"flare-tlc/client/registration"
+	"flare-tlc/client/shared"
 	"flare-tlc/utils"
 	"flare-tlc/utils/contracts/system"
 
@@ -42,7 +42,7 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 		return nil, errors.Wrap(err, "error creating system manager contract")
 	}
 
-	votingEpoch, err := registration.VotingEpochFromChain(systemManager)
+	votingEpoch, err := shared.VotingEpochFromChain(systemManager)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting voting epoch")
 	}

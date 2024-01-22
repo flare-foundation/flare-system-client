@@ -1,28 +1,37 @@
 package shared
 
 import (
+	"flare-tlc/utils"
+	"flare-tlc/utils/contracts/system"
 	"time"
 )
 
-type EpochSettings struct {
-	RewardEpochStartSec      uint64
-	RewardEpochDurationSec   uint64
-	FirstVotingEpochStartSec uint64
-	VotingEpochDurationSec   uint64
+func RewardEpochFromChain(fsm *system.FlareSystemManager) (*utils.Epoch, error) {
+	epochStart, err := fsm.RewardEpochsStartTs(nil)
+	if err != nil {
+		return nil, err
+	}
+	epochPeriod, err := fsm.RewardEpochDurationSeconds(nil)
+	if err != nil {
+		return nil, err
+	}
+	return &utils.Epoch{
+		Start:  time.Unix(int64(epochStart), 0),
+		Period: time.Duration(epochPeriod) * time.Second,
+	}, nil
 }
 
-func (e *EpochSettings) VotingEpochForTime(t time.Time) uint64 {
-	unixSeconds := uint64(t.Unix())
-	return (unixSeconds - e.FirstVotingEpochStartSec) / e.VotingEpochDurationSec
-}
-
-func (e *EpochSettings) NextVotingEpochStart(t time.Time) time.Time {
-	currentEpoch := e.VotingEpochForTime(t)
-	nextEpochStartSec := e.FirstVotingEpochStartSec + (currentEpoch+1)*e.VotingEpochDurationSec
-	return time.Unix(int64(nextEpochStartSec), 0)
-}
-
-func (e *EpochSettings) RewardEpochForTime(t time.Time) uint64 {
-	unixSeconds := uint64(t.Unix())
-	return (unixSeconds - e.RewardEpochStartSec) / e.RewardEpochDurationSec
+func VotingEpochFromChain(fsm *system.FlareSystemManager) (*utils.Epoch, error) {
+	epochStart, err := fsm.FirstVotingRoundStartTs(nil)
+	if err != nil {
+		return nil, err
+	}
+	epochPeriod, err := fsm.VotingEpochDurationSeconds(nil)
+	if err != nil {
+		return nil, err
+	}
+	return &utils.Epoch{
+		Start:  time.Unix(int64(epochStart), 0),
+		Period: time.Duration(epochPeriod) * time.Second,
+	}, nil
 }
