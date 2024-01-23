@@ -5,6 +5,7 @@ import (
 	"flare-tlc/config"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
+	"flare-tlc/utils/contracts/system"
 	"fmt"
 	"time"
 
@@ -25,7 +26,7 @@ type finalizerClient struct {
 	submissionStorage    *submissionStorage
 	queueProcessor       *finalizerQueueProcessor
 
-	fnalizerContext *finalizerContext
+	finalizerContext *finalizerContext
 }
 
 func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, error) {
@@ -40,7 +41,14 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		return nil, err
 	}
 
-	finalizerContext := newFinalizerContext(cfg)
+	systemManager, err := system.NewFlareSystemManager(cfg.ContractAddresses.SystemManager, ethClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating system manager contract")
+	}
+	finalizerContext, err := newFinalizerContext(cfg, systemManager)
+	if err != nil {
+		return nil, err
+	}
 
 	senderPkString, err := config.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
 	if err != nil {
@@ -68,23 +76,16 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		submissionStorage:    submissionStorage,
 		submissionClient:     submissionClient,
 		queueProcessor:       newFinalizerQueueProcessor(submissionStorage, relayClient),
-		fnalizerContext:      finalizerContext,
+		finalizerContext:     finalizerContext,
 	}, nil
 }
 
 func (c *finalizerClient) Run() error {
 	startTime := time.Now().Add(-startOffset)
-	go func() {
-		spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
-		for {
-			dbPolicy := <-spListener
-			policy := newSigningPolicy(dbPolicy.policyData)
-			if policy.rewardEpochId < c.fnalizerContext.startingRewardEpoch {
-				continue
-			}
-			c.signingPolicyStorage.Add(policy)
-		}
-	}()
+	err := c.startSigningPolicyInitializedListener(startTime)
+	if err != nil {
+		return err
+	}
 	go func() {
 		c.submissionClient.SubmissionTxListener(c.db, startTime, c)
 	}()
@@ -94,9 +95,43 @@ func (c *finalizerClient) Run() error {
 	return nil
 }
 
+func (c *finalizerClient) startSigningPolicyInitializedListener(startTime time.Time) error {
+	// Read current signing policies from the database and add them to the storage
+	spList, err := c.relayClient.FetchSigningPolicies(c.db, startTime.Unix(), time.Now().Unix())
+	if err != nil {
+		return err
+	}
+	for _, sp := range spList {
+		policy := newSigningPolicy(sp.policyData)
+		if policy.rewardEpochId < c.finalizerContext.startingRewardEpoch {
+			continue
+		}
+		c.signingPolicyStorage.Add(policy)
+	}
+	logger.Info("Added %d signing policies", len(spList))
+
+	go func() {
+		if len(spList) > 0 {
+			startTime = time.Unix(spList[len(spList)-1].timestamp, 0)
+		}
+		spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
+		for {
+			dbPolicy := <-spListener
+			policy := newSigningPolicy(dbPolicy.policyData)
+			if policy.rewardEpochId < c.finalizerContext.startingRewardEpoch {
+				continue
+			}
+			c.signingPolicyStorage.Add(policy)
+			logger.Info("New signing policy received for epoch %v", policy.rewardEpochId)
+			c.submissionClient.NewSigningPolicyReceived(policy)
+		}
+	}()
+	return nil
+}
+
 func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
 	for _, payloadItem := range slr.payload {
-		if payloadItem.votingRoundId < c.fnalizerContext.startingVotingRound {
+		if payloadItem.votingRoundId < c.finalizerContext.startingVotingRound {
 			continue
 		}
 
@@ -111,7 +146,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			continue
 		}
 		if addResult.thresholdReached {
-			logger.Info("Threshold reached for voting round %d", payloadItem.votingRoundId)
+			logger.Info("Threshold reached for voting round %d and hash %v", payloadItem.votingRoundId, payloadItem.payload.messageHash)
 			c.queueProcessor.Add(payloadItem)
 		}
 	}

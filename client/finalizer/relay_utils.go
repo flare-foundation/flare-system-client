@@ -33,7 +33,8 @@ type relayContractClient struct {
 	relay      *relay.Relay
 	privateKey *ecdsa.PrivateKey
 
-	relaySelector []byte
+	relaySelector []byte // for relay method
+	topic0        string // for SigningPolicyInitialized event
 }
 
 type signingPolicyListenerResponse struct {
@@ -57,6 +58,11 @@ func NewRelayContractClient(
 		panic(err)
 	}
 	relaySelectorBytes := relayABI.Methods["relay"].ID
+	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
 
 	return &relayContractClient{
 		ethClient:     ethClient,
@@ -64,23 +70,37 @@ func NewRelayContractClient(
 		relay:         relayContract,
 		privateKey:    privateKey,
 		relaySelector: relaySelectorBytes,
+		topic0:        topic0,
 	}, nil
+}
+
+func (r *relayContractClient) FetchSigningPolicies(db *gorm.DB, from, to int64) ([]signingPolicyListenerResponse, error) {
+	logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]signingPolicyListenerResponse, 0, len(logs))
+	for _, log := range logs {
+		policyData, err := shared.ParseSigningPolicyInitializedEvent(r.relay, log)
+		if err != nil {
+			logger.Error("Error parsing SigningPolicyInitialized event %v", err)
+			return nil, err
+		}
+		result = append(result, signingPolicyListenerResponse{policyData, int64(log.Timestamp)})
+	}
+	return result, nil
 }
 
 func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, startTime time.Time) <-chan signingPolicyListenerResponse {
 	out := make(chan signingPolicyListenerResponse, listenerBufferSize)
-	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
-	if err != nil {
-		// panic, this error is fatal
-		panic(err)
-	}
 	go func() {
 		ticker := time.NewTicker(shared.ListenerInterval)
 		eventRangeStart := startTime.Unix()
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), topic0, eventRangeStart, now)
+			logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue

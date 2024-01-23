@@ -2,10 +2,12 @@ package finalizer
 
 import (
 	"bytes"
+	"cmp"
 	"flare-tlc/client/shared"
 	"flare-tlc/utils/contracts/relay"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,6 +23,7 @@ type signingPolicy struct {
 	voters             []common.Address
 	weights            []uint16
 	rawBytes           []byte
+	blockTimestamp     uint64
 }
 
 func newSigningPolicy(r *relay.RelaySigningPolicyInitialized) *signingPolicy {
@@ -32,6 +35,7 @@ func newSigningPolicy(r *relay.RelaySigningPolicyInitialized) *signingPolicy {
 		voters:             r.Voters,
 		weights:            r.Weights,
 		rawBytes:           r.SigningPolicyBytes,
+		blockTimestamp:     r.Timestamp,
 	}
 }
 
@@ -41,11 +45,9 @@ type voterData struct {
 }
 
 type signingPolicyStorage struct {
-	minRewardEpochId int64
-	maxRewardEpochId int64
 
-	// rewardEpochId -> signingPolicy
-	spMap map[int64]*signingPolicy
+	// sorted list of signing policies, sorted by rewardEpochId (and also by startVotingRoundId)
+	spList []*signingPolicy
 
 	// rewardEpochId -> voter -> { index, weight }
 	voterMap map[int64]map[common.Address]voterData
@@ -56,28 +58,56 @@ type signingPolicyStorage struct {
 
 func newSigningPolicyStorage() *signingPolicyStorage {
 	return &signingPolicyStorage{
-		minRewardEpochId: -1,
-		maxRewardEpochId: -1,
-		spMap:            make(map[int64]*signingPolicy),
-		voterMap:         make(map[int64]map[common.Address]voterData),
+		spList:   make([]*signingPolicy, 0, 10),
+		voterMap: make(map[int64]map[common.Address]voterData),
 	}
+}
+
+// Does not lock the structure, should be called from a function that does lock.
+// We assume that the list is sorted by rewardEpochId
+func (s *signingPolicyStorage) findByRewardEpochId(rewardEpochId int64) *signingPolicy {
+	i, found := sort.Find(len(s.spList), func(i int) int {
+		return cmp.Compare(rewardEpochId, s.spList[i].rewardEpochId)
+	})
+	if !found {
+		return nil
+	}
+	return s.spList[i]
+}
+
+// Does not lock the structure, should be called from a function that does lock.
+// We assume that the list is sorted by rewardEpochId and also by startVotingRoundId.
+func (s *signingPolicyStorage) findByVotingRoundId(votingRoundId uint32) *signingPolicy {
+	i, found := sort.Find(len(s.spList), func(i int) int {
+		return cmp.Compare(votingRoundId, s.spList[i].startVotingRoundId)
+	})
+	if found {
+		return s.spList[i]
+	}
+	if i == 0 {
+		return nil
+	}
+	return s.spList[i-1]
 }
 
 func (s *signingPolicyStorage) Add(sp *signingPolicy) error {
 	s.Lock()
 	defer s.Unlock()
 
-	if _, ok := s.spMap[sp.rewardEpochId]; ok {
-		return nil // already added
-	}
-	if len(s.spMap) > 0 {
+	if len(s.spList) > 0 {
 		// check consistency, previous epoch should be already added
-		if _, ok := s.spMap[sp.rewardEpochId-1]; !ok {
+		if s.spList[len(s.spList)-1].rewardEpochId != sp.rewardEpochId-1 {
 			return fmt.Errorf("missing signing policy for reward epoch id %d", sp.rewardEpochId-1)
+		}
+		// should be sorted by voting round id, should not happen
+		if sp.startVotingRoundId < s.spList[len(s.spList)-1].startVotingRoundId {
+			return fmt.Errorf("signing policy for reward epoch id %d has larger start voting round id than previous policy",
+				sp.rewardEpochId)
 		}
 	}
 
-	s.spMap[sp.rewardEpochId] = sp
+	s.spList = append(s.spList, sp)
+
 	vMap := make(map[common.Address]voterData)
 	s.voterMap[sp.rewardEpochId] = vMap
 	for i, voter := range sp.voters {
@@ -88,11 +118,6 @@ func (s *signingPolicyStorage) Add(sp *signingPolicy) error {
 			}
 		}
 	}
-
-	if s.minRewardEpochId < 0 {
-		s.minRewardEpochId = sp.rewardEpochId
-	}
-	s.maxRewardEpochId = sp.rewardEpochId
 	return nil
 }
 
@@ -100,23 +125,25 @@ func (s *signingPolicyStorage) GetForVotingRound(votingRoundId uint32) *signingP
 	s.Lock()
 	defer s.Unlock()
 
-	if len(s.spMap) == 0 {
-		return nil
+	return s.findByVotingRoundId(votingRoundId)
+}
+
+// Removes all signing policies with start voting round id <= than the provided one
+func (s *signingPolicyStorage) RemoveByVotingRound(votingRoundId uint32) {
+	s.Lock()
+	defer s.Unlock()
+
+	for len(s.spList) > 0 && s.spList[0].startVotingRoundId <= votingRoundId {
+		delete(s.voterMap, s.spList[0].rewardEpochId)
+		s.spList[0] = nil
+		s.spList = s.spList[1:]
 	}
-	for i := s.maxRewardEpochId; i >= s.minRewardEpochId; i-- {
-		sp := s.spMap[i]
-		if sp.startVotingRoundId <= votingRoundId {
-			return sp
-		}
-	}
-	return nil
 }
 
 func (s *signingPolicy) Encode() ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 
 	size := len(s.voters)
-	// TODO: size, epoch, voting round size checks?
 
 	sizeBytes := shared.Uint16toBytes(uint16(size))
 	epochBytes := shared.Uint32toBytes(uint32(s.rewardEpochId))
