@@ -5,12 +5,14 @@ import (
 	"flare-tlc/client/shared"
 	"flare-tlc/utils"
 	"flare-tlc/utils/contracts/system"
+	"time"
 )
 
 // Finalizer client settings
 type finalizerContext struct {
 	startingRewardEpoch int64
 	startingVotingRound uint32
+	startTimeOffset     time.Duration // offset for fetching reward epochs at the start of the client
 
 	votingEpoch *utils.Epoch
 }
@@ -23,6 +25,7 @@ func newFinalizerContext(cfg *config.ClientConfig, systemManager *system.FlareSy
 	return &finalizerContext{
 		startingRewardEpoch: cfg.Finalizer.StartingRewardEpoch,
 		startingVotingRound: cfg.Finalizer.StartingVotingRound,
+		startTimeOffset:     cfg.Finalizer.StartOffset,
 		votingEpoch:         votingEpoch,
 	}, nil
 }

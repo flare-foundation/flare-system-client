@@ -128,16 +128,30 @@ func (s *signingPolicyStorage) GetForVotingRound(votingRoundId uint32) *signingP
 	return s.findByVotingRoundId(votingRoundId)
 }
 
-// Removes all signing policies with start voting round id <= than the provided one
-func (s *signingPolicyStorage) RemoveByVotingRound(votingRoundId uint32) {
+func (s *signingPolicyStorage) First() *signingPolicy {
 	s.Lock()
 	defer s.Unlock()
 
+	if len(s.spList) == 0 {
+		return nil
+	}
+	return s.spList[0]
+}
+
+// Removes all signing policies with start voting round id <= than the provided one.
+// Returns the list of removed reward epoch ids.
+func (s *signingPolicyStorage) RemoveByVotingRound(votingRoundId uint32) []uint32 {
+	s.Lock()
+	defer s.Unlock()
+
+	var removedRewardEpochIds []uint32
 	for len(s.spList) > 0 && s.spList[0].startVotingRoundId <= votingRoundId {
+		removedRewardEpochIds = append(removedRewardEpochIds, uint32(s.spList[0].rewardEpochId))
 		delete(s.voterMap, s.spList[0].rewardEpochId)
 		s.spList[0] = nil
 		s.spList = s.spList[1:]
 	}
+	return removedRewardEpochIds
 }
 
 func (s *signingPolicy) Encode() ([]byte, error) {

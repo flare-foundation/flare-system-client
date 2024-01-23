@@ -83,8 +83,3 @@ func (s *submissionContractClient) SubmissionTxListener(
 		}
 	}
 }
-
-// when a new signing policy is received we may choose to remove submissions with
-func (s *submissionContractClient) NewSigningPolicyReceived(sp *signingPolicy) {
-
-}

@@ -115,6 +115,15 @@ func (s *submissionStorage) Get(
 	return nil
 }
 
+func (s *submissionStorage) RemoveVotingRoundIds(votingRoundIds []uint32) {
+	s.Lock()
+	defer s.Unlock()
+
+	for _, votingRoundId := range votingRoundIds {
+		delete(s.vrMap, votingRoundId)
+	}
+}
+
 func (d *messageData) Copy() *messageData {
 	payload := make([]*signedPayload, len(d.payload))
 	copy(payload, d.payload)

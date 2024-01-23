@@ -70,12 +70,19 @@ type VotingClientsConfig struct {
 type FinalizerConfig struct {
 	StartingRewardEpoch int64  `toml:"starting_reward_epoch"`
 	StartingVotingRound uint32 `toml:"starting_voting_round"`
+
+	// how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client
+	// default is 7 days
+	StartOffset time.Duration `toml:"start_offset"`
 }
 
 func newConfig() *ClientConfig {
 	return &ClientConfig{
 		Chain: config.ChainConfig{
 			NodeURL: "http://localhost:9650/",
+		},
+		Finalizer: FinalizerConfig{
+			StartOffset: 7 * 24 * time.Hour,
 		},
 	}
 }

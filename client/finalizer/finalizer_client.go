@@ -13,10 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	startOffset = 7 * 24 * time.Hour // 7 days
-)
-
 type finalizerClient struct {
 	db *gorm.DB
 
@@ -81,7 +77,7 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 }
 
 func (c *finalizerClient) Run() error {
-	startTime := time.Now().Add(-startOffset)
+	startTime := time.Now().Add(-c.finalizerContext.startTimeOffset)
 	err := c.startSigningPolicyInitializedListener(startTime)
 	if err != nil {
 		return err
@@ -123,7 +119,7 @@ func (c *finalizerClient) startSigningPolicyInitializedListener(startTime time.T
 			}
 			c.signingPolicyStorage.Add(policy)
 			logger.Info("New signing policy received for epoch %v", policy.rewardEpochId)
-			c.submissionClient.NewSigningPolicyReceived(policy)
+			c.rewardEpochCleanup()
 		}
 	}()
 	return nil
@@ -137,6 +133,11 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 
 		sp := c.signingPolicyStorage.GetForVotingRound(payloadItem.votingRoundId)
 		if sp == nil {
+			first := c.signingPolicyStorage.First()
+			if first != nil && payloadItem.votingRoundId < first.startVotingRoundId {
+				// This is a submission for an old voting round, skip it
+				continue
+			}
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)
 		}
 		addResult, err := c.submissionStorage.Add(payloadItem.payload, sp)
@@ -151,4 +152,17 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		}
 	}
 	return nil
+}
+
+func (c *finalizerClient) rewardEpochCleanup() {
+	cleanupTime := time.Now().Add(-2 * c.finalizerContext.startTimeOffset)
+	cleanupVotingRoundId := c.finalizerContext.votingEpoch.EpochIndex(cleanupTime)
+	if cleanupVotingRoundId < 0 {
+		return
+	}
+	removedEpochIds := c.signingPolicyStorage.RemoveByVotingRound(uint32(cleanupVotingRoundId))
+	c.submissionStorage.RemoveVotingRoundIds(removedEpochIds)
+	if len(removedEpochIds) > 0 {
+		logger.Info("Removed signing policies and submissions with reward epoch <= %d", removedEpochIds[len(removedEpochIds)-1])
+	}
 }
