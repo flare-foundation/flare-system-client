@@ -189,7 +189,7 @@
       },
       {
         "internalType": "bool",
-        "name": "_randomNumberQualityScore",
+        "name": "_isSecureRandom",
         "type": "bool"
       },
       {
@@ -226,12 +226,12 @@
     "outputs": [
       {
         "internalType": "uint32",
-        "name": "lastInitializedRewardEpoch",
+        "name": "_lastInitializedRewardEpoch",
         "type": "uint32"
       },
       {
         "internalType": "uint32",
-        "name": "startingVotingRoundIdForLastInitializedRewardEpoch",
+        "name": "_startingVotingRoundIdForLastInitializedRewardEpoch",
         "type": "uint32"
       }
     ],
@@ -310,7 +310,7 @@
             "type": "uint16[]"
           }
         ],
-        "internalType": "struct Relay.SigningPolicy",
+        "internalType": "struct IIRelay.SigningPolicy",
         "name": "_signingPolicy",
         "type": "tuple"
       }
@@ -399,7 +399,7 @@
       },
       {
         "internalType": "bool",
-        "name": "randomNumberQualityScore",
+        "name": "isSecureRandom",
         "type": "bool"
       },
       {

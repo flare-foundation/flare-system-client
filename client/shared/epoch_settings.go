@@ -7,7 +7,7 @@ import (
 )
 
 func RewardEpochFromChain(fsm *system.FlareSystemManager) (*utils.Epoch, error) {
-	epochStart, err := fsm.RewardEpochsStartTs(nil)
+	epochStart, err := fsm.FirstRewardEpochStartTs(nil)
 	if err != nil {
 		return nil, err
 	}

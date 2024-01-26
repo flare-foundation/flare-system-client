@@ -29,8 +29,8 @@ var (
 	_ = abi.ConvertType
 )
 
-// VoterRegistrySignature is an auto generated low-level Go binding around an user-defined struct.
-type VoterRegistrySignature struct {
+// IVoterRegistrySignature is an auto generated low-level Go binding around an user-defined struct.
+type IVoterRegistrySignature struct {
 	V uint8
 	R [32]byte
 	S [32]byte
@@ -38,7 +38,7 @@ type VoterRegistrySignature struct {
 
 // RegistryMetaData contains all meta data concerning the Registry contract.
 var RegistryMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_maxVoters\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_firstRewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"_initialVoters\",\"type\":\"address[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ECDSAInvalidSignature\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"name\":\"ECDSAInvalidSignatureLength\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"ECDSAInvalidSignatureS\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"untilRewardEpochId\",\"type\":\"uint256\"}],\"name\":\"VoterChilled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"rewardEpochId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"dataProviderAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"depositSignaturesAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"weight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"wNatWeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"cChainStakeWeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes20[]\",\"name\":\"nodeIds\",\"type\":\"bytes20[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"nodeWeights\",\"type\":\"uint256[]\"}],\"name\":\"VoterRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"VoterRemoved\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"cChainStake\",\"outputs\":[{\"internalType\":\"contractICChainStake\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"cChainStakeEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_noOfRewardEpochIds\",\"type\":\"uint256\"}],\"name\":\"chillVoter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_untilRewardEpochId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"chilledUntilRewardEpochId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"createSigningPolicySnapshot\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"_normalisedWeights\",\"type\":\"uint16[]\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSum\",\"type\":\"uint16\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"enableCChainStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"entityManager\",\"outputs\":[{\"internalType\":\"contractEntityManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemManager\",\"outputs\":[{\"internalType\":\"contractFlareSystemManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getNumberOfRegisteredVoters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredDataProviderAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredDepositSignaturesAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSigningPolicyAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_signingPolicyAddress\",\"type\":\"address\"}],\"name\":\"getVoterWithNormalisedWeight\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeight\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"isVoterRegistered\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxVoters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"newSigningPolicyInitializationStartBlockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pChainStakeMirror\",\"outputs\":[{\"internalType\":\"contractIPChainStakeMirror\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structVoterRegistry.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"registerVoter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_maxVoters\",\"type\":\"uint256\"}],\"name\":\"setMaxVoters\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"setNewSigningPolicyInitializationStartBlockNumber\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"wNat\",\"outputs\":[{\"internalType\":\"contractIWNat\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_maxVoters\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_initialRewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"_initialVoters\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"_initialNormalisedWeights\",\"type\":\"uint16[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ECDSAInvalidSignature\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"name\":\"ECDSAInvalidSignatureLength\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"ECDSAInvalidSignatureS\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"untilRewardEpochId\",\"type\":\"uint256\"}],\"name\":\"VoterChilled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"delegationAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"submitAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"submitSignaturesAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"registrationWeight\",\"type\":\"uint256\"}],\"name\":\"VoterRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"VoterRemoved\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_noOfRewardEpochs\",\"type\":\"uint256\"}],\"name\":\"chillVoter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_untilRewardEpochId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"chilledUntilRewardEpochId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"createSigningPolicySnapshot\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"_normalisedWeights\",\"type\":\"uint16[]\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSum\",\"type\":\"uint16\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"entityManager\",\"outputs\":[{\"internalType\":\"contractIIEntityManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemCalculator\",\"outputs\":[{\"internalType\":\"contractIIFlareSystemCalculator\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemManager\",\"outputs\":[{\"internalType\":\"contractIFlareSystemManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getNumberOfRegisteredVoters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_signingPolicyAddress\",\"type\":\"address\"}],\"name\":\"getPublicKeyAndNormalisedWeight\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"_publicKeyPart1\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"_publicKeyPart2\",\"type\":\"bytes32\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeight\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSumOfVotersWithPublicKeys\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredDelegationAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_delegationAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredNodeIds\",\"outputs\":[{\"internalType\":\"bytes20[][]\",\"name\":\"_nodeIds\",\"type\":\"bytes20[][]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredPublicKeys\",\"outputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_parts1\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"_parts2\",\"type\":\"bytes32[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSigningPolicyAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSubmitAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSubmitSignaturesAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_signingPolicyAddress\",\"type\":\"address\"}],\"name\":\"getVoterWithNormalisedWeight\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeight\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getWeightsSums\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"_weightsSum\",\"type\":\"uint128\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSum\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSumOfVotersWithPublicKeys\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"isVoterRegistered\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxVoters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"newSigningPolicyInitializationStartBlockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIVoterRegistry.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"registerVoter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_maxVoters\",\"type\":\"uint256\"}],\"name\":\"setMaxVoters\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"setNewSigningPolicyInitializationStartBlockNumber\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_systemRegistrationContractAddress\",\"type\":\"address\"}],\"name\":\"setSystemRegistrationContractAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"systemRegistration\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"systemRegistrationContractAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // RegistryABI is the input ABI used to generate the binding from.
@@ -187,68 +187,6 @@ func (_Registry *RegistryTransactorRaw) Transact(opts *bind.TransactOpts, method
 	return _Registry.Contract.contract.Transact(opts, method, params...)
 }
 
-// CChainStake is a free data retrieval call binding the contract method 0xe7dea8e6.
-//
-// Solidity: function cChainStake() view returns(address)
-func (_Registry *RegistryCaller) CChainStake(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _Registry.contract.Call(opts, &out, "cChainStake")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// CChainStake is a free data retrieval call binding the contract method 0xe7dea8e6.
-//
-// Solidity: function cChainStake() view returns(address)
-func (_Registry *RegistrySession) CChainStake() (common.Address, error) {
-	return _Registry.Contract.CChainStake(&_Registry.CallOpts)
-}
-
-// CChainStake is a free data retrieval call binding the contract method 0xe7dea8e6.
-//
-// Solidity: function cChainStake() view returns(address)
-func (_Registry *RegistryCallerSession) CChainStake() (common.Address, error) {
-	return _Registry.Contract.CChainStake(&_Registry.CallOpts)
-}
-
-// CChainStakeEnabled is a free data retrieval call binding the contract method 0x064be532.
-//
-// Solidity: function cChainStakeEnabled() view returns(bool)
-func (_Registry *RegistryCaller) CChainStakeEnabled(opts *bind.CallOpts) (bool, error) {
-	var out []interface{}
-	err := _Registry.contract.Call(opts, &out, "cChainStakeEnabled")
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// CChainStakeEnabled is a free data retrieval call binding the contract method 0x064be532.
-//
-// Solidity: function cChainStakeEnabled() view returns(bool)
-func (_Registry *RegistrySession) CChainStakeEnabled() (bool, error) {
-	return _Registry.Contract.CChainStakeEnabled(&_Registry.CallOpts)
-}
-
-// CChainStakeEnabled is a free data retrieval call binding the contract method 0x064be532.
-//
-// Solidity: function cChainStakeEnabled() view returns(bool)
-func (_Registry *RegistryCallerSession) CChainStakeEnabled() (bool, error) {
-	return _Registry.Contract.CChainStakeEnabled(&_Registry.CallOpts)
-}
-
 // ChilledUntilRewardEpochId is a free data retrieval call binding the contract method 0x1e3f047e.
 //
 // Solidity: function chilledUntilRewardEpochId(address ) view returns(uint256)
@@ -309,6 +247,37 @@ func (_Registry *RegistrySession) EntityManager() (common.Address, error) {
 // Solidity: function entityManager() view returns(address)
 func (_Registry *RegistryCallerSession) EntityManager() (common.Address, error) {
 	return _Registry.Contract.EntityManager(&_Registry.CallOpts)
+}
+
+// FlareSystemCalculator is a free data retrieval call binding the contract method 0x87ad4ecf.
+//
+// Solidity: function flareSystemCalculator() view returns(address)
+func (_Registry *RegistryCaller) FlareSystemCalculator(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Registry.contract.Call(opts, &out, "flareSystemCalculator")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// FlareSystemCalculator is a free data retrieval call binding the contract method 0x87ad4ecf.
+//
+// Solidity: function flareSystemCalculator() view returns(address)
+func (_Registry *RegistrySession) FlareSystemCalculator() (common.Address, error) {
+	return _Registry.Contract.FlareSystemCalculator(&_Registry.CallOpts)
+}
+
+// FlareSystemCalculator is a free data retrieval call binding the contract method 0x87ad4ecf.
+//
+// Solidity: function flareSystemCalculator() view returns(address)
+func (_Registry *RegistryCallerSession) FlareSystemCalculator() (common.Address, error) {
+	return _Registry.Contract.FlareSystemCalculator(&_Registry.CallOpts)
 }
 
 // FlareSystemManager is a free data retrieval call binding the contract method 0xbb25d5df.
@@ -404,12 +373,67 @@ func (_Registry *RegistryCallerSession) GetNumberOfRegisteredVoters(_rewardEpoch
 	return _Registry.Contract.GetNumberOfRegisteredVoters(&_Registry.CallOpts, _rewardEpochId)
 }
 
-// GetRegisteredDataProviderAddresses is a free data retrieval call binding the contract method 0x524bb7cb.
+// GetPublicKeyAndNormalisedWeight is a free data retrieval call binding the contract method 0x44b571d9.
 //
-// Solidity: function getRegisteredDataProviderAddresses(uint256 _rewardEpochId) view returns(address[])
-func (_Registry *RegistryCaller) GetRegisteredDataProviderAddresses(opts *bind.CallOpts, _rewardEpochId *big.Int) ([]common.Address, error) {
+// Solidity: function getPublicKeyAndNormalisedWeight(uint256 _rewardEpochId, address _signingPolicyAddress) view returns(bytes32 _publicKeyPart1, bytes32 _publicKeyPart2, uint16 _normalisedWeight, uint16 _normalisedWeightsSumOfVotersWithPublicKeys)
+func (_Registry *RegistryCaller) GetPublicKeyAndNormalisedWeight(opts *bind.CallOpts, _rewardEpochId *big.Int, _signingPolicyAddress common.Address) (struct {
+	PublicKeyPart1                             [32]byte
+	PublicKeyPart2                             [32]byte
+	NormalisedWeight                           uint16
+	NormalisedWeightsSumOfVotersWithPublicKeys uint16
+}, error) {
 	var out []interface{}
-	err := _Registry.contract.Call(opts, &out, "getRegisteredDataProviderAddresses", _rewardEpochId)
+	err := _Registry.contract.Call(opts, &out, "getPublicKeyAndNormalisedWeight", _rewardEpochId, _signingPolicyAddress)
+
+	outstruct := new(struct {
+		PublicKeyPart1                             [32]byte
+		PublicKeyPart2                             [32]byte
+		NormalisedWeight                           uint16
+		NormalisedWeightsSumOfVotersWithPublicKeys uint16
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.PublicKeyPart1 = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	outstruct.PublicKeyPart2 = *abi.ConvertType(out[1], new([32]byte)).(*[32]byte)
+	outstruct.NormalisedWeight = *abi.ConvertType(out[2], new(uint16)).(*uint16)
+	outstruct.NormalisedWeightsSumOfVotersWithPublicKeys = *abi.ConvertType(out[3], new(uint16)).(*uint16)
+
+	return *outstruct, err
+
+}
+
+// GetPublicKeyAndNormalisedWeight is a free data retrieval call binding the contract method 0x44b571d9.
+//
+// Solidity: function getPublicKeyAndNormalisedWeight(uint256 _rewardEpochId, address _signingPolicyAddress) view returns(bytes32 _publicKeyPart1, bytes32 _publicKeyPart2, uint16 _normalisedWeight, uint16 _normalisedWeightsSumOfVotersWithPublicKeys)
+func (_Registry *RegistrySession) GetPublicKeyAndNormalisedWeight(_rewardEpochId *big.Int, _signingPolicyAddress common.Address) (struct {
+	PublicKeyPart1                             [32]byte
+	PublicKeyPart2                             [32]byte
+	NormalisedWeight                           uint16
+	NormalisedWeightsSumOfVotersWithPublicKeys uint16
+}, error) {
+	return _Registry.Contract.GetPublicKeyAndNormalisedWeight(&_Registry.CallOpts, _rewardEpochId, _signingPolicyAddress)
+}
+
+// GetPublicKeyAndNormalisedWeight is a free data retrieval call binding the contract method 0x44b571d9.
+//
+// Solidity: function getPublicKeyAndNormalisedWeight(uint256 _rewardEpochId, address _signingPolicyAddress) view returns(bytes32 _publicKeyPart1, bytes32 _publicKeyPart2, uint16 _normalisedWeight, uint16 _normalisedWeightsSumOfVotersWithPublicKeys)
+func (_Registry *RegistryCallerSession) GetPublicKeyAndNormalisedWeight(_rewardEpochId *big.Int, _signingPolicyAddress common.Address) (struct {
+	PublicKeyPart1                             [32]byte
+	PublicKeyPart2                             [32]byte
+	NormalisedWeight                           uint16
+	NormalisedWeightsSumOfVotersWithPublicKeys uint16
+}, error) {
+	return _Registry.Contract.GetPublicKeyAndNormalisedWeight(&_Registry.CallOpts, _rewardEpochId, _signingPolicyAddress)
+}
+
+// GetRegisteredDelegationAddresses is a free data retrieval call binding the contract method 0xcc8356ca.
+//
+// Solidity: function getRegisteredDelegationAddresses(uint256 _rewardEpochId) view returns(address[] _delegationAddresses)
+func (_Registry *RegistryCaller) GetRegisteredDelegationAddresses(opts *bind.CallOpts, _rewardEpochId *big.Int) ([]common.Address, error) {
+	var out []interface{}
+	err := _Registry.contract.Call(opts, &out, "getRegisteredDelegationAddresses", _rewardEpochId)
 
 	if err != nil {
 		return *new([]common.Address), err
@@ -421,49 +445,94 @@ func (_Registry *RegistryCaller) GetRegisteredDataProviderAddresses(opts *bind.C
 
 }
 
-// GetRegisteredDataProviderAddresses is a free data retrieval call binding the contract method 0x524bb7cb.
+// GetRegisteredDelegationAddresses is a free data retrieval call binding the contract method 0xcc8356ca.
 //
-// Solidity: function getRegisteredDataProviderAddresses(uint256 _rewardEpochId) view returns(address[])
-func (_Registry *RegistrySession) GetRegisteredDataProviderAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
-	return _Registry.Contract.GetRegisteredDataProviderAddresses(&_Registry.CallOpts, _rewardEpochId)
+// Solidity: function getRegisteredDelegationAddresses(uint256 _rewardEpochId) view returns(address[] _delegationAddresses)
+func (_Registry *RegistrySession) GetRegisteredDelegationAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
+	return _Registry.Contract.GetRegisteredDelegationAddresses(&_Registry.CallOpts, _rewardEpochId)
 }
 
-// GetRegisteredDataProviderAddresses is a free data retrieval call binding the contract method 0x524bb7cb.
+// GetRegisteredDelegationAddresses is a free data retrieval call binding the contract method 0xcc8356ca.
 //
-// Solidity: function getRegisteredDataProviderAddresses(uint256 _rewardEpochId) view returns(address[])
-func (_Registry *RegistryCallerSession) GetRegisteredDataProviderAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
-	return _Registry.Contract.GetRegisteredDataProviderAddresses(&_Registry.CallOpts, _rewardEpochId)
+// Solidity: function getRegisteredDelegationAddresses(uint256 _rewardEpochId) view returns(address[] _delegationAddresses)
+func (_Registry *RegistryCallerSession) GetRegisteredDelegationAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
+	return _Registry.Contract.GetRegisteredDelegationAddresses(&_Registry.CallOpts, _rewardEpochId)
 }
 
-// GetRegisteredDepositSignaturesAddresses is a free data retrieval call binding the contract method 0x7484f797.
+// GetRegisteredNodeIds is a free data retrieval call binding the contract method 0x987a4500.
 //
-// Solidity: function getRegisteredDepositSignaturesAddresses(uint256 _rewardEpochId) view returns(address[] _signingPolicyAddresses)
-func (_Registry *RegistryCaller) GetRegisteredDepositSignaturesAddresses(opts *bind.CallOpts, _rewardEpochId *big.Int) ([]common.Address, error) {
+// Solidity: function getRegisteredNodeIds(uint256 _rewardEpochId) view returns(bytes20[][] _nodeIds)
+func (_Registry *RegistryCaller) GetRegisteredNodeIds(opts *bind.CallOpts, _rewardEpochId *big.Int) ([][][20]byte, error) {
 	var out []interface{}
-	err := _Registry.contract.Call(opts, &out, "getRegisteredDepositSignaturesAddresses", _rewardEpochId)
+	err := _Registry.contract.Call(opts, &out, "getRegisteredNodeIds", _rewardEpochId)
 
 	if err != nil {
-		return *new([]common.Address), err
+		return *new([][][20]byte), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	out0 := *abi.ConvertType(out[0], new([][][20]byte)).(*[][][20]byte)
 
 	return out0, err
 
 }
 
-// GetRegisteredDepositSignaturesAddresses is a free data retrieval call binding the contract method 0x7484f797.
+// GetRegisteredNodeIds is a free data retrieval call binding the contract method 0x987a4500.
 //
-// Solidity: function getRegisteredDepositSignaturesAddresses(uint256 _rewardEpochId) view returns(address[] _signingPolicyAddresses)
-func (_Registry *RegistrySession) GetRegisteredDepositSignaturesAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
-	return _Registry.Contract.GetRegisteredDepositSignaturesAddresses(&_Registry.CallOpts, _rewardEpochId)
+// Solidity: function getRegisteredNodeIds(uint256 _rewardEpochId) view returns(bytes20[][] _nodeIds)
+func (_Registry *RegistrySession) GetRegisteredNodeIds(_rewardEpochId *big.Int) ([][][20]byte, error) {
+	return _Registry.Contract.GetRegisteredNodeIds(&_Registry.CallOpts, _rewardEpochId)
 }
 
-// GetRegisteredDepositSignaturesAddresses is a free data retrieval call binding the contract method 0x7484f797.
+// GetRegisteredNodeIds is a free data retrieval call binding the contract method 0x987a4500.
 //
-// Solidity: function getRegisteredDepositSignaturesAddresses(uint256 _rewardEpochId) view returns(address[] _signingPolicyAddresses)
-func (_Registry *RegistryCallerSession) GetRegisteredDepositSignaturesAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
-	return _Registry.Contract.GetRegisteredDepositSignaturesAddresses(&_Registry.CallOpts, _rewardEpochId)
+// Solidity: function getRegisteredNodeIds(uint256 _rewardEpochId) view returns(bytes20[][] _nodeIds)
+func (_Registry *RegistryCallerSession) GetRegisteredNodeIds(_rewardEpochId *big.Int) ([][][20]byte, error) {
+	return _Registry.Contract.GetRegisteredNodeIds(&_Registry.CallOpts, _rewardEpochId)
+}
+
+// GetRegisteredPublicKeys is a free data retrieval call binding the contract method 0x39661f5f.
+//
+// Solidity: function getRegisteredPublicKeys(uint256 _rewardEpochId) view returns(bytes32[] _parts1, bytes32[] _parts2)
+func (_Registry *RegistryCaller) GetRegisteredPublicKeys(opts *bind.CallOpts, _rewardEpochId *big.Int) (struct {
+	Parts1 [][32]byte
+	Parts2 [][32]byte
+}, error) {
+	var out []interface{}
+	err := _Registry.contract.Call(opts, &out, "getRegisteredPublicKeys", _rewardEpochId)
+
+	outstruct := new(struct {
+		Parts1 [][32]byte
+		Parts2 [][32]byte
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.Parts1 = *abi.ConvertType(out[0], new([][32]byte)).(*[][32]byte)
+	outstruct.Parts2 = *abi.ConvertType(out[1], new([][32]byte)).(*[][32]byte)
+
+	return *outstruct, err
+
+}
+
+// GetRegisteredPublicKeys is a free data retrieval call binding the contract method 0x39661f5f.
+//
+// Solidity: function getRegisteredPublicKeys(uint256 _rewardEpochId) view returns(bytes32[] _parts1, bytes32[] _parts2)
+func (_Registry *RegistrySession) GetRegisteredPublicKeys(_rewardEpochId *big.Int) (struct {
+	Parts1 [][32]byte
+	Parts2 [][32]byte
+}, error) {
+	return _Registry.Contract.GetRegisteredPublicKeys(&_Registry.CallOpts, _rewardEpochId)
+}
+
+// GetRegisteredPublicKeys is a free data retrieval call binding the contract method 0x39661f5f.
+//
+// Solidity: function getRegisteredPublicKeys(uint256 _rewardEpochId) view returns(bytes32[] _parts1, bytes32[] _parts2)
+func (_Registry *RegistryCallerSession) GetRegisteredPublicKeys(_rewardEpochId *big.Int) (struct {
+	Parts1 [][32]byte
+	Parts2 [][32]byte
+}, error) {
+	return _Registry.Contract.GetRegisteredPublicKeys(&_Registry.CallOpts, _rewardEpochId)
 }
 
 // GetRegisteredSigningPolicyAddresses is a free data retrieval call binding the contract method 0x29a2e5ed.
@@ -495,6 +564,68 @@ func (_Registry *RegistrySession) GetRegisteredSigningPolicyAddresses(_rewardEpo
 // Solidity: function getRegisteredSigningPolicyAddresses(uint256 _rewardEpochId) view returns(address[] _signingPolicyAddresses)
 func (_Registry *RegistryCallerSession) GetRegisteredSigningPolicyAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
 	return _Registry.Contract.GetRegisteredSigningPolicyAddresses(&_Registry.CallOpts, _rewardEpochId)
+}
+
+// GetRegisteredSubmitAddresses is a free data retrieval call binding the contract method 0x7c2cb921.
+//
+// Solidity: function getRegisteredSubmitAddresses(uint256 _rewardEpochId) view returns(address[])
+func (_Registry *RegistryCaller) GetRegisteredSubmitAddresses(opts *bind.CallOpts, _rewardEpochId *big.Int) ([]common.Address, error) {
+	var out []interface{}
+	err := _Registry.contract.Call(opts, &out, "getRegisteredSubmitAddresses", _rewardEpochId)
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetRegisteredSubmitAddresses is a free data retrieval call binding the contract method 0x7c2cb921.
+//
+// Solidity: function getRegisteredSubmitAddresses(uint256 _rewardEpochId) view returns(address[])
+func (_Registry *RegistrySession) GetRegisteredSubmitAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
+	return _Registry.Contract.GetRegisteredSubmitAddresses(&_Registry.CallOpts, _rewardEpochId)
+}
+
+// GetRegisteredSubmitAddresses is a free data retrieval call binding the contract method 0x7c2cb921.
+//
+// Solidity: function getRegisteredSubmitAddresses(uint256 _rewardEpochId) view returns(address[])
+func (_Registry *RegistryCallerSession) GetRegisteredSubmitAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
+	return _Registry.Contract.GetRegisteredSubmitAddresses(&_Registry.CallOpts, _rewardEpochId)
+}
+
+// GetRegisteredSubmitSignaturesAddresses is a free data retrieval call binding the contract method 0xb61b57fa.
+//
+// Solidity: function getRegisteredSubmitSignaturesAddresses(uint256 _rewardEpochId) view returns(address[] _signingPolicyAddresses)
+func (_Registry *RegistryCaller) GetRegisteredSubmitSignaturesAddresses(opts *bind.CallOpts, _rewardEpochId *big.Int) ([]common.Address, error) {
+	var out []interface{}
+	err := _Registry.contract.Call(opts, &out, "getRegisteredSubmitSignaturesAddresses", _rewardEpochId)
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetRegisteredSubmitSignaturesAddresses is a free data retrieval call binding the contract method 0xb61b57fa.
+//
+// Solidity: function getRegisteredSubmitSignaturesAddresses(uint256 _rewardEpochId) view returns(address[] _signingPolicyAddresses)
+func (_Registry *RegistrySession) GetRegisteredSubmitSignaturesAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
+	return _Registry.Contract.GetRegisteredSubmitSignaturesAddresses(&_Registry.CallOpts, _rewardEpochId)
+}
+
+// GetRegisteredSubmitSignaturesAddresses is a free data retrieval call binding the contract method 0xb61b57fa.
+//
+// Solidity: function getRegisteredSubmitSignaturesAddresses(uint256 _rewardEpochId) view returns(address[] _signingPolicyAddresses)
+func (_Registry *RegistryCallerSession) GetRegisteredSubmitSignaturesAddresses(_rewardEpochId *big.Int) ([]common.Address, error) {
+	return _Registry.Contract.GetRegisteredSubmitSignaturesAddresses(&_Registry.CallOpts, _rewardEpochId)
 }
 
 // GetRegisteredVoters is a free data retrieval call binding the contract method 0x457c2e47.
@@ -571,6 +702,56 @@ func (_Registry *RegistryCallerSession) GetVoterWithNormalisedWeight(_rewardEpoc
 	NormalisedWeight uint16
 }, error) {
 	return _Registry.Contract.GetVoterWithNormalisedWeight(&_Registry.CallOpts, _rewardEpochId, _signingPolicyAddress)
+}
+
+// GetWeightsSums is a free data retrieval call binding the contract method 0x9508858e.
+//
+// Solidity: function getWeightsSums(uint256 _rewardEpochId) view returns(uint128 _weightsSum, uint16 _normalisedWeightsSum, uint16 _normalisedWeightsSumOfVotersWithPublicKeys)
+func (_Registry *RegistryCaller) GetWeightsSums(opts *bind.CallOpts, _rewardEpochId *big.Int) (struct {
+	WeightsSum                                 *big.Int
+	NormalisedWeightsSum                       uint16
+	NormalisedWeightsSumOfVotersWithPublicKeys uint16
+}, error) {
+	var out []interface{}
+	err := _Registry.contract.Call(opts, &out, "getWeightsSums", _rewardEpochId)
+
+	outstruct := new(struct {
+		WeightsSum                                 *big.Int
+		NormalisedWeightsSum                       uint16
+		NormalisedWeightsSumOfVotersWithPublicKeys uint16
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.WeightsSum = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.NormalisedWeightsSum = *abi.ConvertType(out[1], new(uint16)).(*uint16)
+	outstruct.NormalisedWeightsSumOfVotersWithPublicKeys = *abi.ConvertType(out[2], new(uint16)).(*uint16)
+
+	return *outstruct, err
+
+}
+
+// GetWeightsSums is a free data retrieval call binding the contract method 0x9508858e.
+//
+// Solidity: function getWeightsSums(uint256 _rewardEpochId) view returns(uint128 _weightsSum, uint16 _normalisedWeightsSum, uint16 _normalisedWeightsSumOfVotersWithPublicKeys)
+func (_Registry *RegistrySession) GetWeightsSums(_rewardEpochId *big.Int) (struct {
+	WeightsSum                                 *big.Int
+	NormalisedWeightsSum                       uint16
+	NormalisedWeightsSumOfVotersWithPublicKeys uint16
+}, error) {
+	return _Registry.Contract.GetWeightsSums(&_Registry.CallOpts, _rewardEpochId)
+}
+
+// GetWeightsSums is a free data retrieval call binding the contract method 0x9508858e.
+//
+// Solidity: function getWeightsSums(uint256 _rewardEpochId) view returns(uint128 _weightsSum, uint16 _normalisedWeightsSum, uint16 _normalisedWeightsSumOfVotersWithPublicKeys)
+func (_Registry *RegistryCallerSession) GetWeightsSums(_rewardEpochId *big.Int) (struct {
+	WeightsSum                                 *big.Int
+	NormalisedWeightsSum                       uint16
+	NormalisedWeightsSumOfVotersWithPublicKeys uint16
+}, error) {
+	return _Registry.Contract.GetWeightsSums(&_Registry.CallOpts, _rewardEpochId)
 }
 
 // Governance is a free data retrieval call binding the contract method 0x5aa6e675.
@@ -759,37 +940,6 @@ func (_Registry *RegistryCallerSession) NewSigningPolicyInitializationStartBlock
 	return _Registry.Contract.NewSigningPolicyInitializationStartBlockNumber(&_Registry.CallOpts, arg0)
 }
 
-// PChainStakeMirror is a free data retrieval call binding the contract method 0x62d9c89a.
-//
-// Solidity: function pChainStakeMirror() view returns(address)
-func (_Registry *RegistryCaller) PChainStakeMirror(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _Registry.contract.Call(opts, &out, "pChainStakeMirror")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// PChainStakeMirror is a free data retrieval call binding the contract method 0x62d9c89a.
-//
-// Solidity: function pChainStakeMirror() view returns(address)
-func (_Registry *RegistrySession) PChainStakeMirror() (common.Address, error) {
-	return _Registry.Contract.PChainStakeMirror(&_Registry.CallOpts)
-}
-
-// PChainStakeMirror is a free data retrieval call binding the contract method 0x62d9c89a.
-//
-// Solidity: function pChainStakeMirror() view returns(address)
-func (_Registry *RegistryCallerSession) PChainStakeMirror() (common.Address, error) {
-	return _Registry.Contract.PChainStakeMirror(&_Registry.CallOpts)
-}
-
 // ProductionMode is a free data retrieval call binding the contract method 0xe17f212e.
 //
 // Solidity: function productionMode() view returns(bool)
@@ -819,6 +969,37 @@ func (_Registry *RegistrySession) ProductionMode() (bool, error) {
 // Solidity: function productionMode() view returns(bool)
 func (_Registry *RegistryCallerSession) ProductionMode() (bool, error) {
 	return _Registry.Contract.ProductionMode(&_Registry.CallOpts)
+}
+
+// SystemRegistrationContractAddress is a free data retrieval call binding the contract method 0x2cc2c0f6.
+//
+// Solidity: function systemRegistrationContractAddress() view returns(address)
+func (_Registry *RegistryCaller) SystemRegistrationContractAddress(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Registry.contract.Call(opts, &out, "systemRegistrationContractAddress")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// SystemRegistrationContractAddress is a free data retrieval call binding the contract method 0x2cc2c0f6.
+//
+// Solidity: function systemRegistrationContractAddress() view returns(address)
+func (_Registry *RegistrySession) SystemRegistrationContractAddress() (common.Address, error) {
+	return _Registry.Contract.SystemRegistrationContractAddress(&_Registry.CallOpts)
+}
+
+// SystemRegistrationContractAddress is a free data retrieval call binding the contract method 0x2cc2c0f6.
+//
+// Solidity: function systemRegistrationContractAddress() view returns(address)
+func (_Registry *RegistryCallerSession) SystemRegistrationContractAddress() (common.Address, error) {
+	return _Registry.Contract.SystemRegistrationContractAddress(&_Registry.CallOpts)
 }
 
 // TimelockedCalls is a free data retrieval call binding the contract method 0x74e6310e.
@@ -866,37 +1047,6 @@ func (_Registry *RegistryCallerSession) TimelockedCalls(arg0 [4]byte) (struct {
 	return _Registry.Contract.TimelockedCalls(&_Registry.CallOpts, arg0)
 }
 
-// WNat is a free data retrieval call binding the contract method 0x9edbf007.
-//
-// Solidity: function wNat() view returns(address)
-func (_Registry *RegistryCaller) WNat(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _Registry.contract.Call(opts, &out, "wNat")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// WNat is a free data retrieval call binding the contract method 0x9edbf007.
-//
-// Solidity: function wNat() view returns(address)
-func (_Registry *RegistrySession) WNat() (common.Address, error) {
-	return _Registry.Contract.WNat(&_Registry.CallOpts)
-}
-
-// WNat is a free data retrieval call binding the contract method 0x9edbf007.
-//
-// Solidity: function wNat() view returns(address)
-func (_Registry *RegistryCallerSession) WNat() (common.Address, error) {
-	return _Registry.Contract.WNat(&_Registry.CallOpts)
-}
-
 // CancelGovernanceCall is a paid mutator transaction binding the contract method 0x67fc4029.
 //
 // Solidity: function cancelGovernanceCall(bytes4 _selector) returns()
@@ -920,23 +1070,23 @@ func (_Registry *RegistryTransactorSession) CancelGovernanceCall(_selector [4]by
 
 // ChillVoter is a paid mutator transaction binding the contract method 0x201f267e.
 //
-// Solidity: function chillVoter(address _voter, uint256 _noOfRewardEpochIds) returns(uint256 _untilRewardEpochId)
-func (_Registry *RegistryTransactor) ChillVoter(opts *bind.TransactOpts, _voter common.Address, _noOfRewardEpochIds *big.Int) (*types.Transaction, error) {
-	return _Registry.contract.Transact(opts, "chillVoter", _voter, _noOfRewardEpochIds)
+// Solidity: function chillVoter(address _voter, uint256 _noOfRewardEpochs) returns(uint256 _untilRewardEpochId)
+func (_Registry *RegistryTransactor) ChillVoter(opts *bind.TransactOpts, _voter common.Address, _noOfRewardEpochs *big.Int) (*types.Transaction, error) {
+	return _Registry.contract.Transact(opts, "chillVoter", _voter, _noOfRewardEpochs)
 }
 
 // ChillVoter is a paid mutator transaction binding the contract method 0x201f267e.
 //
-// Solidity: function chillVoter(address _voter, uint256 _noOfRewardEpochIds) returns(uint256 _untilRewardEpochId)
-func (_Registry *RegistrySession) ChillVoter(_voter common.Address, _noOfRewardEpochIds *big.Int) (*types.Transaction, error) {
-	return _Registry.Contract.ChillVoter(&_Registry.TransactOpts, _voter, _noOfRewardEpochIds)
+// Solidity: function chillVoter(address _voter, uint256 _noOfRewardEpochs) returns(uint256 _untilRewardEpochId)
+func (_Registry *RegistrySession) ChillVoter(_voter common.Address, _noOfRewardEpochs *big.Int) (*types.Transaction, error) {
+	return _Registry.Contract.ChillVoter(&_Registry.TransactOpts, _voter, _noOfRewardEpochs)
 }
 
 // ChillVoter is a paid mutator transaction binding the contract method 0x201f267e.
 //
-// Solidity: function chillVoter(address _voter, uint256 _noOfRewardEpochIds) returns(uint256 _untilRewardEpochId)
-func (_Registry *RegistryTransactorSession) ChillVoter(_voter common.Address, _noOfRewardEpochIds *big.Int) (*types.Transaction, error) {
-	return _Registry.Contract.ChillVoter(&_Registry.TransactOpts, _voter, _noOfRewardEpochIds)
+// Solidity: function chillVoter(address _voter, uint256 _noOfRewardEpochs) returns(uint256 _untilRewardEpochId)
+func (_Registry *RegistryTransactorSession) ChillVoter(_voter common.Address, _noOfRewardEpochs *big.Int) (*types.Transaction, error) {
+	return _Registry.Contract.ChillVoter(&_Registry.TransactOpts, _voter, _noOfRewardEpochs)
 }
 
 // CreateSigningPolicySnapshot is a paid mutator transaction binding the contract method 0xc452e47f.
@@ -958,27 +1108,6 @@ func (_Registry *RegistrySession) CreateSigningPolicySnapshot(_rewardEpochId *bi
 // Solidity: function createSigningPolicySnapshot(uint256 _rewardEpochId) returns(address[] _signingPolicyAddresses, uint16[] _normalisedWeights, uint16 _normalisedWeightsSum)
 func (_Registry *RegistryTransactorSession) CreateSigningPolicySnapshot(_rewardEpochId *big.Int) (*types.Transaction, error) {
 	return _Registry.Contract.CreateSigningPolicySnapshot(&_Registry.TransactOpts, _rewardEpochId)
-}
-
-// EnableCChainStake is a paid mutator transaction binding the contract method 0xfd95b2e0.
-//
-// Solidity: function enableCChainStake() returns()
-func (_Registry *RegistryTransactor) EnableCChainStake(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Registry.contract.Transact(opts, "enableCChainStake")
-}
-
-// EnableCChainStake is a paid mutator transaction binding the contract method 0xfd95b2e0.
-//
-// Solidity: function enableCChainStake() returns()
-func (_Registry *RegistrySession) EnableCChainStake() (*types.Transaction, error) {
-	return _Registry.Contract.EnableCChainStake(&_Registry.TransactOpts)
-}
-
-// EnableCChainStake is a paid mutator transaction binding the contract method 0xfd95b2e0.
-//
-// Solidity: function enableCChainStake() returns()
-func (_Registry *RegistryTransactorSession) EnableCChainStake() (*types.Transaction, error) {
-	return _Registry.Contract.EnableCChainStake(&_Registry.TransactOpts)
 }
 
 // ExecuteGovernanceCall is a paid mutator transaction binding the contract method 0x5ff27079.
@@ -1026,21 +1155,21 @@ func (_Registry *RegistryTransactorSession) Initialise(_governanceSettings commo
 // RegisterVoter is a paid mutator transaction binding the contract method 0x8f7d0957.
 //
 // Solidity: function registerVoter(address _voter, (uint8,bytes32,bytes32) _signature) returns()
-func (_Registry *RegistryTransactor) RegisterVoter(opts *bind.TransactOpts, _voter common.Address, _signature VoterRegistrySignature) (*types.Transaction, error) {
+func (_Registry *RegistryTransactor) RegisterVoter(opts *bind.TransactOpts, _voter common.Address, _signature IVoterRegistrySignature) (*types.Transaction, error) {
 	return _Registry.contract.Transact(opts, "registerVoter", _voter, _signature)
 }
 
 // RegisterVoter is a paid mutator transaction binding the contract method 0x8f7d0957.
 //
 // Solidity: function registerVoter(address _voter, (uint8,bytes32,bytes32) _signature) returns()
-func (_Registry *RegistrySession) RegisterVoter(_voter common.Address, _signature VoterRegistrySignature) (*types.Transaction, error) {
+func (_Registry *RegistrySession) RegisterVoter(_voter common.Address, _signature IVoterRegistrySignature) (*types.Transaction, error) {
 	return _Registry.Contract.RegisterVoter(&_Registry.TransactOpts, _voter, _signature)
 }
 
 // RegisterVoter is a paid mutator transaction binding the contract method 0x8f7d0957.
 //
 // Solidity: function registerVoter(address _voter, (uint8,bytes32,bytes32) _signature) returns()
-func (_Registry *RegistryTransactorSession) RegisterVoter(_voter common.Address, _signature VoterRegistrySignature) (*types.Transaction, error) {
+func (_Registry *RegistryTransactorSession) RegisterVoter(_voter common.Address, _signature IVoterRegistrySignature) (*types.Transaction, error) {
 	return _Registry.Contract.RegisterVoter(&_Registry.TransactOpts, _voter, _signature)
 }
 
@@ -1086,6 +1215,27 @@ func (_Registry *RegistryTransactorSession) SetNewSigningPolicyInitializationSta
 	return _Registry.Contract.SetNewSigningPolicyInitializationStartBlockNumber(&_Registry.TransactOpts, _rewardEpochId)
 }
 
+// SetSystemRegistrationContractAddress is a paid mutator transaction binding the contract method 0x448436b1.
+//
+// Solidity: function setSystemRegistrationContractAddress(address _systemRegistrationContractAddress) returns()
+func (_Registry *RegistryTransactor) SetSystemRegistrationContractAddress(opts *bind.TransactOpts, _systemRegistrationContractAddress common.Address) (*types.Transaction, error) {
+	return _Registry.contract.Transact(opts, "setSystemRegistrationContractAddress", _systemRegistrationContractAddress)
+}
+
+// SetSystemRegistrationContractAddress is a paid mutator transaction binding the contract method 0x448436b1.
+//
+// Solidity: function setSystemRegistrationContractAddress(address _systemRegistrationContractAddress) returns()
+func (_Registry *RegistrySession) SetSystemRegistrationContractAddress(_systemRegistrationContractAddress common.Address) (*types.Transaction, error) {
+	return _Registry.Contract.SetSystemRegistrationContractAddress(&_Registry.TransactOpts, _systemRegistrationContractAddress)
+}
+
+// SetSystemRegistrationContractAddress is a paid mutator transaction binding the contract method 0x448436b1.
+//
+// Solidity: function setSystemRegistrationContractAddress(address _systemRegistrationContractAddress) returns()
+func (_Registry *RegistryTransactorSession) SetSystemRegistrationContractAddress(_systemRegistrationContractAddress common.Address) (*types.Transaction, error) {
+	return _Registry.Contract.SetSystemRegistrationContractAddress(&_Registry.TransactOpts, _systemRegistrationContractAddress)
+}
+
 // SwitchToProductionMode is a paid mutator transaction binding the contract method 0xf5a98383.
 //
 // Solidity: function switchToProductionMode() returns()
@@ -1105,6 +1255,27 @@ func (_Registry *RegistrySession) SwitchToProductionMode() (*types.Transaction, 
 // Solidity: function switchToProductionMode() returns()
 func (_Registry *RegistryTransactorSession) SwitchToProductionMode() (*types.Transaction, error) {
 	return _Registry.Contract.SwitchToProductionMode(&_Registry.TransactOpts)
+}
+
+// SystemRegistration is a paid mutator transaction binding the contract method 0x18d1812d.
+//
+// Solidity: function systemRegistration(address _voter) returns()
+func (_Registry *RegistryTransactor) SystemRegistration(opts *bind.TransactOpts, _voter common.Address) (*types.Transaction, error) {
+	return _Registry.contract.Transact(opts, "systemRegistration", _voter)
+}
+
+// SystemRegistration is a paid mutator transaction binding the contract method 0x18d1812d.
+//
+// Solidity: function systemRegistration(address _voter) returns()
+func (_Registry *RegistrySession) SystemRegistration(_voter common.Address) (*types.Transaction, error) {
+	return _Registry.Contract.SystemRegistration(&_Registry.TransactOpts, _voter)
+}
+
+// SystemRegistration is a paid mutator transaction binding the contract method 0x18d1812d.
+//
+// Solidity: function systemRegistration(address _voter) returns()
+func (_Registry *RegistryTransactorSession) SystemRegistration(_voter common.Address) (*types.Transaction, error) {
+	return _Registry.Contract.SystemRegistration(&_Registry.TransactOpts, _voter)
 }
 
 // UpdateContractAddresses is a paid mutator transaction binding the contract method 0xb00c0b76.
@@ -2006,22 +2177,19 @@ func (it *RegistryVoterRegisteredIterator) Close() error {
 
 // RegistryVoterRegistered represents a VoterRegistered event raised by the Registry contract.
 type RegistryVoterRegistered struct {
-	RewardEpochId            *big.Int
-	Voter                    common.Address
-	SigningPolicyAddress     common.Address
-	DataProviderAddress      common.Address
-	DepositSignaturesAddress common.Address
-	Weight                   *big.Int
-	WNatWeight               *big.Int
-	CChainStakeWeight        *big.Int
-	NodeIds                  [][20]byte
-	NodeWeights              []*big.Int
-	Raw                      types.Log // Blockchain specific contextual infos
+	Voter                   common.Address
+	RewardEpochId           *big.Int
+	SigningPolicyAddress    common.Address
+	DelegationAddress       common.Address
+	SubmitAddress           common.Address
+	SubmitSignaturesAddress common.Address
+	RegistrationWeight      *big.Int
+	Raw                     types.Log // Blockchain specific contextual infos
 }
 
-// FilterVoterRegistered is a free log retrieval operation binding the contract event 0x381c23d8a2762da95857d410d551588286f422fa78a4d72e9d21c15cee7f3c12.
+// FilterVoterRegistered is a free log retrieval operation binding the contract event 0x36e64c7339af9c00a1b00e5da00d8c2159dff48c9c7020a2088b622e11777820.
 //
-// Solidity: event VoterRegistered(uint256 rewardEpochId, address voter, address signingPolicyAddress, address dataProviderAddress, address depositSignaturesAddress, uint256 weight, uint256 wNatWeight, uint256 cChainStakeWeight, bytes20[] nodeIds, uint256[] nodeWeights)
+// Solidity: event VoterRegistered(address voter, uint24 rewardEpochId, address signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
 func (_Registry *RegistryFilterer) FilterVoterRegistered(opts *bind.FilterOpts) (*RegistryVoterRegisteredIterator, error) {
 
 	logs, sub, err := _Registry.contract.FilterLogs(opts, "VoterRegistered")
@@ -2031,9 +2199,9 @@ func (_Registry *RegistryFilterer) FilterVoterRegistered(opts *bind.FilterOpts) 
 	return &RegistryVoterRegisteredIterator{contract: _Registry.contract, event: "VoterRegistered", logs: logs, sub: sub}, nil
 }
 
-// WatchVoterRegistered is a free log subscription operation binding the contract event 0x381c23d8a2762da95857d410d551588286f422fa78a4d72e9d21c15cee7f3c12.
+// WatchVoterRegistered is a free log subscription operation binding the contract event 0x36e64c7339af9c00a1b00e5da00d8c2159dff48c9c7020a2088b622e11777820.
 //
-// Solidity: event VoterRegistered(uint256 rewardEpochId, address voter, address signingPolicyAddress, address dataProviderAddress, address depositSignaturesAddress, uint256 weight, uint256 wNatWeight, uint256 cChainStakeWeight, bytes20[] nodeIds, uint256[] nodeWeights)
+// Solidity: event VoterRegistered(address voter, uint24 rewardEpochId, address signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
 func (_Registry *RegistryFilterer) WatchVoterRegistered(opts *bind.WatchOpts, sink chan<- *RegistryVoterRegistered) (event.Subscription, error) {
 
 	logs, sub, err := _Registry.contract.WatchLogs(opts, "VoterRegistered")
@@ -2068,9 +2236,9 @@ func (_Registry *RegistryFilterer) WatchVoterRegistered(opts *bind.WatchOpts, si
 	}), nil
 }
 
-// ParseVoterRegistered is a log parse operation binding the contract event 0x381c23d8a2762da95857d410d551588286f422fa78a4d72e9d21c15cee7f3c12.
+// ParseVoterRegistered is a log parse operation binding the contract event 0x36e64c7339af9c00a1b00e5da00d8c2159dff48c9c7020a2088b622e11777820.
 //
-// Solidity: event VoterRegistered(uint256 rewardEpochId, address voter, address signingPolicyAddress, address dataProviderAddress, address depositSignaturesAddress, uint256 weight, uint256 wNatWeight, uint256 cChainStakeWeight, bytes20[] nodeIds, uint256[] nodeWeights)
+// Solidity: event VoterRegistered(address voter, uint24 rewardEpochId, address signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
 func (_Registry *RegistryFilterer) ParseVoterRegistered(log types.Log) (*RegistryVoterRegistered, error) {
 	event := new(RegistryVoterRegistered)
 	if err := _Registry.contract.UnpackLog(event, "VoterRegistered", log); err != nil {

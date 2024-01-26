@@ -26,11 +26,11 @@ func RunAsync(r Runner) {
 }
 
 func Start(ctx context.ClientContext) {
-	protocolClient, err := protocol.NewProtocolClient(ctx)
+	registrationClient, err := registration.NewRegistrationClient(ctx)
 	if err != nil {
 		panic(err)
 	}
-	registrationClient, err := registration.NewRegistrationClient(ctx)
+	protocolClient, err := protocol.NewProtocolClient(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +38,7 @@ func Start(ctx context.ClientContext) {
 	if err != nil {
 		panic(err)
 	}
-	RunAsync(protocolClient)
 	RunAsync(registrationClient)
+	RunAsync(protocolClient)
 	RunAsync(finalizerClient)
 }
