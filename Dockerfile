@@ -1,5 +1,5 @@
 # build executable
-FROM golang:1.18 AS builder
+FROM golang:1.21 AS builder
 
 WORKDIR /build
 
