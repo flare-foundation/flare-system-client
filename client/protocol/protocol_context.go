@@ -21,6 +21,7 @@ type protocolContext struct {
 
 	submitContractAddress common.Address
 	signingAddress        common.Address // address of signerPrivateKey
+	submitAddress         common.Address // address of submitPrivateKey
 }
 
 type contractSelectors struct {
@@ -68,6 +69,10 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 	ctx.signingAddress, err = chain.PrivateKeyToEthAddress(ctx.signerPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting signing address")
+	}
+	ctx.submitAddress, err = chain.PrivateKeyToEthAddress(ctx.submitPrivateKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting submit address")
 	}
 	ctx.submitContractAddress = cfg.ContractAddresses.Submission
 
