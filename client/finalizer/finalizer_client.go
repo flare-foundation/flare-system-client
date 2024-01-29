@@ -50,7 +50,7 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading sender private key")
 	}
-	senderPk, err := chain.PrivateKeyFromHex(senderPkString)
+	txOpts, senderPk, err := chain.CredentialsFromPrivateKey(senderPkString, chainCfg.ChainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating sender register tx opts")
 	}
@@ -58,6 +58,7 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		ethClient,
 		cfg.ContractAddresses.Relay,
 		senderPk,
+		txOpts.From,
 	)
 	if err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		signingPolicyStorage: newSigningPolicyStorage(),
 		submissionStorage:    submissionStorage,
 		submissionClient:     submissionClient,
-		queueProcessor:       newFinalizerQueueProcessor(submissionStorage, relayClient),
+		queueProcessor:       newFinalizerQueueProcessor(submissionStorage, relayClient, finalizerContext),
 		finalizerContext:     finalizerContext,
 	}, nil
 }

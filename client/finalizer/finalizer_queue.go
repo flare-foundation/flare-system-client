@@ -29,16 +29,19 @@ type finalizerQueueProcessor struct {
 
 	submissionStorage *submissionStorage
 	relayClient       *relayContractClient
+	finalizerContext  *finalizerContext
 }
 
 func newFinalizerQueueProcessor(
 	submissionStorage *submissionStorage,
 	relayClient *relayContractClient,
+	finalizerContext *finalizerContext,
 ) *finalizerQueueProcessor {
 	return &finalizerQueueProcessor{
 		submissionStorage: submissionStorage,
 		relayClient:       relayClient,
 		queue:             newFinalizerQueue(),
+		finalizerContext:  finalizerContext,
 	}
 }
 
@@ -84,9 +87,32 @@ func (p *finalizerQueueProcessor) Run() {
 		<-ticker.C
 
 		item := p.queue.Pop()
-		selectedPayloads, signingPolicy := p.processItem(item)
-		p.relayClient.SubmitPayloads(selectedPayloads, signingPolicy)
+
+		// TODO:!!!!
+		// Check if we are among selected voters for the voting epoch
+		// If not call process item, but add to delayed queue
+		if p.IsVoterForCurrentEpoch(item) {
+			selectedPayloads, signingPolicy := p.processItem(item)
+			p.relayClient.SubmitPayloads(selectedPayloads, signingPolicy)
+		} else {
+			// TODO: add to delayed queue
+		}
 	}
+}
+
+func (p *finalizerQueueProcessor) IsVoterForCurrentEpoch(item *queueItem) bool {
+	if item == nil {
+		return false
+	}
+	data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
+	if data == nil {
+		return false
+	}
+	voters, err := data.signingPolicy.voters.SelectVoters(item.protocolId, item.votingRoundId, p.finalizerContext.voterThresholdBIPS)
+	if err != nil {
+		return false // TODO: log error or panic? -- wrong bips value
+	}
+	return voters.Contains(p.relayClient.senderAddress)
 }
 
 func (p *finalizerQueueProcessor) processItem(item *queueItem) ([]*signedPayload, *signingPolicy) {
@@ -110,7 +136,7 @@ func (p *finalizerQueueProcessor) processItem(item *queueItem) ([]*signedPayload
 		return data.signingPolicy.voters.VoterWeight(p.index) > data.signingPolicy.voters.VoterWeight(q.index)
 	})
 
-	// greedy select wuntil threshold is reached
+	// greedy select until threshold is reached
 	weight := uint16(0)
 	var selected []*signedPayload
 	for _, payload := range payloads {

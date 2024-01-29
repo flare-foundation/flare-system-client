@@ -143,7 +143,6 @@ func EncodeForRelay(payloads []*signedPayload) ([]byte, error) {
 		return nil, fmt.Errorf("too many payloads: %d", len(payloads))
 	}
 
-	// Todo: more checks?
 	sizeBytes := shared.Uint16toBytes(uint16(len(payloads)))
 	buffer.Write(sizeBytes[:])
 	prevIndex := -1

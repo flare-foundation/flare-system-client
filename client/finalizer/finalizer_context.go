@@ -14,6 +14,8 @@ type finalizerContext struct {
 	startingVotingRound uint32
 	startTimeOffset     time.Duration // offset for fetching reward epochs at the start of the client
 
+	voterThresholdBIPS uint16
+
 	votingEpoch *utils.Epoch
 }
 

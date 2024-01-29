@@ -82,6 +82,11 @@ func RandomNumberSequence(initialSeed common.Hash, length int) []common.Hash {
 	return sequence
 }
 
+func (vs *VoterSet) SelectVoters(protocolId byte, votingRoundId uint32, thresholdBIPS uint16) (mapset.Set[common.Address], error) {
+	seed := InitialHashSeed(protocolId, votingRoundId)
+	return vs.RandomSelectThresholdWeightVoters(seed, thresholdBIPS)
+}
+
 func (vs *VoterSet) RandomSelectThresholdWeightVoters(randomSeed common.Hash, thresholdBIPS uint16) (mapset.Set[common.Address], error) {
 	// We limit the threshold to 5000 BIPS to avoid long running loops
 	// In practice it will be used with around 1000 BIPS or lower.

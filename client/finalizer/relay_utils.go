@@ -29,9 +29,10 @@ var (
 type relayContractClient struct {
 	address common.Address
 
-	ethClient  *ethclient.Client
-	relay      *relay.Relay
-	privateKey *ecdsa.PrivateKey
+	ethClient     *ethclient.Client
+	relay         *relay.Relay
+	privateKey    *ecdsa.PrivateKey
+	senderAddress common.Address
 
 	relaySelector []byte // for relay method
 	topic0        string // for SigningPolicyInitialized event
@@ -46,6 +47,7 @@ func NewRelayContractClient(
 	ethClient *ethclient.Client,
 	address common.Address,
 	privateKey *ecdsa.PrivateKey,
+	senderAddress common.Address,
 ) (*relayContractClient, error) {
 	relayContract, err := relay.NewRelay(address, ethClient)
 	if err != nil {
@@ -69,6 +71,7 @@ func NewRelayContractClient(
 		address:       address,
 		relay:         relayContract,
 		privateKey:    privateKey,
+		senderAddress: senderAddress,
 		relaySelector: relaySelectorBytes,
 		topic0:        topic0,
 	}, nil
@@ -150,7 +153,6 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 		return nil, nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 
-	// TODO: what happens if not successful
 	if execStatus.Success {
 		logger.Info("Relay tx sent")
 	}
