@@ -99,7 +99,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 		channels[i] = protocol.getDataWithRetry(
 			currentEpoch+s.epochOffset,
 			s.name,
-			s.protocolContext.signingAddress.Hex(),
+			s.protocolContext.submitAddress.Hex(),
 			1,
 			submitterGetDataTimeout,
 			IdentityDataVerifier,
@@ -199,7 +199,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 			channels[i] = protocol.getDataWithRetry(
 				currentEpoch-1,
 				"submitSignatures",
-				s.protocolContext.signingAddress.Hex(),
+				s.protocolContext.submitSignaturesTxOpts.From.Hex(),
 				s.dataFetchRetries,
 				signatureSubmitterDataTimeout,
 				SignatureSubmitterDataVerifier,

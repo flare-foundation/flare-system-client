@@ -44,8 +44,8 @@ func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 	}
 }
 
-func (sp *SubProtocol) getData(votingRound int64, submitName string, signingAddress string, timeout time.Duration) (*SubProtocolResponse, error) {
-	url, err := getUrl(votingRound, sp, submitName, signingAddress)
+func (sp *SubProtocol) getData(votingRound int64, submitName string, submitAddress string, timeout time.Duration) (*SubProtocolResponse, error) {
+	url, err := getUrl(votingRound, sp, submitName, submitAddress)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting url")
 	}
@@ -103,13 +103,13 @@ func (sp *SubProtocol) getData(votingRound int64, submitName string, signingAddr
 func (sp *SubProtocol) getDataWithRetry(
 	votingRound int64,
 	endpoint string,
-	signingAddress string,
+	submitAddress string,
 	nRetries int,
 	timeout time.Duration,
 	dataVerifier DataVerifier,
 ) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
 	return shared.ExecuteWithRetry(func() (*SubProtocolResponse, error) {
-		data, err := sp.getData(votingRound, endpoint, signingAddress, timeout)
+		data, err := sp.getData(votingRound, endpoint, submitAddress, timeout)
 		if err == nil {
 			err = dataVerifier(data)
 		}
