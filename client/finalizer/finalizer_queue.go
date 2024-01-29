@@ -107,14 +107,14 @@ func (p *finalizerQueueProcessor) processItem(item *queueItem) ([]*signedPayload
 
 	// (sort descreasing by weight)
 	slices.SortFunc(payloads, func(p, q *signedPayload) bool {
-		return data.signingPolicy.weights[p.index] > data.signingPolicy.weights[q.index]
+		return data.signingPolicy.voters.VoterWeight(p.index) > data.signingPolicy.voters.VoterWeight(q.index)
 	})
 
 	// greedy select wuntil threshold is reached
 	weight := uint16(0)
 	var selected []*signedPayload
 	for _, payload := range payloads {
-		weight += data.signingPolicy.weights[payload.index]
+		weight += data.signingPolicy.voters.VoterWeight(payload.index)
 		selected = append(selected, payload)
 		if weight > data.signingPolicy.threshold {
 			break

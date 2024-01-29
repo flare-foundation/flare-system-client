@@ -140,6 +140,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)
 		}
+
 		addResult, err := c.submissionStorage.Add(payloadItem.payload, sp)
 		if err != nil {
 			// Error is non-fatal, skip this submission

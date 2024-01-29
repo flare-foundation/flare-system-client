@@ -1,8 +1,10 @@
 package voters
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
+	"flare-tlc/client/shared"
 	"math/big"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -11,11 +13,18 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+type VoterData struct {
+	index  int
+	weight uint16
+}
+
 type VoterSet struct {
 	voters      []common.Address
 	weights     []uint16
 	totalWeight uint16
 	thresholds  []uint16
+
+	voterDataMap map[common.Address]VoterData
 }
 
 func NewVoterSet(voters []common.Address, weights []uint16) *VoterSet {
@@ -24,11 +33,22 @@ func NewVoterSet(voters []common.Address, weights []uint16) *VoterSet {
 		weights:    weights,
 		thresholds: make([]uint16, len(weights)),
 	}
-	// sum does not exceed uin16, guaranteed by the smart contract
+	// sum does not exceed uint16, guaranteed by the smart contract
 	for i, w := range weights {
 		vs.thresholds[i] = vs.totalWeight
 		vs.totalWeight += w
 	}
+
+	vMap := make(map[common.Address]VoterData)
+	for i, voter := range vs.voters {
+		if _, ok := vMap[voter]; !ok {
+			vMap[voter] = VoterData{
+				index:  i,
+				weight: vs.weights[i],
+			}
+		}
+	}
+	vs.voterDataMap = vMap
 	return &vs
 }
 
@@ -119,6 +139,27 @@ func (vs *VoterSet) BinarySearch(value uint16) int {
 	return left - 1
 }
 
-func (vs VoterSet) TotalWeight() uint16 {
+func (vs *VoterSet) TotalWeight() uint16 {
 	return vs.totalWeight
+}
+func (vs *VoterSet) VoterWeight(index int) uint16 {
+	return vs.weights[index]
+}
+
+func (vs *VoterSet) Count() int {
+	return len(vs.voters)
+}
+
+func (vs *VoterSet) WriteVoterRaw(buffer *bytes.Buffer, i int) {
+	weightBytes := shared.Uint16toBytes(vs.weights[i])
+	buffer.Write(vs.voters[i].Bytes())
+	buffer.Write(weightBytes[:])
+}
+
+func (vs *VoterSet) VoterIndex(address common.Address) int {
+	voterData, ok := vs.voterDataMap[address]
+	if !ok {
+		return -1
+	}
+	return voterData.index
 }
