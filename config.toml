@@ -49,15 +49,15 @@ id = 2
 api_endpoint = "http://localhost:3000/ftso2"
 
 [submit1]
-start_offset = "10s"
+start_offset = "5s"
 tx_submit_retries = 1
 
 [submit2]
-start_offset = "80s"
+start_offset = "15s"
 tx_submit_retries = 1
 
 [submit_signatures]
-start_offset = "30s"
+start_offset = "10s"
 tx_submit_retries = 3
 data_fetch_retries = 5
 max_rounds = 3
@@ -65,3 +65,5 @@ max_rounds = 3
 [finalizer]
 starting_reward_epoch = 0
 starting_voting_round = 1005
+start_offset = "500s"
+grace_period_end_offset = "17s"

@@ -1,6 +1,9 @@
 package finalizer
 
 import (
+	"flare-tlc/logger"
+	"flare-tlc/utils"
+	"fmt"
 	"sync"
 	"time"
 
@@ -18,6 +21,10 @@ type queueItem struct {
 	messageHash   common.Hash
 }
 
+func (i *queueItem) String() string {
+	return fmt.Sprintf("votingRoundId=%v, protocolId=%v, messageHash=%v", i.votingRoundId, i.protocolId, i.messageHash.Hex())
+}
+
 type finalizerQueue struct {
 	queue []*queueItem
 
@@ -25,7 +32,8 @@ type finalizerQueue struct {
 }
 
 type finalizerQueueProcessor struct {
-	queue finalizerQueue
+	queue         *finalizerQueue
+	delayedQueues *utils.DelayedQueueManager[*queueItem]
 
 	submissionStorage *submissionStorage
 	relayClient       *relayContractClient
@@ -37,16 +45,19 @@ func newFinalizerQueueProcessor(
 	relayClient *relayContractClient,
 	finalizerContext *finalizerContext,
 ) *finalizerQueueProcessor {
-	return &finalizerQueueProcessor{
+	qp := &finalizerQueueProcessor{
 		submissionStorage: submissionStorage,
 		relayClient:       relayClient,
 		queue:             newFinalizerQueue(),
-		finalizerContext:  finalizerContext,
+
+		finalizerContext: finalizerContext,
 	}
+	qp.delayedQueues = utils.NewDelayedQueueManager[*queueItem](qp.processDelayedQueue)
+	return qp
 }
 
-func newFinalizerQueue() finalizerQueue {
-	return finalizerQueue{
+func newFinalizerQueue() *finalizerQueue {
+	return &finalizerQueue{
 		queue: make([]*queueItem, 0, 256),
 	}
 }
@@ -88,14 +99,22 @@ func (p *finalizerQueueProcessor) Run() {
 
 		item := p.queue.Pop()
 
-		// TODO:!!!!
-		// Check if we are among selected voters for the voting epoch
-		// If not call process item, but add to delayed queue
+		if item == nil {
+			continue
+		}
+
 		if p.IsVoterForCurrentEpoch(item) {
-			selectedPayloads, signingPolicy := p.processItem(item)
-			p.relayClient.SubmitPayloads(selectedPayloads, signingPolicy)
+			logger.Debug("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
+
+			p.processItem(item)
 		} else {
-			// TODO: add to delayed queue
+			logger.Debug("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
+
+			data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
+			if data != nil {
+				st := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundId)).Add(p.finalizerContext.gracePeriodEndOffset)
+				p.delayedQueues.Add(st, item)
+			}
 		}
 	}
 }
@@ -110,18 +129,21 @@ func (p *finalizerQueueProcessor) IsVoterForCurrentEpoch(item *queueItem) bool {
 	}
 	voters, err := data.signingPolicy.voters.SelectVoters(item.protocolId, item.votingRoundId, p.finalizerContext.voterThresholdBIPS)
 	if err != nil {
-		return false // TODO: log error or panic? -- wrong bips value
+		return false
 	}
+
+	logger.Debug("Finalizer voters for item %v: %v", item, voters)
+
 	return voters.Contains(p.relayClient.senderAddress)
 }
 
-func (p *finalizerQueueProcessor) processItem(item *queueItem) ([]*signedPayload, *signingPolicy) {
+func (p *finalizerQueueProcessor) processItem(item *queueItem) {
 	if item == nil {
-		return nil, nil
+		return
 	}
 	data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
 	if data == nil {
-		return nil, nil
+		return
 	}
 
 	payloads := make([]*signedPayload, 0, len(data.payload))
@@ -151,5 +173,14 @@ func (p *finalizerQueueProcessor) processItem(item *queueItem) ([]*signedPayload
 	slices.SortFunc(selected, func(p, q *signedPayload) bool {
 		return p.index < q.index
 	})
-	return selected, data.signingPolicy
+
+	p.relayClient.SubmitPayloads(selected, data.signingPolicy)
+}
+
+func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
+	for _, item := range items {
+		logger.Debug("Finalizer processes delayed queue item %v", item)
+		p.processItem(item)
+	}
+	return nil
 }

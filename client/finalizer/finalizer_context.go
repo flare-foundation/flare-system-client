@@ -14,7 +14,8 @@ type finalizerContext struct {
 	startingVotingRound uint32
 	startTimeOffset     time.Duration // offset for fetching reward epochs at the start of the client
 
-	voterThresholdBIPS uint16
+	voterThresholdBIPS   uint16
+	gracePeriodEndOffset time.Duration
 
 	votingEpoch *utils.Epoch
 }
@@ -25,9 +26,11 @@ func newFinalizerContext(cfg *config.ClientConfig, systemManager *system.FlareSy
 		return nil, err
 	}
 	return &finalizerContext{
-		startingRewardEpoch: cfg.Finalizer.StartingRewardEpoch,
-		startingVotingRound: cfg.Finalizer.StartingVotingRound,
-		startTimeOffset:     cfg.Finalizer.StartOffset,
-		votingEpoch:         votingEpoch,
+		startingRewardEpoch:  cfg.Finalizer.StartingRewardEpoch,
+		startingVotingRound:  cfg.Finalizer.StartingVotingRound,
+		startTimeOffset:      cfg.Finalizer.StartOffset,
+		voterThresholdBIPS:   cfg.Finalizer.VoterThresholdBIPS,
+		gracePeriodEndOffset: cfg.Finalizer.GracePeriodEndOffset,
+		votingEpoch:          votingEpoch,
 	}, nil
 }

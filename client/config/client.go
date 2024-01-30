@@ -76,6 +76,9 @@ type FinalizerConfig struct {
 	StartOffset time.Duration `toml:"start_offset"`
 
 	VoterThresholdBIPS uint16 `toml:"voter_threshold_bips"`
+
+	// Offset from the start of the voting round
+	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 
 func newConfig() *ClientConfig {
@@ -85,7 +88,7 @@ func newConfig() *ClientConfig {
 		},
 		Finalizer: FinalizerConfig{
 			StartOffset:        7 * 24 * time.Hour,
-			VoterThresholdBIPS: 3000, // TODO: set when decided
+			VoterThresholdBIPS: 500,
 		},
 	}
 }
