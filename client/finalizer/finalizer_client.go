@@ -72,7 +72,7 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		signingPolicyStorage: newSigningPolicyStorage(),
 		submissionStorage:    submissionStorage,
 		submissionClient:     submissionClient,
-		queueProcessor:       newFinalizerQueueProcessor(submissionStorage, relayClient, finalizerContext),
+		queueProcessor:       newFinalizerQueueProcessor(ctx.DB(), submissionStorage, relayClient, finalizerContext),
 		finalizerContext:     finalizerContext,
 	}, nil
 }

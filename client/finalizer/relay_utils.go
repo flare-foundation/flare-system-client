@@ -10,6 +10,8 @@ import (
 	"flare-tlc/utils/contracts/relay"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -35,7 +37,8 @@ type relayContractClient struct {
 	senderAddress common.Address
 
 	relaySelector []byte // for relay method
-	topic0        string // for SigningPolicyInitialized event
+	topic0SPI     string // for SigningPolicyInitialized event
+	topic0PMR     string // for ProtocolMessageRelayed event
 }
 
 type signingPolicyListenerResponse struct {
@@ -60,7 +63,12 @@ func NewRelayContractClient(
 		panic(err)
 	}
 	relaySelectorBytes := relayABI.Methods["relay"].ID
-	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
+	topic0SPI, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+	topic0PMR, err := chain.EventIDFromMetadata(relay.RelayMetaData, "ProtocolMessageRelayed")
 	if err != nil {
 		// panic, this error is fatal
 		panic(err)
@@ -73,12 +81,13 @@ func NewRelayContractClient(
 		privateKey:    privateKey,
 		senderAddress: senderAddress,
 		relaySelector: relaySelectorBytes,
-		topic0:        topic0,
+		topic0SPI:     topic0SPI,
+		topic0PMR:     topic0PMR,
 	}, nil
 }
 
 func (r *relayContractClient) FetchSigningPolicies(db *gorm.DB, from, to int64) ([]signingPolicyListenerResponse, error) {
-	logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0, from, to)
+	logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +112,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0, eventRangeStart, now)
+			logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0SPI, eventRangeStart, now)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue
@@ -156,4 +165,25 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 	if execStatus.Success {
 		logger.Info("Relay tx sent")
 	}
+}
+
+func (r *relayContractClient) ProtocolMessageRelayed(db *gorm.DB, from time.Time, to time.Time) (mapset.Set[queueItem], error) {
+	logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0PMR, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+
+	result := mapset.NewSet[queueItem]()
+	for _, log := range logs {
+		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
+		if err != nil {
+			return nil, err
+		}
+		result.Add(queueItem{
+			protocolId:    data.ProtocolId,
+			votingRoundId: data.VotingRoundId,
+			messageHash:   data.MerkleRoot,
+		})
+	}
+	return result, nil
 }

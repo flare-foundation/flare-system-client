@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/slices"
+	"gorm.io/gorm"
 )
 
 const (
@@ -32,6 +33,7 @@ type finalizerQueue struct {
 }
 
 type finalizerQueueProcessor struct {
+	db            *gorm.DB
 	queue         *finalizerQueue
 	delayedQueues *utils.DelayedQueueManager[*queueItem]
 
@@ -41,11 +43,13 @@ type finalizerQueueProcessor struct {
 }
 
 func newFinalizerQueueProcessor(
+	db *gorm.DB,
 	submissionStorage *submissionStorage,
 	relayClient *relayContractClient,
 	finalizerContext *finalizerContext,
 ) *finalizerQueueProcessor {
 	qp := &finalizerQueueProcessor{
+		db:                db,
 		submissionStorage: submissionStorage,
 		relayClient:       relayClient,
 		queue:             newFinalizerQueue(),
@@ -113,6 +117,7 @@ func (p *finalizerQueueProcessor) Run() {
 			data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
 			if data != nil {
 				st := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundId)).Add(p.finalizerContext.gracePeriodEndOffset)
+				logger.Debug("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
 			}
 		}
@@ -178,7 +183,19 @@ func (p *finalizerQueueProcessor) processItem(item *queueItem) {
 }
 
 func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
+	now := time.Now()
+	currentEpoch := p.finalizerContext.votingEpoch.EpochIndex(now)
+	startTime := p.finalizerContext.votingEpoch.StartTime(currentEpoch)
+
+	relayedItems, err := p.relayClient.ProtocolMessageRelayed(p.db, startTime, now)
+	if err != nil {
+		return err
+	}
+
 	for _, item := range items {
+		if relayedItems.Contains(*item) {
+			continue
+		}
 		logger.Debug("Finalizer processes delayed queue item %v", item)
 		p.processItem(item)
 	}
