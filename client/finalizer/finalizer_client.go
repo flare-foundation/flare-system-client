@@ -102,7 +102,9 @@ func (c *finalizerClient) startSigningPolicyInitializedListener(startTime time.T
 		if policy.rewardEpochId < c.finalizerContext.startingRewardEpoch {
 			continue
 		}
-		c.signingPolicyStorage.Add(policy)
+		if err := c.signingPolicyStorage.Add(policy); err != nil {
+			return err
+		}
 	}
 	logger.Info("Added %d signing policies", len(spList))
 
@@ -117,7 +119,9 @@ func (c *finalizerClient) startSigningPolicyInitializedListener(startTime time.T
 			if policy.rewardEpochId < c.finalizerContext.startingRewardEpoch {
 				continue
 			}
-			c.signingPolicyStorage.Add(policy)
+			if err := c.signingPolicyStorage.Add(policy); err != nil {
+				logger.Warn("Error adding signing policy %v", err)
+			}
 			logger.Info("New signing policy received for epoch %v", policy.rewardEpochId)
 			c.rewardEpochCleanup()
 		}

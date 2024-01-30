@@ -7,13 +7,7 @@ import (
 	"strings"
 )
 
-const (
-	hexPrefix             = "0x"
-	addressChainSeparator = "-"
-)
-
 var (
-	errInvalidPrefixError        = errors.New("string does not have hex prefix")
 	errInvalidAddressLengthError = errors.New("address length is not 32")
 	errInvalidIdLengthError      = errors.New("id length is not 20")
 )

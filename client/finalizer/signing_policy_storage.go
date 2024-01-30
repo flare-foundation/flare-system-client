@@ -64,18 +64,6 @@ func newSigningPolicyStorage() *signingPolicyStorage {
 }
 
 // Does not lock the structure, should be called from a function that does lock.
-// We assume that the list is sorted by rewardEpochId
-func (s *signingPolicyStorage) findByRewardEpochId(rewardEpochId int64) *signingPolicy {
-	i, found := sort.Find(len(s.spList), func(i int) int {
-		return cmp.Compare(rewardEpochId, s.spList[i].rewardEpochId)
-	})
-	if !found {
-		return nil
-	}
-	return s.spList[i]
-}
-
-// Does not lock the structure, should be called from a function that does lock.
 // We assume that the list is sorted by rewardEpochId and also by startVotingRoundId.
 func (s *signingPolicyStorage) findByVotingRoundId(votingRoundId uint32) *signingPolicy {
 	i, found := sort.Find(len(s.spList), func(i int) int {
