@@ -60,15 +60,15 @@ id = 2
 api_endpoint = "http://localhost:3000/ftso2"
 
 [submit1]
-start_offset = "10s"   # start fetching data and submitting txs after this offset from the start of the epoch
+start_offset = "5s"    # start fetching data and submitting txs after this offset from the start of the epoch
 tx_submit_retries = 1  # number of retries for submitting txs
 
 [submit2]
-start_offset = "80s"
+start_offset = "15s"
 tx_submit_retries = 1
 
 [submit_signatures]
-start_offset = "30s"
+start_offset = "10s"    # offset from the start of the epoch
 tx_submit_retries = 3
 data_fetch_retries = 5  # number of retries for fetching data from the API, timeout is 1 second
 max_rounds = 3          # max number of rounds to fetch data and submit signatures
@@ -76,4 +76,6 @@ max_rounds = 3          # max number of rounds to fetch data and submit signatur
 [finalizer]
 starting_reward_epoch = 0
 starting_voting_round = 1005
+start_offset = "500s" # how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client default is 7 days
+grace_period_end_offset = "40s"  # Offset from the start of the voting round
 ```

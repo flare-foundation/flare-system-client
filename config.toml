@@ -66,4 +66,4 @@ max_rounds = 3
 starting_reward_epoch = 0
 starting_voting_round = 1005
 start_offset = "500s"
-grace_period_end_offset = "17s"
+grace_period_end_offset = "40s"
