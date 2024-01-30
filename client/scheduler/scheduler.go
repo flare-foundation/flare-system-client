@@ -38,18 +38,6 @@ func NewEpochScheduler(epoch *utils.Epoch, startOffset time.Duration, job Schedu
 	}
 }
 
-func (s *EpochScheduler) nextScheduledTimeInEpoch(epoch int64) <-chan time.Time {
-	now := s.TimeProvider.Now()
-	tickTime := s.Epoch.StartTime(epoch).Add(s.StartOffset)
-	tickDuration := tickTime.Sub(now)
-
-	if tickDuration >= 0 {
-		return time.NewTimer(tickDuration).C
-	} else {
-		return time.NewTimer(tickDuration + s.Epoch.Period).C
-	}
-}
-
 func (s *EpochScheduler) Run() {
 	et := utils.NewEpochTicker(s.StartOffset, s.Epoch)
 	for {

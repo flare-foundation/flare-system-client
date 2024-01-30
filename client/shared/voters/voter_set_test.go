@@ -34,8 +34,7 @@ func TestVoterSetInitialization(t *testing.T) {
 	vs := voters.NewVoterSet(testVoters, testWeights)
 	if vs == nil {
 		t.Errorf("voter set is nil")
-	}
-	if vs.TotalWeight() != 1500 {
+	} else if vs.TotalWeight() != 1500 {
 		t.Errorf("total weight is not correct")
 	}
 }

@@ -42,16 +42,6 @@ func InitialHashSeed(protocolId byte, votingRoundId uint32) common.Hash {
 	return common.BytesToHash(crypto.Keccak256(seed))
 }
 
-func randomNumberSequence(initialSeed common.Hash, length int) []common.Hash {
-	sequence := make([]common.Hash, length)
-	currentSeed := initialSeed
-	for i := 0; i < length; i++ {
-		sequence[i] = currentSeed
-		currentSeed = crypto.Keccak256Hash(currentSeed.Bytes())
-	}
-	return sequence
-}
-
 func RandomNumberSequence(initialSeed common.Hash, length int) []common.Hash {
 	sequence := make([]common.Hash, length)
 	currentSeed := initialSeed
@@ -65,7 +55,7 @@ func RandomNumberSequence(initialSeed common.Hash, length int) []common.Hash {
 func (vs *VoterSet) RandomSelectThresholdWeightVoters(randomSeed common.Hash, thresholdBIPS uint16) (mapset.Set[common.Address], error) {
 	// We limit the threshold to 5000 BIPS to avoid long running loops
 	// In practice it will be used with around 1000 BIPS or lower.
-	if thresholdBIPS < 0 || thresholdBIPS > 5000 {
+	if thresholdBIPS > 5000 {
 		return nil, errors.New("Threshold must be between 0 and 5000 BIPS")
 	}
 
@@ -97,7 +87,7 @@ func (vs *VoterSet) selectVoterIndex(randomNumber common.Hash) int {
 // Searches for the highest index of the threshold that is less than or equal to the value.
 // Binary search is used.
 func (vs *VoterSet) BinarySearch(value uint16) int {
-	if value < 0 || value > vs.totalWeight {
+	if value > vs.totalWeight {
 		panic("Value must be between 0 and total weight")
 	}
 	left := 0
