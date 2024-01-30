@@ -45,3 +45,11 @@ func ParseSigningPolicyInitializedEvent(relay *relay.Relay, dbLog database.Log) 
 	}
 	return relay.RelayFilterer.ParseSigningPolicyInitialized(*contractLog)
 }
+
+func ParseProtocolMessageRelayedEvent(relay *relay.Relay, dbLog database.Log) (*relay.RelayProtocolMessageRelayed, error) {
+	contractLog, err := ConvertDatabaseLogToChainLog(dbLog)
+	if err != nil {
+		return nil, err
+	}
+	return relay.RelayFilterer.ParseProtocolMessageRelayed(*contractLog)
+}

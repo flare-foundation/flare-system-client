@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/slices"
 )
 
 type messageData struct {
@@ -70,13 +69,13 @@ func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayload
 	message, ok := vrItem.msgMap[key]
 	if !ok {
 		message = &messageData{
-			payload:       make([]*signedPayload, len(sp.voters)),
+			payload:       make([]*signedPayload, sp.voters.Count()),
 			signingPolicy: sp,
 		}
 		vrItem.msgMap[key] = message
 	}
 
-	voterIndex := slices.Index(sp.voters, p.signer)
+	voterIndex := sp.voters.VoterIndex(p.signer)
 	if voterIndex < 0 {
 		return addPayloadResult{}, fmt.Errorf("signer %s is not a voter", p.signer.Hex())
 	}
@@ -87,7 +86,7 @@ func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayload
 	thresholdAlreadyReached := message.thresholdReached()
 
 	message.payload[voterIndex] = p
-	message.weight += sp.weights[voterIndex]
+	message.weight += sp.voters.VoterWeight(voterIndex)
 	return addPayloadResult{
 		added:            true,
 		message:          message,

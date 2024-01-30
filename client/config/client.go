@@ -74,6 +74,11 @@ type FinalizerConfig struct {
 	// how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client
 	// default is 7 days
 	StartOffset time.Duration `toml:"start_offset"`
+
+	VoterThresholdBIPS uint16 `toml:"voter_threshold_bips"`
+
+	// Offset from the start of the voting round
+	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 
 func newConfig() *ClientConfig {
@@ -82,7 +87,8 @@ func newConfig() *ClientConfig {
 			NodeURL: "http://localhost:9650/",
 		},
 		Finalizer: FinalizerConfig{
-			StartOffset: 7 * 24 * time.Hour,
+			StartOffset:        7 * 24 * time.Hour,
+			VoterThresholdBIPS: 500,
 		},
 	}
 }
