@@ -7,7 +7,6 @@ import (
 	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/relay"
 	"flare-tlc/utils/contracts/system"
 	"math/big"
 
@@ -150,42 +149,26 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 		}
 
 		// Call RegisterVoter function on VoterRegistry
-		select {
-		case registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.identityAddress):
-			if !registerResult.Success {
-				logger.Error("RegisterVoter failed %s", registerResult.Message)
-				continue
-			}
-
-			logger.Info("RegisterVoter success")
-
-		case <-ctx.Done():
-			return ctx.Err()
+		registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.identityAddress)
+		if !registerResult.Success {
+			logger.Error("RegisterVoter failed %s", registerResult.Message)
+			continue
 		}
+
+		logger.Info("RegisterVoter success")
 
 		// Wait until we get voter registered event
 		// Already in RegisterVoter
 
 		// Wait until SigningPolicyInitialized event is emitted
-		var signingPolicy *relay.RelaySigningPolicyInitialized
-		select {
-		case signingPolicy = <-c.relayClient.SigningPolicyInitializedListener(c.db, powerBlockData.Timestamp):
-			logger.Info("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
-
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+		signingPolicy := <-c.relayClient.SigningPolicyInitializedListener(c.db, powerBlockData.Timestamp)
+		logger.Info("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
 
 		// Call signNewSigningPolicy
-		select {
-		case signingResult := <-c.systemManagerClient.SignNewSigningPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes):
-			if !signingResult.Success {
-				logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
-				continue
-			}
-
-		case <-ctx.Done():
-			return ctx.Err()
+		signingResult := <-c.systemManagerClient.SignNewSigningPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)
+		if !signingResult.Success {
+			logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
+			continue
 		}
 	}
 }
