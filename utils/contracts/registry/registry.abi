@@ -333,7 +333,7 @@
     "name": "entityManager",
     "outputs": [
       {
-        "internalType": "contract IIEntityManager",
+        "internalType": "contract EntityManager",
         "name": "",
         "type": "address"
       }
@@ -359,7 +359,7 @@
     "name": "flareSystemCalculator",
     "outputs": [
       {
-        "internalType": "contract IIFlareSystemCalculator",
+        "internalType": "contract FlareSystemCalculator",
         "name": "",
         "type": "address"
       }
@@ -372,7 +372,7 @@
     "name": "flareSystemManager",
     "outputs": [
       {
-        "internalType": "contract IFlareSystemManager",
+        "internalType": "contract FlareSystemManager",
         "name": "",
         "type": "address"
       }
@@ -804,7 +804,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct IVoterRegistry.Signature",
+        "internalType": "struct VoterRegistry.Signature",
         "name": "_signature",
         "type": "tuple"
       }

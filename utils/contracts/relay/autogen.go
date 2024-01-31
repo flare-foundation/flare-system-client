@@ -41,7 +41,7 @@ type IIRelaySigningPolicy struct {
 
 // RelayMetaData contains all meta data concerning the Relay contract.
 var RelayMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_signingPolicySetter\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"_initialRewardEpochId\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_startingVotingRoundIdForInitialRewardEpochId\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"_initialSigningPolicyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint8\",\"name\":\"_randomNumberProtocolId\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"_firstVotingRoundStartTs\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"_votingEpochDurationSeconds\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"_firstRewardEpochStartVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"_rewardEpochDurationInVotingEpochs\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"_thresholdIncreaseBIPS\",\"type\":\"uint16\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint8\",\"name\":\"protocolId\",\"type\":\"uint8\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"votingRoundId\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"randomQualityScore\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"merkleRoot\",\"type\":\"bytes32\"}],\"name\":\"ProtocolMessageRelayed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"startVotingRoundId\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"threshold\",\"type\":\"uint16\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"seed\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"voters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint16[]\",\"name\":\"weights\",\"type\":\"uint16[]\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"signingPolicyBytes\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"SigningPolicyInitialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"SigningPolicyRelayed\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_protocolId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_votingRoundId\",\"type\":\"uint256\"}],\"name\":\"getConfirmedMerkleRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRandomNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_randomNumber\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_isSecureRandom\",\"type\":\"bool\"},{\"internalType\":\"uint32\",\"name\":\"_randomTimestamp\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_timestamp\",\"type\":\"uint256\"}],\"name\":\"getVotingRoundId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastInitializedRewardEpochData\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"_lastInitializedRewardEpoch\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_startingVotingRoundIdForLastInitializedRewardEpoch\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"merkleRoots\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"relay\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_result\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"startVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"threshold\",\"type\":\"uint16\"},{\"internalType\":\"uint256\",\"name\":\"seed\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"voters\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"weights\",\"type\":\"uint16[]\"}],\"internalType\":\"structIIRelay.SigningPolicy\",\"name\":\"_signingPolicy\",\"type\":\"tuple\"}],\"name\":\"setSigningPolicy\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"signingPolicySetter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"startingVotingRoundIds\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"stateData\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"randomNumberProtocolId\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"firstVotingRoundStartTs\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"votingEpochDurationSeconds\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"firstRewardEpochStartVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"rewardEpochDurationInVotingEpochs\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"thresholdIncreaseBIPS\",\"type\":\"uint16\"},{\"internalType\":\"uint32\",\"name\":\"randomVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"isSecureRandom\",\"type\":\"bool\"},{\"internalType\":\"uint32\",\"name\":\"lastInitializedRewardEpoch\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"noSigningPolicyRelay\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"toSigningPolicyHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_signingPolicySetter\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"_initialRewardEpochId\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_startingVotingRoundIdForInitialRewardEpochId\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"_initialSigningPolicyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint8\",\"name\":\"_randomNumberProtocolId\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"_firstVotingRoundStartTs\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"_votingEpochDurationSeconds\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"_firstRewardEpochStartVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"_rewardEpochDurationInVotingEpochs\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"_thresholdIncreaseBIPS\",\"type\":\"uint16\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint8\",\"name\":\"protocolId\",\"type\":\"uint8\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"votingRoundId\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"isSecureRandom\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"merkleRoot\",\"type\":\"bytes32\"}],\"name\":\"ProtocolMessageRelayed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"startVotingRoundId\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"threshold\",\"type\":\"uint16\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"seed\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"voters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint16[]\",\"name\":\"weights\",\"type\":\"uint16[]\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"signingPolicyBytes\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"SigningPolicyInitialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"SigningPolicyRelayed\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_protocolId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_votingRoundId\",\"type\":\"uint256\"}],\"name\":\"getConfirmedMerkleRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRandomNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_randomNumber\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_isSecureRandom\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"_randomTimestamp\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_timestamp\",\"type\":\"uint256\"}],\"name\":\"getVotingRoundId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastInitializedRewardEpochData\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"_lastInitializedRewardEpoch\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_startingVotingRoundIdForLastInitializedRewardEpoch\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"merkleRoots\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"relay\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"startVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"threshold\",\"type\":\"uint16\"},{\"internalType\":\"uint256\",\"name\":\"seed\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"voters\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"weights\",\"type\":\"uint16[]\"}],\"internalType\":\"structIIRelay.SigningPolicy\",\"name\":\"_signingPolicy\",\"type\":\"tuple\"}],\"name\":\"setSigningPolicy\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"signingPolicySetter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"startingVotingRoundIds\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"stateData\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"randomNumberProtocolId\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"firstVotingRoundStartTs\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"votingEpochDurationSeconds\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"firstRewardEpochStartVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"rewardEpochDurationInVotingEpochs\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"thresholdIncreaseBIPS\",\"type\":\"uint16\"},{\"internalType\":\"uint32\",\"name\":\"randomVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"isSecureRandom\",\"type\":\"bool\"},{\"internalType\":\"uint32\",\"name\":\"lastInitializedRewardEpoch\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"noSigningPolicyRelay\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"toSigningPolicyHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // RelayABI is the input ABI used to generate the binding from.
@@ -223,11 +223,11 @@ func (_Relay *RelayCallerSession) GetConfirmedMerkleRoot(_protocolId *big.Int, _
 
 // GetRandomNumber is a free data retrieval call binding the contract method 0xdbdff2c1.
 //
-// Solidity: function getRandomNumber() view returns(uint256 _randomNumber, bool _isSecureRandom, uint32 _randomTimestamp)
+// Solidity: function getRandomNumber() view returns(uint256 _randomNumber, bool _isSecureRandom, uint256 _randomTimestamp)
 func (_Relay *RelayCaller) GetRandomNumber(opts *bind.CallOpts) (struct {
 	RandomNumber    *big.Int
 	IsSecureRandom  bool
-	RandomTimestamp uint32
+	RandomTimestamp *big.Int
 }, error) {
 	var out []interface{}
 	err := _Relay.contract.Call(opts, &out, "getRandomNumber")
@@ -235,7 +235,7 @@ func (_Relay *RelayCaller) GetRandomNumber(opts *bind.CallOpts) (struct {
 	outstruct := new(struct {
 		RandomNumber    *big.Int
 		IsSecureRandom  bool
-		RandomTimestamp uint32
+		RandomTimestamp *big.Int
 	})
 	if err != nil {
 		return *outstruct, err
@@ -243,7 +243,7 @@ func (_Relay *RelayCaller) GetRandomNumber(opts *bind.CallOpts) (struct {
 
 	outstruct.RandomNumber = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	outstruct.IsSecureRandom = *abi.ConvertType(out[1], new(bool)).(*bool)
-	outstruct.RandomTimestamp = *abi.ConvertType(out[2], new(uint32)).(*uint32)
+	outstruct.RandomTimestamp = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -251,22 +251,22 @@ func (_Relay *RelayCaller) GetRandomNumber(opts *bind.CallOpts) (struct {
 
 // GetRandomNumber is a free data retrieval call binding the contract method 0xdbdff2c1.
 //
-// Solidity: function getRandomNumber() view returns(uint256 _randomNumber, bool _isSecureRandom, uint32 _randomTimestamp)
+// Solidity: function getRandomNumber() view returns(uint256 _randomNumber, bool _isSecureRandom, uint256 _randomTimestamp)
 func (_Relay *RelaySession) GetRandomNumber() (struct {
 	RandomNumber    *big.Int
 	IsSecureRandom  bool
-	RandomTimestamp uint32
+	RandomTimestamp *big.Int
 }, error) {
 	return _Relay.Contract.GetRandomNumber(&_Relay.CallOpts)
 }
 
 // GetRandomNumber is a free data retrieval call binding the contract method 0xdbdff2c1.
 //
-// Solidity: function getRandomNumber() view returns(uint256 _randomNumber, bool _isSecureRandom, uint32 _randomTimestamp)
+// Solidity: function getRandomNumber() view returns(uint256 _randomNumber, bool _isSecureRandom, uint256 _randomTimestamp)
 func (_Relay *RelayCallerSession) GetRandomNumber() (struct {
 	RandomNumber    *big.Int
 	IsSecureRandom  bool
-	RandomTimestamp uint32
+	RandomTimestamp *big.Int
 }, error) {
 	return _Relay.Contract.GetRandomNumber(&_Relay.CallOpts)
 }
@@ -558,21 +558,21 @@ func (_Relay *RelayCallerSession) ToSigningPolicyHash(arg0 *big.Int) ([32]byte, 
 
 // Relay is a paid mutator transaction binding the contract method 0xb59589d1.
 //
-// Solidity: function relay() returns(uint256 _result)
+// Solidity: function relay() returns()
 func (_Relay *RelayTransactor) Relay(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return _Relay.contract.Transact(opts, "relay")
 }
 
 // Relay is a paid mutator transaction binding the contract method 0xb59589d1.
 //
-// Solidity: function relay() returns(uint256 _result)
+// Solidity: function relay() returns()
 func (_Relay *RelaySession) Relay() (*types.Transaction, error) {
 	return _Relay.Contract.Relay(&_Relay.TransactOpts)
 }
 
 // Relay is a paid mutator transaction binding the contract method 0xb59589d1.
 //
-// Solidity: function relay() returns(uint256 _result)
+// Solidity: function relay() returns()
 func (_Relay *RelayTransactorSession) Relay() (*types.Transaction, error) {
 	return _Relay.Contract.Relay(&_Relay.TransactOpts)
 }
@@ -667,16 +667,16 @@ func (it *RelayProtocolMessageRelayedIterator) Close() error {
 
 // RelayProtocolMessageRelayed represents a ProtocolMessageRelayed event raised by the Relay contract.
 type RelayProtocolMessageRelayed struct {
-	ProtocolId         uint8
-	VotingRoundId      uint32
-	RandomQualityScore bool
-	MerkleRoot         [32]byte
-	Raw                types.Log // Blockchain specific contextual infos
+	ProtocolId     uint8
+	VotingRoundId  uint32
+	IsSecureRandom bool
+	MerkleRoot     [32]byte
+	Raw            types.Log // Blockchain specific contextual infos
 }
 
 // FilterProtocolMessageRelayed is a free log retrieval operation binding the contract event 0x4b781cfef3123d9257ab69e6e8ea36ad75a346d63c5ecf8a46931a0eef48bb9e.
 //
-// Solidity: event ProtocolMessageRelayed(uint8 indexed protocolId, uint32 indexed votingRoundId, bool randomQualityScore, bytes32 merkleRoot)
+// Solidity: event ProtocolMessageRelayed(uint8 indexed protocolId, uint32 indexed votingRoundId, bool isSecureRandom, bytes32 merkleRoot)
 func (_Relay *RelayFilterer) FilterProtocolMessageRelayed(opts *bind.FilterOpts, protocolId []uint8, votingRoundId []uint32) (*RelayProtocolMessageRelayedIterator, error) {
 
 	var protocolIdRule []interface{}
@@ -697,7 +697,7 @@ func (_Relay *RelayFilterer) FilterProtocolMessageRelayed(opts *bind.FilterOpts,
 
 // WatchProtocolMessageRelayed is a free log subscription operation binding the contract event 0x4b781cfef3123d9257ab69e6e8ea36ad75a346d63c5ecf8a46931a0eef48bb9e.
 //
-// Solidity: event ProtocolMessageRelayed(uint8 indexed protocolId, uint32 indexed votingRoundId, bool randomQualityScore, bytes32 merkleRoot)
+// Solidity: event ProtocolMessageRelayed(uint8 indexed protocolId, uint32 indexed votingRoundId, bool isSecureRandom, bytes32 merkleRoot)
 func (_Relay *RelayFilterer) WatchProtocolMessageRelayed(opts *bind.WatchOpts, sink chan<- *RelayProtocolMessageRelayed, protocolId []uint8, votingRoundId []uint32) (event.Subscription, error) {
 
 	var protocolIdRule []interface{}
@@ -743,7 +743,7 @@ func (_Relay *RelayFilterer) WatchProtocolMessageRelayed(opts *bind.WatchOpts, s
 
 // ParseProtocolMessageRelayed is a log parse operation binding the contract event 0x4b781cfef3123d9257ab69e6e8ea36ad75a346d63c5ecf8a46931a0eef48bb9e.
 //
-// Solidity: event ProtocolMessageRelayed(uint8 indexed protocolId, uint32 indexed votingRoundId, bool randomQualityScore, bytes32 merkleRoot)
+// Solidity: event ProtocolMessageRelayed(uint8 indexed protocolId, uint32 indexed votingRoundId, bool isSecureRandom, bytes32 merkleRoot)
 func (_Relay *RelayFilterer) ParseProtocolMessageRelayed(log types.Log) (*RelayProtocolMessageRelayed, error) {
 	event := new(RelayProtocolMessageRelayed)
 	if err := _Relay.contract.UnpackLog(event, "ProtocolMessageRelayed", log); err != nil {
@@ -835,10 +835,15 @@ type RelaySigningPolicyInitialized struct {
 
 // FilterSigningPolicyInitialized is a free log retrieval operation binding the contract event 0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8.
 //
-// Solidity: event SigningPolicyInitialized(uint24 rewardEpochId, uint32 startVotingRoundId, uint16 threshold, uint256 seed, address[] voters, uint16[] weights, bytes signingPolicyBytes, uint64 timestamp)
-func (_Relay *RelayFilterer) FilterSigningPolicyInitialized(opts *bind.FilterOpts) (*RelaySigningPolicyInitializedIterator, error) {
+// Solidity: event SigningPolicyInitialized(uint24 indexed rewardEpochId, uint32 startVotingRoundId, uint16 threshold, uint256 seed, address[] voters, uint16[] weights, bytes signingPolicyBytes, uint64 timestamp)
+func (_Relay *RelayFilterer) FilterSigningPolicyInitialized(opts *bind.FilterOpts, rewardEpochId []*big.Int) (*RelaySigningPolicyInitializedIterator, error) {
 
-	logs, sub, err := _Relay.contract.FilterLogs(opts, "SigningPolicyInitialized")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _Relay.contract.FilterLogs(opts, "SigningPolicyInitialized", rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -847,10 +852,15 @@ func (_Relay *RelayFilterer) FilterSigningPolicyInitialized(opts *bind.FilterOpt
 
 // WatchSigningPolicyInitialized is a free log subscription operation binding the contract event 0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8.
 //
-// Solidity: event SigningPolicyInitialized(uint24 rewardEpochId, uint32 startVotingRoundId, uint16 threshold, uint256 seed, address[] voters, uint16[] weights, bytes signingPolicyBytes, uint64 timestamp)
-func (_Relay *RelayFilterer) WatchSigningPolicyInitialized(opts *bind.WatchOpts, sink chan<- *RelaySigningPolicyInitialized) (event.Subscription, error) {
+// Solidity: event SigningPolicyInitialized(uint24 indexed rewardEpochId, uint32 startVotingRoundId, uint16 threshold, uint256 seed, address[] voters, uint16[] weights, bytes signingPolicyBytes, uint64 timestamp)
+func (_Relay *RelayFilterer) WatchSigningPolicyInitialized(opts *bind.WatchOpts, sink chan<- *RelaySigningPolicyInitialized, rewardEpochId []*big.Int) (event.Subscription, error) {
 
-	logs, sub, err := _Relay.contract.WatchLogs(opts, "SigningPolicyInitialized")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _Relay.contract.WatchLogs(opts, "SigningPolicyInitialized", rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -884,7 +894,7 @@ func (_Relay *RelayFilterer) WatchSigningPolicyInitialized(opts *bind.WatchOpts,
 
 // ParseSigningPolicyInitialized is a log parse operation binding the contract event 0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8.
 //
-// Solidity: event SigningPolicyInitialized(uint24 rewardEpochId, uint32 startVotingRoundId, uint16 threshold, uint256 seed, address[] voters, uint16[] weights, bytes signingPolicyBytes, uint64 timestamp)
+// Solidity: event SigningPolicyInitialized(uint24 indexed rewardEpochId, uint32 startVotingRoundId, uint16 threshold, uint256 seed, address[] voters, uint16[] weights, bytes signingPolicyBytes, uint64 timestamp)
 func (_Relay *RelayFilterer) ParseSigningPolicyInitialized(log types.Log) (*RelaySigningPolicyInitialized, error) {
 	event := new(RelaySigningPolicyInitialized)
 	if err := _Relay.contract.UnpackLog(event, "SigningPolicyInitialized", log); err != nil {

@@ -73,7 +73,7 @@
       {
         "indexed": false,
         "internalType": "bool",
-        "name": "randomQualityScore",
+        "name": "isSecureRandom",
         "type": "bool"
       },
       {
@@ -90,7 +90,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
         "type": "uint24"
@@ -193,9 +193,9 @@
         "type": "bool"
       },
       {
-        "internalType": "uint32",
+        "internalType": "uint256",
         "name": "_randomTimestamp",
-        "type": "uint32"
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -265,13 +265,7 @@
   {
     "inputs": [],
     "name": "relay",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "_result",
-        "type": "uint256"
-      }
-    ],
+    "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
