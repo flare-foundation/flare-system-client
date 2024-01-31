@@ -31,7 +31,7 @@ var (
 
 // SubmissionMetaData contains all meta data concerning the Submission contract.
 var SubmissionMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_submit3MethodEnabled\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"NewVotingRoundInitiated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemManager\",\"outputs\":[{\"internalType\":\"contractFlareSystemManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_submit1Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submit2Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submit3Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submitSignaturesAddresses\",\"type\":\"address[]\"}],\"name\":\"initNewVotingRound\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"name\":\"setSubmit3MethodEnabled\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_submitAndPassContract\",\"type\":\"address\"},{\"internalType\":\"bytes4\",\"name\":\"_submitAndPassSelector\",\"type\":\"bytes4\"}],\"name\":\"setSubmitAndPassData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit1\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit2\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit3\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit3MethodEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"submitAndPass\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitAndPassContract\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitAndPassSelector\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitSignatures\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_submit3MethodEnabled\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"NewVotingRoundInitiated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRandom\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_currentRandom\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRandomWithQuality\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_currentRandom\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_isSecureRandom\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRandomWithQualityAndTimestamp\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_currentRandom\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_isSecureRandom\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"_randomTimestamp\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_submit1Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submit2Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submit3Addresses\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_submitSignaturesAddresses\",\"type\":\"address[]\"}],\"name\":\"initNewVotingRound\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"relay\",\"outputs\":[{\"internalType\":\"contractIRelay\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"name\":\"setSubmit3MethodEnabled\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_submitAndPassContract\",\"type\":\"address\"},{\"internalType\":\"bytes4\",\"name\":\"_submitAndPassSelector\",\"type\":\"bytes4\"}],\"name\":\"setSubmitAndPassData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit1\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit2\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit3\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit3MethodEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"submitAndPass\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitAndPassContract\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitAndPassSelector\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitSignatures\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // SubmissionABI is the input ABI used to generate the binding from.
@@ -242,6 +242,132 @@ func (_Submission *SubmissionCallerSession) GetAddressUpdater() (common.Address,
 	return _Submission.Contract.GetAddressUpdater(&_Submission.CallOpts)
 }
 
+// GetCurrentRandom is a free data retrieval call binding the contract method 0xd89601fd.
+//
+// Solidity: function getCurrentRandom() view returns(uint256 _currentRandom)
+func (_Submission *SubmissionCaller) GetCurrentRandom(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _Submission.contract.Call(opts, &out, "getCurrentRandom")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetCurrentRandom is a free data retrieval call binding the contract method 0xd89601fd.
+//
+// Solidity: function getCurrentRandom() view returns(uint256 _currentRandom)
+func (_Submission *SubmissionSession) GetCurrentRandom() (*big.Int, error) {
+	return _Submission.Contract.GetCurrentRandom(&_Submission.CallOpts)
+}
+
+// GetCurrentRandom is a free data retrieval call binding the contract method 0xd89601fd.
+//
+// Solidity: function getCurrentRandom() view returns(uint256 _currentRandom)
+func (_Submission *SubmissionCallerSession) GetCurrentRandom() (*big.Int, error) {
+	return _Submission.Contract.GetCurrentRandom(&_Submission.CallOpts)
+}
+
+// GetCurrentRandomWithQuality is a free data retrieval call binding the contract method 0xa978fb6b.
+//
+// Solidity: function getCurrentRandomWithQuality() view returns(uint256 _currentRandom, bool _isSecureRandom)
+func (_Submission *SubmissionCaller) GetCurrentRandomWithQuality(opts *bind.CallOpts) (struct {
+	CurrentRandom  *big.Int
+	IsSecureRandom bool
+}, error) {
+	var out []interface{}
+	err := _Submission.contract.Call(opts, &out, "getCurrentRandomWithQuality")
+
+	outstruct := new(struct {
+		CurrentRandom  *big.Int
+		IsSecureRandom bool
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.CurrentRandom = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.IsSecureRandom = *abi.ConvertType(out[1], new(bool)).(*bool)
+
+	return *outstruct, err
+
+}
+
+// GetCurrentRandomWithQuality is a free data retrieval call binding the contract method 0xa978fb6b.
+//
+// Solidity: function getCurrentRandomWithQuality() view returns(uint256 _currentRandom, bool _isSecureRandom)
+func (_Submission *SubmissionSession) GetCurrentRandomWithQuality() (struct {
+	CurrentRandom  *big.Int
+	IsSecureRandom bool
+}, error) {
+	return _Submission.Contract.GetCurrentRandomWithQuality(&_Submission.CallOpts)
+}
+
+// GetCurrentRandomWithQuality is a free data retrieval call binding the contract method 0xa978fb6b.
+//
+// Solidity: function getCurrentRandomWithQuality() view returns(uint256 _currentRandom, bool _isSecureRandom)
+func (_Submission *SubmissionCallerSession) GetCurrentRandomWithQuality() (struct {
+	CurrentRandom  *big.Int
+	IsSecureRandom bool
+}, error) {
+	return _Submission.Contract.GetCurrentRandomWithQuality(&_Submission.CallOpts)
+}
+
+// GetCurrentRandomWithQualityAndTimestamp is a free data retrieval call binding the contract method 0xaf9fbc3e.
+//
+// Solidity: function getCurrentRandomWithQualityAndTimestamp() view returns(uint256 _currentRandom, bool _isSecureRandom, uint256 _randomTimestamp)
+func (_Submission *SubmissionCaller) GetCurrentRandomWithQualityAndTimestamp(opts *bind.CallOpts) (struct {
+	CurrentRandom   *big.Int
+	IsSecureRandom  bool
+	RandomTimestamp *big.Int
+}, error) {
+	var out []interface{}
+	err := _Submission.contract.Call(opts, &out, "getCurrentRandomWithQualityAndTimestamp")
+
+	outstruct := new(struct {
+		CurrentRandom   *big.Int
+		IsSecureRandom  bool
+		RandomTimestamp *big.Int
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.CurrentRandom = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.IsSecureRandom = *abi.ConvertType(out[1], new(bool)).(*bool)
+	outstruct.RandomTimestamp = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+// GetCurrentRandomWithQualityAndTimestamp is a free data retrieval call binding the contract method 0xaf9fbc3e.
+//
+// Solidity: function getCurrentRandomWithQualityAndTimestamp() view returns(uint256 _currentRandom, bool _isSecureRandom, uint256 _randomTimestamp)
+func (_Submission *SubmissionSession) GetCurrentRandomWithQualityAndTimestamp() (struct {
+	CurrentRandom   *big.Int
+	IsSecureRandom  bool
+	RandomTimestamp *big.Int
+}, error) {
+	return _Submission.Contract.GetCurrentRandomWithQualityAndTimestamp(&_Submission.CallOpts)
+}
+
+// GetCurrentRandomWithQualityAndTimestamp is a free data retrieval call binding the contract method 0xaf9fbc3e.
+//
+// Solidity: function getCurrentRandomWithQualityAndTimestamp() view returns(uint256 _currentRandom, bool _isSecureRandom, uint256 _randomTimestamp)
+func (_Submission *SubmissionCallerSession) GetCurrentRandomWithQualityAndTimestamp() (struct {
+	CurrentRandom   *big.Int
+	IsSecureRandom  bool
+	RandomTimestamp *big.Int
+}, error) {
+	return _Submission.Contract.GetCurrentRandomWithQualityAndTimestamp(&_Submission.CallOpts)
+}
+
 // Governance is a free data retrieval call binding the contract method 0x5aa6e675.
 //
 // Solidity: function governance() view returns(address)
@@ -364,6 +490,37 @@ func (_Submission *SubmissionSession) ProductionMode() (bool, error) {
 // Solidity: function productionMode() view returns(bool)
 func (_Submission *SubmissionCallerSession) ProductionMode() (bool, error) {
 	return _Submission.Contract.ProductionMode(&_Submission.CallOpts)
+}
+
+// Relay is a free data retrieval call binding the contract method 0xb59589d1.
+//
+// Solidity: function relay() view returns(address)
+func (_Submission *SubmissionCaller) Relay(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Submission.contract.Call(opts, &out, "relay")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Relay is a free data retrieval call binding the contract method 0xb59589d1.
+//
+// Solidity: function relay() view returns(address)
+func (_Submission *SubmissionSession) Relay() (common.Address, error) {
+	return _Submission.Contract.Relay(&_Submission.CallOpts)
+}
+
+// Relay is a free data retrieval call binding the contract method 0xb59589d1.
+//
+// Solidity: function relay() view returns(address)
+func (_Submission *SubmissionCallerSession) Relay() (common.Address, error) {
+	return _Submission.Contract.Relay(&_Submission.CallOpts)
 }
 
 // Submit3MethodEnabled is a free data retrieval call binding the contract method 0x32de7a9f.

@@ -54,6 +54,16 @@
             "type": "uint16"
           },
           {
+            "internalType": "uint16",
+            "name": "submitUptimeVoteMinDurationSeconds",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "submitUptimeVoteMinDurationBlocks",
+            "type": "uint16"
+          },
+          {
             "internalType": "uint24",
             "name": "signingPolicyThresholdPPM",
             "type": "uint24"
@@ -230,7 +240,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
         "type": "uint24"
@@ -249,7 +259,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
         "type": "uint24"
@@ -274,19 +284,19 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
         "type": "uint24"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "signingPolicyAddress",
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "voter",
         "type": "address"
@@ -336,19 +346,19 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
         "type": "uint24"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "signingPolicyAddress",
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "voter",
         "type": "address"
@@ -367,6 +377,25 @@
       }
     ],
     "name": "SigningPolicySigned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint24",
+        "name": "rewardEpochId",
+        "type": "uint24"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "timestamp",
+        "type": "uint64"
+      }
+    ],
+    "name": "SingUptimeVoteEnabled",
     "type": "event"
   },
   {
@@ -424,19 +453,19 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
         "type": "uint24"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "signingPolicyAddress",
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "voter",
         "type": "address"
@@ -467,7 +496,44 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "uint24",
+        "name": "rewardEpochId",
+        "type": "uint24"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "signingPolicyAddress",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "voter",
+        "type": "address"
+      },
+      {
         "indexed": false,
+        "internalType": "bytes20[]",
+        "name": "nodeIds",
+        "type": "bytes20[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "timestamp",
+        "type": "uint64"
+      }
+    ],
+    "name": "UptimeVoteSubmitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
         "type": "uint24"
@@ -524,7 +590,7 @@
     "name": "cleanupBlockNumberManager",
     "outputs": [
       {
-        "internalType": "contract ICleanupBlockNumberManager",
+        "internalType": "contract IICleanupBlockNumberManager",
         "name": "",
         "type": "address"
       }
@@ -638,42 +704,11 @@
   },
   {
     "inputs": [],
-    "name": "getCurrentRandom",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "_currentRandom",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getCurrentRandomWithQuality",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "_currentRandom",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "_isSecureRandom",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "getCurrentRewardEpochId",
     "outputs": [
       {
         "internalType": "uint24",
-        "name": "_currentRewardEpochId",
+        "name": "",
         "type": "uint24"
       }
     ],
@@ -722,7 +757,7 @@
         "type": "uint24"
       }
     ],
-    "name": "getRewarEpochStartInfo",
+    "name": "getRewardEpochStartInfo",
     "outputs": [
       {
         "internalType": "uint64",
@@ -743,7 +778,7 @@
     "name": "getRewardEpochSwitchoverTriggerContracts",
     "outputs": [
       {
-        "internalType": "contract IRewardEpochSwitchoverTrigger[]",
+        "internalType": "contract IIRewardEpochSwitchoverTrigger[]",
         "name": "",
         "type": "address[]"
       }
@@ -879,6 +914,30 @@
   {
     "inputs": [
       {
+        "internalType": "uint24",
+        "name": "_rewardEpochId",
+        "type": "uint24"
+      }
+    ],
+    "name": "getUptimeVoteSignStartInfo",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "_uptimeVoteSignStartTs",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_uptimeVoteSignStartBlock",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "_rewardEpochId",
         "type": "uint256"
@@ -1000,6 +1059,35 @@
       {
         "internalType": "uint64",
         "name": "_uptimeVoteSignBlock",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint24",
+        "name": "_rewardEpochId",
+        "type": "uint24"
+      },
+      {
+        "internalType": "address",
+        "name": "_voter",
+        "type": "address"
+      }
+    ],
+    "name": "getVoterUptimeVoteSubmitInfo",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "_uptimeVoteSubmitTs",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_uptimeVoteSubmitBlock",
         "type": "uint64"
       }
     ],
@@ -1197,7 +1285,7 @@
     "name": "relay",
     "outputs": [
       {
-        "internalType": "contract Relay",
+        "internalType": "contract IIRelay",
         "name": "",
         "type": "address"
       }
@@ -1249,7 +1337,7 @@
     "name": "rewardManager",
     "outputs": [
       {
-        "internalType": "contract RewardManager",
+        "internalType": "contract IIRewardManager",
         "name": "",
         "type": "address"
       }
@@ -1279,7 +1367,7 @@
   {
     "inputs": [
       {
-        "internalType": "contract IRewardEpochSwitchoverTrigger[]",
+        "internalType": "contract IIRewardEpochSwitchoverTrigger[]",
         "name": "_contracts",
         "type": "address[]"
       }
@@ -1316,6 +1404,19 @@
     "inputs": [
       {
         "internalType": "bool",
+        "name": "_submit3Aligned",
+        "type": "bool"
+      }
+    ],
+    "name": "setSubmit3Aligned",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
         "name": "_triggerExpirationAndCleanup",
         "type": "bool"
       }
@@ -1328,7 +1429,7 @@
   {
     "inputs": [
       {
-        "internalType": "contract IVoterRegistrationTrigger",
+        "internalType": "contract IIVoterRegistrationTrigger",
         "name": "_contract",
         "type": "address"
       }
@@ -1368,7 +1469,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct FlareSystemManager.Signature",
+        "internalType": "struct IFlareSystemManager.Signature",
         "name": "_signature",
         "type": "tuple"
       }
@@ -1413,7 +1514,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct FlareSystemManager.Signature",
+        "internalType": "struct IFlareSystemManager.Signature",
         "name": "_signature",
         "type": "tuple"
       }
@@ -1453,7 +1554,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct FlareSystemManager.Signature",
+        "internalType": "struct IFlareSystemManager.Signature",
         "name": "_signature",
         "type": "tuple"
       }
@@ -1494,9 +1595,88 @@
     "name": "submission",
     "outputs": [
       {
-        "internalType": "contract Submission",
+        "internalType": "contract IISubmission",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "submit3Aligned",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint24",
+        "name": "_rewardEpochId",
+        "type": "uint24"
+      },
+      {
+        "internalType": "bytes20[]",
+        "name": "_nodeIds",
+        "type": "bytes20[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint8",
+            "name": "v",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "r",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "s",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct IFlareSystemManager.Signature",
+        "name": "_signature",
+        "type": "tuple"
+      }
+    ],
+    "name": "submitUptimeVote",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "submitUptimeVoteMinDurationBlocks",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "submitUptimeVoteMinDurationSeconds",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
       }
     ],
     "stateMutability": "view",
@@ -1512,7 +1692,7 @@
         "type": "bool"
       }
     ],
-    "stateMutability": "pure",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1612,6 +1792,16 @@
             "type": "uint16"
           },
           {
+            "internalType": "uint16",
+            "name": "submitUptimeVoteMinDurationSeconds",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "submitUptimeVoteMinDurationBlocks",
+            "type": "uint16"
+          },
+          {
             "internalType": "uint24",
             "name": "signingPolicyThresholdPPM",
             "type": "uint24"
@@ -1687,7 +1877,7 @@
     "name": "voterRegistrationTriggerContract",
     "outputs": [
       {
-        "internalType": "contract IVoterRegistrationTrigger",
+        "internalType": "contract IIVoterRegistrationTrigger",
         "name": "",
         "type": "address"
       }
@@ -1700,7 +1890,7 @@
     "name": "voterRegistry",
     "outputs": [
       {
-        "internalType": "contract VoterRegistry",
+        "internalType": "contract IIVoterRegistry",
         "name": "",
         "type": "address"
       }
