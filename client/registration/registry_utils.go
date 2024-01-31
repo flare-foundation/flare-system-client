@@ -79,7 +79,7 @@ func (r *RegistryContractClient) sendRegisterVoter(nextRewardEpochId *big.Int, a
 	if err != nil {
 		return err
 	}
-	vrsSignature := registry.IVoterRegistrySignature{
+	vrsSignature := registry.VoterRegistrySignature{
 		R: [32]byte(signature[0:32]),
 		S: [32]byte(signature[32:64]),
 		V: signature[64] + 27,

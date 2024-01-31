@@ -71,7 +71,7 @@ func (s *SystemManagerContractClient) sendSignNewSigningPolicy(rewardEpochId *bi
 		return err
 	}
 
-	signature := system.IFlareSystemManagerSignature{
+	signature := system.FlareSystemManagerSignature{
 		R: [32]byte(hashSignature[0:32]),
 		S: [32]byte(hashSignature[32:64]),
 		V: hashSignature[64] + 27,
