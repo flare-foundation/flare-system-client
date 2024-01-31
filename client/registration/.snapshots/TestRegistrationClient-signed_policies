@@ -1,3 +1,0 @@
-(map[string][]uint8) (len=1) {
-  (string) (len=1) "2": ([]uint8) <nil>
-}

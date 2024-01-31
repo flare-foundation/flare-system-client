@@ -10,6 +10,7 @@ import (
 	"flare-tlc/utils/contracts/relay"
 	"flare-tlc/utils/contracts/system"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -20,12 +21,16 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func TestRegistrationClient(t *testing.T) {
+func TestMain(m *testing.M) {
 	logger.Configure(config.LoggerConfig{
 		Level:   "DEBUG",
 		Console: true,
 	})
 
+	os.Exit(m.Run())
+}
+
+func TestRegistrationClientMainline(t *testing.T) {
 	systemManagerClient := newTestSystemManagerClient()
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
@@ -35,7 +40,7 @@ func TestRegistrationClient(t *testing.T) {
 		systemManagerClient: systemManagerClient,
 		relayClient:         relayClient,
 		registryClient:      registryClient,
-		identityAddress:     "0x0",
+		identityAddress:     "0x123456",
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -46,6 +51,7 @@ func TestRegistrationClient(t *testing.T) {
 	})
 
 	rewardEpochID := big.NewInt(2)
+	signingPolicyBytes := []byte{1, 2, 3}
 
 	t.Log("sending test VPBS")
 	systemManagerClient.sendTestVPBS(&system.FlareSystemManagerVotePowerBlockSelected{
@@ -54,8 +60,9 @@ func TestRegistrationClient(t *testing.T) {
 
 	t.Log("sending test policy")
 	relayClient.sendTestPolicy(&relay.RelaySigningPolicyInitialized{
-		RewardEpochId: rewardEpochID,
-		Seed:          big.NewInt(1),
+		RewardEpochId:      rewardEpochID,
+		Seed:               big.NewInt(1),
+		SigningPolicyBytes: signingPolicyBytes,
 	})
 
 	t.Log("stopping runner")
@@ -65,13 +72,55 @@ func TestRegistrationClient(t *testing.T) {
 
 	t.Run("registered voters", func(t *testing.T) {
 		t.Logf("registered voters: %v", registryClient.registeredVoters)
+		require.True(t, registryClient.registeredVoters["2"]["0x123456"])
 		cupaloy.SnapshotT(t, registryClient.registeredVoters)
 	})
 
 	t.Run("signed policies", func(t *testing.T) {
 		t.Logf("signed policies: %v", systemManagerClient.signedPolicies)
+		require.Equal(t, signingPolicyBytes, systemManagerClient.signedPolicies["2"])
 		cupaloy.SnapshotT(t, systemManagerClient.signedPolicies)
 	})
+}
+
+func TestRegistrationClientInvalidEpoch(t *testing.T) {
+	systemManagerClient := newTestSystemManagerClient()
+	relayClient := newTestRelayClient()
+	registryClient := newTestRegistryClient()
+
+	c := &registrationClient{
+		db:                  testDB{},
+		systemManagerClient: systemManagerClient,
+		relayClient:         relayClient,
+		registryClient:      registryClient,
+		identityAddress:     "0x123456",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return c.RunContext(ctx)
+	})
+
+	rewardEpochID := big.NewInt(0)
+
+	// Reward Epoch ID is 0, so this should be ignored.
+	t.Log("sending test VPBS")
+	systemManagerClient.sendTestVPBS(&system.FlareSystemManagerVotePowerBlockSelected{
+		RewardEpochId: rewardEpochID,
+	})
+
+	t.Log("stopping runner")
+	cancel()
+	err := eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %s", err.Error())
+
+	t.Logf("registered voters: %v", registryClient.registeredVoters)
+	require.Empty(t, registryClient.registeredVoters)
+
+	t.Logf("signed policies: %v", systemManagerClient.signedPolicies)
+	require.Empty(t, systemManagerClient.signedPolicies)
 }
 
 type testDB struct{}
