@@ -7,6 +7,7 @@ import (
 	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
+	"flare-tlc/utils/contracts/relay"
 	"flare-tlc/utils/contracts/system"
 	"math/big"
 
@@ -118,7 +119,11 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 }
 
 // Run runs the registration client, should be called in a goroutine
-func (c *registrationClient) Run(ctx context.Context) error {
+func (c *registrationClient) Run() error {
+	return c.RunContext(context.Background())
+}
+
+func (c *registrationClient) RunContext(ctx context.Context) error {
 	epoch, err := c.systemManagerClient.RewardEpochFromChain()
 	if err != nil {
 		return err
@@ -145,26 +150,43 @@ func (c *registrationClient) Run(ctx context.Context) error {
 		}
 
 		// Call RegisterVoter function on VoterRegistry
-		registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.identityAddress)
-		if !registerResult.Success {
-			logger.Error("RegisterVoter failed %s", registerResult.Message)
-			continue
+		select {
+		case registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.identityAddress):
+			if !registerResult.Success {
+				logger.Error("RegisterVoter failed %s", registerResult.Message)
+				continue
+			}
+
+			logger.Info("RegisterVoter success")
+
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 
 		// Wait until we get voter registered event
 		// Already in RegisterVoter
 
 		// Wait until SigningPolicyInitialized event is emitted
-		signingPolicy := <-c.relayClient.SigningPolicyInitializedListener(c.db, powerBlockData.Timestamp)
-		logger.Info("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
+		var signingPolicy *relay.RelaySigningPolicyInitialized
+		select {
+		case signingPolicy = <-c.relayClient.SigningPolicyInitializedListener(c.db, powerBlockData.Timestamp):
+			logger.Info("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
 
-		// Call signNewSigningPolicy
-		signingResult := <-c.systemManagerClient.SignNewSigningPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)
-		if !signingResult.Success {
-			logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
-			continue
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 
+		// Call signNewSigningPolicy
+		select {
+		case signingResult := <-c.systemManagerClient.SignNewSigningPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes):
+			if !signingResult.Success {
+				logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
+				continue
+			}
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 
