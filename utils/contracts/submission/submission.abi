@@ -151,7 +151,7 @@
     "name": "flareSystemManager",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "contract FlareSystemManager",
         "name": "",
         "type": "address"
       }

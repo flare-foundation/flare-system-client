@@ -524,7 +524,7 @@
     "name": "cleanupBlockNumberManager",
     "outputs": [
       {
-        "internalType": "contract IICleanupBlockNumberManager",
+        "internalType": "contract ICleanupBlockNumberManager",
         "name": "",
         "type": "address"
       }
@@ -722,7 +722,7 @@
         "type": "uint24"
       }
     ],
-    "name": "getRewardEpochStartInfo",
+    "name": "getRewarEpochStartInfo",
     "outputs": [
       {
         "internalType": "uint64",
@@ -743,7 +743,7 @@
     "name": "getRewardEpochSwitchoverTriggerContracts",
     "outputs": [
       {
-        "internalType": "contract IIRewardEpochSwitchoverTrigger[]",
+        "internalType": "contract IRewardEpochSwitchoverTrigger[]",
         "name": "",
         "type": "address[]"
       }
@@ -1197,7 +1197,7 @@
     "name": "relay",
     "outputs": [
       {
-        "internalType": "contract IIRelay",
+        "internalType": "contract Relay",
         "name": "",
         "type": "address"
       }
@@ -1249,7 +1249,7 @@
     "name": "rewardManager",
     "outputs": [
       {
-        "internalType": "contract IIRewardManager",
+        "internalType": "contract RewardManager",
         "name": "",
         "type": "address"
       }
@@ -1279,7 +1279,7 @@
   {
     "inputs": [
       {
-        "internalType": "contract IIRewardEpochSwitchoverTrigger[]",
+        "internalType": "contract IRewardEpochSwitchoverTrigger[]",
         "name": "_contracts",
         "type": "address[]"
       }
@@ -1328,7 +1328,7 @@
   {
     "inputs": [
       {
-        "internalType": "contract IIVoterRegistrationTrigger",
+        "internalType": "contract IVoterRegistrationTrigger",
         "name": "_contract",
         "type": "address"
       }
@@ -1368,7 +1368,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct IFlareSystemManager.Signature",
+        "internalType": "struct FlareSystemManager.Signature",
         "name": "_signature",
         "type": "tuple"
       }
@@ -1413,7 +1413,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct IFlareSystemManager.Signature",
+        "internalType": "struct FlareSystemManager.Signature",
         "name": "_signature",
         "type": "tuple"
       }
@@ -1453,7 +1453,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct IFlareSystemManager.Signature",
+        "internalType": "struct FlareSystemManager.Signature",
         "name": "_signature",
         "type": "tuple"
       }
@@ -1494,22 +1494,9 @@
     "name": "submission",
     "outputs": [
       {
-        "internalType": "contract IISubmission",
+        "internalType": "contract Submission",
         "name": "",
         "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "submit3Alligned",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -1700,7 +1687,7 @@
     "name": "voterRegistrationTriggerContract",
     "outputs": [
       {
-        "internalType": "contract IIVoterRegistrationTrigger",
+        "internalType": "contract IVoterRegistrationTrigger",
         "name": "",
         "type": "address"
       }
@@ -1713,7 +1700,7 @@
     "name": "voterRegistry",
     "outputs": [
       {
-        "internalType": "contract IIVoterRegistry",
+        "internalType": "contract VoterRegistry",
         "name": "",
         "type": "address"
       }
