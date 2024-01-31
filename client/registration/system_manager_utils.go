@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
 )
 
 var (
@@ -26,7 +25,16 @@ var (
 	}
 )
 
-type SystemManagerContractClient struct {
+type systemManagerContractClient interface {
+	RewardEpochFromChain() (*utils.Epoch, error)
+	VotePowerBlockSelectedListener(
+		registrationClientDB, *utils.Epoch,
+	) <-chan *system.FlareSystemManagerVotePowerBlockSelected
+	SignNewSigningPolicy(*big.Int, []byte) <-chan shared.ExecuteStatus[any]
+	GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int]
+}
+
+type systemManagerContractClientImpl struct {
 	address            common.Address
 	flareSystemManager *system.FlareSystemManager
 	senderTxOpts       *bind.TransactOpts
@@ -39,13 +47,13 @@ func NewSystemManagerClient(
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPrivateKey *ecdsa.PrivateKey,
-) (*SystemManagerContractClient, error) {
+) (*systemManagerContractClientImpl, error) {
 	flareSystemManager, err := system.NewFlareSystemManager(address, ethClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SystemManagerContractClient{
+	return &systemManagerContractClientImpl{
 		address:            address,
 		flareSystemManager: flareSystemManager,
 		senderTxOpts:       senderTxOpts,
@@ -54,7 +62,7 @@ func NewSystemManagerClient(
 	}, nil
 }
 
-func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
+func (s *systemManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetry(func() (any, error) {
 		err := s.sendSignNewSigningPolicy(rewardEpochId, signingPolicy)
 		if err != nil {
@@ -64,7 +72,7 @@ func (s *SystemManagerContractClient) SignNewSigningPolicy(rewardEpochId *big.In
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (s *SystemManagerContractClient) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
+func (s *systemManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
 	newSigningPolicyHash := SigningPolicyHash(signingPolicy)
 	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.signerPrivateKey)
 	if err != nil {
@@ -104,7 +112,7 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 	return hash
 }
 
-func (s *SystemManagerContractClient) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
+func (s *systemManagerContractClientImpl) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
 	return shared.ExecuteWithRetry(func() (*big.Int, error) {
 		id, err := s.flareSystemManager.GetCurrentRewardEpochId(nil)
 		if err != nil {
@@ -114,7 +122,7 @@ func (s *SystemManagerContractClient) GetCurrentRewardEpochId() <-chan shared.Ex
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB, epoch *utils.Epoch) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
+func (s *systemManagerContractClientImpl) VotePowerBlockSelectedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
 	out := make(chan *system.FlareSystemManagerVotePowerBlockSelected)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemManagerMetaData, "VotePowerBlockSelected")
 	if err != nil {
@@ -128,7 +136,7 @@ func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB
 			<-ticker.C
 			now := time.Now().Unix()
 			// logger.Debug("Fetching logs %v < timestamp <= %v", eventRangeStart, now)
-			logs, err := database.FetchLogsByAddressAndTopic0(db, s.address.Hex(), topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0(s.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue
@@ -149,7 +157,7 @@ func (s *SystemManagerContractClient) VotePowerBlockSelectedListener(db *gorm.DB
 	return out
 }
 
-func (s *SystemManagerContractClient) parseVotePowerBlockSelectedEvent(dbLog database.Log) (*system.FlareSystemManagerVotePowerBlockSelected, error) {
+func (s *systemManagerContractClientImpl) parseVotePowerBlockSelectedEvent(dbLog database.Log) (*system.FlareSystemManagerVotePowerBlockSelected, error) {
 	contractLog, err := shared.ConvertDatabaseLogToChainLog(dbLog)
 	if err != nil {
 		return nil, err
@@ -157,6 +165,6 @@ func (s *SystemManagerContractClient) parseVotePowerBlockSelectedEvent(dbLog dat
 	return s.flareSystemManager.FlareSystemManagerFilterer.ParseVotePowerBlockSelected(*contractLog)
 }
 
-func (s *SystemManagerContractClient) RewardEpochFromChain() (*utils.Epoch, error) {
+func (s *systemManagerContractClientImpl) RewardEpochFromChain() (*utils.Epoch, error) {
 	return shared.RewardEpochFromChain(s.flareSystemManager)
 }
