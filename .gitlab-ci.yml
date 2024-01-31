@@ -1,0 +1,37 @@
+stages:
+  - build
+  - test
+
+variables:
+  GOPATH: /go
+  GOLANG_VERSION: "1.21"
+  GOLINT_VERSION: "v1.55.2"
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - ${GOPATH}/pkg/mod
+    - ${GOPATH}/bin
+
+
+build:
+  stage: build
+  image: golang:${GOLANG_VERSION}
+  needs: []
+  script:
+    - go build ./...
+
+lint:
+  stage: test
+  needs: []
+  image: golangci/golangci-lint:${GOLINT_VERSION}
+  script:
+    - '! gofmt -l . | grep -q .'
+    - golangci-lint run --timeout 5m0s
+
+test:
+  stage: test
+  image: golang:${GOLANG_VERSION}
+  needs: []
+  script:
+    - go test ./...
