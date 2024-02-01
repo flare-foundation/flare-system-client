@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"flare-tlc/client/config"
 	"flare-tlc/client/shared"
 	"flare-tlc/logger"
@@ -13,6 +14,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -24,7 +26,7 @@ const (
 )
 
 type SubmitterBase struct {
-	ethClient *ethclient.Client
+	ethClient submitterEthClient
 
 	protocolContext *protocolContext
 
@@ -35,6 +37,18 @@ type SubmitterBase struct {
 	startOffset   time.Duration
 	submitRetries int    // number of retries for submitting tx
 	name          string // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
+}
+
+type submitterEthClient interface {
+	SendRawTx(*ecdsa.PrivateKey, common.Address, []byte) error
+}
+
+type submitterEthClientImpl struct {
+	ethClient *ethclient.Client
+}
+
+func (c submitterEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte) error {
+	return chain.SendRawTx(c.ethClient, privateKey, to, payload)
 }
 
 type Submitter struct {
@@ -52,7 +66,7 @@ type SignatureSubmitter struct {
 
 func (s *SubmitterBase) submit(payload []byte) bool {
 	sendResult := <-shared.ExecuteWithRetry(func() (any, error) {
-		err := chain.SendRawTx(s.ethClient, s.protocolContext.submitPrivateKey, s.protocolContext.submitContractAddress, payload)
+		err := s.ethClient.SendRawTx(s.protocolContext.submitPrivateKey, s.protocolContext.submitContractAddress, payload)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
@@ -80,7 +94,7 @@ func newSubmitter(
 ) *Submitter {
 	return &Submitter{
 		SubmitterBase: SubmitterBase{
-			ethClient:       ethClient,
+			ethClient:       submitterEthClientImpl{ethClient: ethClient},
 			protocolContext: pc,
 			epoch:           epoch,
 			selector:        selector,
@@ -110,6 +124,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 	buffer.Write(s.selector)
 	for _, channel := range channels {
 		data := <-channel
+		logger.Debug("submitter %s got data: %+v", s.name, data)
 		if !data.Success || data.Value.Status != "OK" {
 			logger.Error("error getting data for submitter %s: %s", s.name, data.Message)
 			continue
@@ -139,7 +154,7 @@ func newSignatureSubmitter(
 ) *SignatureSubmitter {
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
-			ethClient:       ethClient,
+			ethClient:       submitterEthClientImpl{ethClient: ethClient},
 			protocolContext: pc,
 			epoch:           epoch,
 			startOffset:     submitCfg.StartOffset,
