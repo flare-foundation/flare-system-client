@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"flare-tlc/config"
@@ -16,7 +17,9 @@ import (
 	"github.com/bradleyjkemp/cupaloy"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -42,7 +45,10 @@ func TestSubmitter(t *testing.T) {
 	apiEndpointURL := apiEndpoint.URL()
 	t.Logf("apiEndpointURL: %v", apiEndpointURL)
 
-	go apiEndpoint.Run()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error { return apiEndpoint.Run(ctx) })
 
 	ethClient := testEthClient{}
 
@@ -71,6 +77,10 @@ func TestSubmitter(t *testing.T) {
 	t.Logf("sentTxs: %v", ethClient.sentTxs)
 	require.Len(t, ethClient.sentTxs, 1)
 	cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+
+	cancel()
+	err = eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled))
 }
 
 type testEthClient struct {
@@ -125,9 +135,27 @@ func (ep *testAPIEndpoint) URL() string {
 	return u.String()
 }
 
-func (ep *testAPIEndpoint) Run() error {
+func (ep *testAPIEndpoint) Run(ctx context.Context) error {
 	http.Handle("/", ep)
-	return http.Serve(ep.listener, nil)
+	var s http.Server
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		<-ctx.Done()
+		if err := s.Shutdown(context.Background()); err != nil {
+			return err
+		}
+
+		return ctx.Err()
+	})
+
+	err := s.Serve(ep.listener)
+	if !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return eg.Wait()
 }
 
 func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
