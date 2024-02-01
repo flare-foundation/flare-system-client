@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/bradleyjkemp/cupaloy"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -57,26 +59,55 @@ func TestSubmitter(t *testing.T) {
 	privKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)
 
-	submitter := Submitter{
-		SubmitterBase: SubmitterBase{
-			ethClient: &ethClient,
-			protocolContext: &protocolContext{
-				submitPrivateKey:      privKey,
-				submitContractAddress: common.HexToAddress(submitContractAddress),
-			},
-			epoch:         &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
-			subProtocols:  []*SubProtocol{subProtocol},
-			submitRetries: 1,
-			name:          "test",
+	address := crypto.PubkeyToAddress(privKey.PublicKey)
+
+	base := SubmitterBase{
+		ethClient: &ethClient,
+		protocolContext: &protocolContext{
+			submitPrivateKey:       privKey,
+			submitSignaturesTxOpts: &bind.TransactOpts{From: address},
+			signerPrivateKey:       privKey,
+			submitContractAddress:  common.HexToAddress(submitContractAddress),
+			signingAddress:         address,
+			submitAddress:          address,
 		},
+		epoch:         &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
+		subProtocols:  []*SubProtocol{subProtocol},
+		submitRetries: 1,
+		name:          "test",
 	}
 
-	epochID := int64(1)
-	submitter.RunEpoch(epochID)
+	t.Run("Submitter", func(t *testing.T) {
+		defer ethClient.reset()
 
-	t.Logf("sentTxs: %v", ethClient.sentTxs)
-	require.Len(t, ethClient.sentTxs, 1)
-	cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+		submitter := Submitter{
+			SubmitterBase: base,
+		}
+
+		epochID := int64(1)
+		submitter.RunEpoch(epochID)
+
+		t.Logf("sentTxs: %v", ethClient.sentTxs)
+		require.Len(t, ethClient.sentTxs, 1)
+		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+	})
+
+	t.Run("SignatureSubmitter", func(t *testing.T) {
+		defer ethClient.reset()
+
+		submitter := SignatureSubmitter{
+			SubmitterBase:    base,
+			maxRounds:        1,
+			dataFetchRetries: 1,
+		}
+
+		epochID := int64(1)
+		submitter.RunEpoch(epochID)
+
+		t.Logf("sentTxs: %v", ethClient.sentTxs)
+		require.Len(t, ethClient.sentTxs, 1)
+		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+	})
 
 	cancel()
 	err = eg.Wait()
@@ -85,6 +116,10 @@ func TestSubmitter(t *testing.T) {
 
 type testEthClient struct {
 	sentTxs []*sentTxInfo
+}
+
+func (c *testEthClient) reset() {
+	c.sentTxs = nil
 }
 
 type sentTxInfo struct {
@@ -136,8 +171,7 @@ func (ep *testAPIEndpoint) URL() string {
 }
 
 func (ep *testAPIEndpoint) Run(ctx context.Context) error {
-	http.Handle("/", ep)
-	var s http.Server
+	s := http.Server{Handler: ep}
 
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -163,7 +197,7 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rsp := dataProviderResponse{
 		Status:         "OK",
-		Data:           "0x1234",
+		Data:           "0x" + strings.Repeat("ff", 38),
 		AdditionalData: "0x1234",
 	}
 
