@@ -109,7 +109,6 @@ func (sp *SubProtocol) getDataWithRetry(
 	dataVerifier DataVerifier,
 ) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
 	return shared.ExecuteWithRetry(func() (*SubProtocolResponse, error) {
-		logger.Debug("getDataWithRetry")
 		data, err := sp.getData(votingRound, endpoint, submitAddress, timeout)
 		if err == nil {
 			err = dataVerifier(data)

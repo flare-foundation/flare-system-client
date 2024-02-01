@@ -124,7 +124,6 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 	buffer.Write(s.selector)
 	for _, channel := range channels {
 		data := <-channel
-		logger.Debug("submitter %s got data: %+v", s.name, data)
 		if !data.Success || data.Value.Status != "OK" {
 			logger.Error("error getting data for submitter %s: %s", s.name, data.Message)
 			continue
