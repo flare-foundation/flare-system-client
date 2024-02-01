@@ -34,7 +34,11 @@ func init() {
 	}
 }
 
-type RegistryContractClient struct {
+type registryContractClient interface {
+	RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan shared.ExecuteStatus[any]
+}
+
+type registryContractClientImpl struct {
 	address          common.Address
 	registry         *registry.Registry
 	senderTxOpts     *bind.TransactOpts
@@ -47,12 +51,12 @@ func NewRegistryContractClient(
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPk *ecdsa.PrivateKey,
-) (*RegistryContractClient, error) {
+) (*registryContractClientImpl, error) {
 	registry, err := registry.NewRegistry(address, ethClient)
 	if err != nil {
 		return nil, err
 	}
-	return &RegistryContractClient{
+	return &registryContractClientImpl{
 		address:          address,
 		registry:         registry,
 		senderTxOpts:     senderTxOpts,
@@ -62,7 +66,7 @@ func NewRegistryContractClient(
 
 }
 
-func (r *RegistryContractClient) RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan shared.ExecuteStatus[any] {
+func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetry(func() (any, error) {
 		err := r.sendRegisterVoter(nextRewardEpochId, address)
 		if err != nil {
@@ -72,7 +76,7 @@ func (r *RegistryContractClient) RegisterVoter(nextRewardEpochId *big.Int, addre
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (r *RegistryContractClient) sendRegisterVoter(nextRewardEpochId *big.Int, addressString string) error {
+func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.Int, addressString string) error {
 	epochId := uint32(nextRewardEpochId.Uint64())
 	address := common.HexToAddress(addressString)
 	signature, err := r.createSignature(epochId, address)
@@ -97,7 +101,7 @@ func (r *RegistryContractClient) sendRegisterVoter(nextRewardEpochId *big.Int, a
 	return nil
 }
 
-func (r *RegistryContractClient) createSignature(nextRewardEpochId uint32, address common.Address) ([]byte, error) {
+func (r *registryContractClientImpl) createSignature(nextRewardEpochId uint32, address common.Address) ([]byte, error) {
 	message, err := registratorArguments.Pack(nextRewardEpochId, address)
 	if err != nil {
 		return nil, err

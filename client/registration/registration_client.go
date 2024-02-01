@@ -1,12 +1,16 @@
 package registration
 
 import (
-	"flare-tlc/client/context"
+	"context"
+	flarectx "flare-tlc/client/context"
 	"flare-tlc/config"
+	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
+	"flare-tlc/utils/contracts/system"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -21,16 +25,30 @@ import (
 //  6. Wait until SigningPolicySigned is emitted (for the voter)
 
 type registrationClient struct {
-	db *gorm.DB
+	db registrationClientDB
 
-	systemManagerClient *SystemManagerContractClient
-	relayClient         *RelayContractClient
-	registryClient      *RegistryContractClient
+	systemManagerClient systemManagerContractClient
+	relayClient         relayContractClient
+	registryClient      registryContractClient
 
 	identityAddress string
 }
 
-func NewRegistrationClient(ctx context.ClientContext) (*registrationClient, error) {
+type registrationClientDB interface {
+	FetchLogsByAddressAndTopic0(common.Address, string, int64, int64) ([]database.Log, error)
+}
+
+type registrationClientDBGorm struct {
+	db *gorm.DB
+}
+
+func (g registrationClientDBGorm) FetchLogsByAddressAndTopic0(
+	address common.Address, topic0 string, fromBlock int64, toBlock int64,
+) ([]database.Log, error) {
+	return database.FetchLogsByAddressAndTopic0(g.db, address.Hex(), topic0, fromBlock, toBlock)
+}
+
+func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EnabledRegistration {
 		return nil, nil
@@ -88,8 +106,10 @@ func NewRegistrationClient(ctx context.ClientContext) (*registrationClient, erro
 		return nil, err
 	}
 
+	db := registrationClientDBGorm{db: ctx.DB()}
+
 	return &registrationClient{
-		db:                  ctx.DB(),
+		db:                  db,
 		systemManagerClient: systemManagerClient,
 		relayClient:         relayClient,
 		registryClient:      registryClient,
@@ -99,6 +119,10 @@ func NewRegistrationClient(ctx context.ClientContext) (*registrationClient, erro
 
 // Run runs the registration client, should be called in a goroutine
 func (c *registrationClient) Run() error {
+	return c.RunContext(context.Background())
+}
+
+func (c *registrationClient) RunContext(ctx context.Context) error {
 	epoch, err := c.systemManagerClient.RewardEpochFromChain()
 	if err != nil {
 		return err
@@ -108,8 +132,16 @@ func (c *registrationClient) Run() error {
 	for {
 		// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
 		logger.Debug("Waiting for VotePowerBlockSelected event")
-		powerBlockData := <-vpbsListener
-		logger.Info("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
+
+		var powerBlockData *system.FlareSystemManagerVotePowerBlockSelected
+
+		select {
+		case powerBlockData = <-vpbsListener:
+			logger.Info("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 
 		if !c.verifyEpoch(powerBlockData.RewardEpochId) {
 			logger.Info("Skipping registration process for epoch %v", powerBlockData.RewardEpochId)
@@ -122,6 +154,8 @@ func (c *registrationClient) Run() error {
 			logger.Error("RegisterVoter failed %s", registerResult.Message)
 			continue
 		}
+
+		logger.Info("RegisterVoter success")
 
 		// Wait until we get voter registered event
 		// Already in RegisterVoter
@@ -136,7 +170,6 @@ func (c *registrationClient) Run() error {
 			logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
 			continue
 		}
-
 	}
 }
 
