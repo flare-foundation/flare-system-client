@@ -1,15 +1,14 @@
 package finalizer
 
 import (
+	"context"
 	"encoding/hex"
 	"flare-tlc/client/shared"
-	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/contracts/submission"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"gorm.io/gorm"
 )
 
 type submissionContractClient struct {
@@ -34,23 +33,31 @@ func NewSubmissionContractClient(address common.Address) *submissionContractClie
 }
 
 func (s *submissionContractClient) SubmissionTxListener(
-	db *gorm.DB,
+	ctx context.Context,
+	db finalizerDB,
 	startTime time.Time,
 	processor submitterItemProcessor,
-) {
+) error {
 	submissionABI, err := submission.SubmissionMetaData.GetAbi()
 	if err != nil {
-		// panic, this error is fatal
-		panic(err)
+		// Should not happen, unhandled errors will cause a panic further up.
+		return err
 	}
-	selectorBytes := submissionABI.Methods["submitSignatures"].ID
-	selector := hex.EncodeToString(selectorBytes)
+
+	selector := submissionABI.Methods["submitSignatures"].ID
 	ticker := time.NewTicker(shared.ListenerInterval)
 	eventRangeStart := startTime.Unix()
 	for {
-		<-ticker.C
+		select {
+		case <-ticker.C:
+			break
+
+		case <-ctx.Done():
+			logger.Info("Submission tx listener stopped")
+			return ctx.Err()
+		}
 		now := time.Now().Unix()
-		txs, err := database.FetchTransactionsByAddressAndSelector(db, s.address.Hex(), selector, eventRangeStart, now)
+		txs, err := db.FetchTransactionsByAddressAndSelector(s.address, selector, eventRangeStart, now)
 		if err != nil {
 			logger.Error("Error fetching transactions %v", err)
 			continue

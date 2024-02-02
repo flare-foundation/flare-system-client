@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"flare-tlc/client/shared"
-	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/relay"
@@ -15,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
 )
 
 const (
@@ -31,7 +29,7 @@ var (
 type relayContractClient struct {
 	address common.Address
 
-	ethClient     *ethclient.Client
+	ethClient     relayEthClient
 	relay         *relay.Relay
 	privateKey    *ecdsa.PrivateKey
 	senderAddress common.Address
@@ -39,6 +37,18 @@ type relayContractClient struct {
 	relaySelector []byte // for relay method
 	topic0SPI     string // for SigningPolicyInitialized event
 	topic0PMR     string // for ProtocolMessageRelayed event
+}
+
+type relayEthClient interface {
+	SendRawTx(*ecdsa.PrivateKey, common.Address, []byte) error
+}
+
+type relayEthClientImpl struct {
+	client *ethclient.Client
+}
+
+func (eth relayEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte) error {
+	return chain.SendRawTx(eth.client, privateKey, to, data)
 }
 
 type signingPolicyListenerResponse struct {
@@ -75,7 +85,7 @@ func NewRelayContractClient(
 	}
 
 	return &relayContractClient{
-		ethClient:     ethClient,
+		ethClient:     relayEthClientImpl{client: ethClient},
 		address:       address,
 		relay:         relayContract,
 		privateKey:    privateKey,
@@ -86,8 +96,8 @@ func NewRelayContractClient(
 	}, nil
 }
 
-func (r *relayContractClient) FetchSigningPolicies(db *gorm.DB, from, to int64) ([]signingPolicyListenerResponse, error) {
-	logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0SPI, from, to)
+func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
+	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +114,7 @@ func (r *relayContractClient) FetchSigningPolicies(db *gorm.DB, from, to int64) 
 	return result, nil
 }
 
-func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, startTime time.Time) <-chan signingPolicyListenerResponse {
+func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, startTime time.Time) <-chan signingPolicyListenerResponse {
 	out := make(chan signingPolicyListenerResponse, listenerBufferSize)
 	go func() {
 		ticker := time.NewTicker(shared.ListenerInterval)
@@ -112,7 +122,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0SPI, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, eventRangeStart, now)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue
@@ -151,7 +161,7 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 	payload := buffer.Bytes()
 
 	execStatus := <-shared.ExecuteWithRetry(func() (any, error) {
-		err := chain.SendRawTx(r.ethClient, r.privateKey, r.address, payload)
+		err := r.ethClient.SendRawTx(r.privateKey, r.address, payload)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Info("Non fatal error sending relay tx: %v", err)
@@ -167,8 +177,8 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 	}
 }
 
-func (r *relayContractClient) ProtocolMessageRelayed(db *gorm.DB, from time.Time, to time.Time) (mapset.Set[queueItem], error) {
-	logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), r.topic0PMR, from.Unix(), to.Unix())
+func (r *relayContractClient) ProtocolMessageRelayed(db finalizerDB, from time.Time, to time.Time) (mapset.Set[queueItem], error) {
+	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0PMR, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
