@@ -7,6 +7,7 @@ import (
 	"flare-tlc/utils/chain"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -88,12 +89,19 @@ func NewRegistrationClient(ctx context.ClientContext) (*registrationClient, erro
 		return nil, err
 	}
 
+	identityAddress := cfg.Identity.Address
+	if !common.IsHexAddress(identityAddress) {
+		return nil, errors.New("invalid identity address provided")
+	}
+
+	logger.Debug("Identity addr %s", cfg.Identity.Address)
+
 	return &registrationClient{
 		db:                  ctx.DB(),
 		systemManagerClient: systemManagerClient,
 		relayClient:         relayClient,
 		registryClient:      registryClient,
-		identityAddress:     cfg.Identity.Address,
+		identityAddress:     identityAddress,
 	}, nil
 }
 
