@@ -166,8 +166,8 @@ func (p *finalizerQueueProcessor) processItem(item *queueItem) {
 	}
 
 	// (sort descreasing by weight)
-	slices.SortFunc(payloads, func(p, q *signedPayload) bool {
-		return data.signingPolicy.voters.VoterWeight(p.index) > data.signingPolicy.voters.VoterWeight(q.index)
+	slices.SortFunc(payloads, func(p, q *signedPayload) int {
+		return int(data.signingPolicy.voters.VoterWeight(p.index) - data.signingPolicy.voters.VoterWeight(q.index))
 	})
 
 	// greedy select until threshold is reached
@@ -182,8 +182,8 @@ func (p *finalizerQueueProcessor) processItem(item *queueItem) {
 	}
 
 	// sort selected payloads by index
-	slices.SortFunc(selected, func(p, q *signedPayload) bool {
-		return p.index < q.index
+	slices.SortFunc(selected, func(p, q *signedPayload) int {
+		return int(p.index - q.index)
 	})
 
 	p.relayClient.SubmitPayloads(selected, data.signingPolicy)
