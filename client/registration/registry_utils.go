@@ -35,7 +35,7 @@ func init() {
 }
 
 type registryContractClient interface {
-	RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan shared.ExecuteStatus[any]
+	RegisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any]
 }
 
 type registryContractClientImpl struct {
@@ -66,7 +66,7 @@ func NewRegistryContractClient(
 
 }
 
-func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, address string) <-chan shared.ExecuteStatus[any] {
+func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetry(func() (any, error) {
 		err := r.sendRegisterVoter(nextRewardEpochId, address)
 		if err != nil {
@@ -76,9 +76,8 @@ func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, a
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.Int, addressString string) error {
+func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.Int, address common.Address) error {
 	epochId := uint32(nextRewardEpochId.Uint64())
-	address := common.HexToAddress(addressString)
 	signature, err := r.createSignature(epochId, address)
 	if err != nil {
 		return err

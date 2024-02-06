@@ -31,7 +31,7 @@ type registrationClient struct {
 	relayClient         relayContractClient
 	registryClient      registryContractClient
 
-	identityAddress string
+	identityAddress common.Address
 }
 
 type registrationClientDB interface {
@@ -107,11 +107,11 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 	}
 
 	identityAddress := cfg.Identity.Address
-	if !common.IsHexAddress(identityAddress) {
-		return nil, errors.New("invalid identity address provided")
+	if identityAddress == chain.EmptyAddress {
+		return nil, errors.New("no identity address provided")
 	}
+	logger.Debug("Identity addr %v", identityAddress)
 
-	logger.Debug("Identity addr %s", cfg.Identity.Address)
 	db := registrationClientDBGorm{db: ctx.DB()}
 	return &registrationClient{
 		db:                  db,

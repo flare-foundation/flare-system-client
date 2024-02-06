@@ -40,7 +40,7 @@ func TestRegistrationClientMainline(t *testing.T) {
 		systemManagerClient: systemManagerClient,
 		relayClient:         relayClient,
 		registryClient:      registryClient,
-		identityAddress:     "0x123456",
+		identityAddress:     common.HexToAddress("0x123456"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -72,7 +72,7 @@ func TestRegistrationClientMainline(t *testing.T) {
 
 	t.Run("registered voters", func(t *testing.T) {
 		t.Logf("registered voters: %v", registryClient.registeredVoters)
-		require.True(t, registryClient.registeredVoters["2"]["0x123456"])
+		require.True(t, registryClient.registeredVoters["2"][common.HexToAddress("0x123456")])
 		cupaloy.SnapshotT(t, registryClient.registeredVoters)
 	})
 
@@ -93,7 +93,7 @@ func TestRegistrationClientInvalidEpoch(t *testing.T) {
 		systemManagerClient: systemManagerClient,
 		relayClient:         relayClient,
 		registryClient:      registryClient,
-		identityAddress:     "0x123456",
+		identityAddress:     common.HexToAddress("0x123456"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -205,23 +205,23 @@ func (c testRelayClient) SigningPolicyInitializedListener(
 }
 
 type testRegistryClient struct {
-	registeredVoters map[string]map[string]bool
+	registeredVoters map[string]map[common.Address]bool
 }
 
 func newTestRegistryClient() testRegistryClient {
 	return testRegistryClient{
-		registeredVoters: make(map[string]map[string]bool),
+		registeredVoters: make(map[string]map[common.Address]bool),
 	}
 }
 
 func (c testRegistryClient) RegisterVoter(
-	epochID *big.Int, address string,
+	epochID *big.Int, address common.Address,
 ) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetry(func() (any, error) {
 		key := epochID.String()
 
 		if _, ok := c.registeredVoters[key]; !ok {
-			c.registeredVoters[key] = make(map[string]bool)
+			c.registeredVoters[key] = make(map[common.Address]bool)
 		}
 
 		if c.registeredVoters[key][address] {
