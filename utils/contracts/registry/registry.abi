@@ -160,7 +160,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "voter",
         "type": "address"
@@ -179,19 +179,19 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "voter",
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
         "type": "uint24"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "signingPolicyAddress",
         "type": "address"
@@ -228,13 +228,13 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "voter",
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256",
         "name": "rewardEpochId",
         "type": "uint256"
@@ -333,7 +333,7 @@
     "name": "entityManager",
     "outputs": [
       {
-        "internalType": "contract EntityManager",
+        "internalType": "contract IIEntityManager",
         "name": "",
         "type": "address"
       }
@@ -359,7 +359,7 @@
     "name": "flareSystemCalculator",
     "outputs": [
       {
-        "internalType": "contract FlareSystemCalculator",
+        "internalType": "contract IIFlareSystemCalculator",
         "name": "",
         "type": "address"
       }
@@ -372,7 +372,7 @@
     "name": "flareSystemManager",
     "outputs": [
       {
-        "internalType": "contract FlareSystemManager",
+        "internalType": "contract IFlareSystemManager",
         "name": "",
         "type": "address"
       }
@@ -804,7 +804,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct VoterRegistry.Signature",
+        "internalType": "struct IVoterRegistry.Signature",
         "name": "_signature",
         "type": "tuple"
       }

@@ -29,8 +29,8 @@ var (
 	_ = abi.ConvertType
 )
 
-// VoterRegistrySignature is an auto generated low-level Go binding around an user-defined struct.
-type VoterRegistrySignature struct {
+// IVoterRegistrySignature is an auto generated low-level Go binding around an user-defined struct.
+type IVoterRegistrySignature struct {
 	V uint8
 	R [32]byte
 	S [32]byte
@@ -38,7 +38,7 @@ type VoterRegistrySignature struct {
 
 // RegistryMetaData contains all meta data concerning the Registry contract.
 var RegistryMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_maxVoters\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_initialRewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"_initialVoters\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"_initialNormalisedWeights\",\"type\":\"uint16[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ECDSAInvalidSignature\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"name\":\"ECDSAInvalidSignatureLength\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"ECDSAInvalidSignatureS\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"untilRewardEpochId\",\"type\":\"uint256\"}],\"name\":\"VoterChilled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"delegationAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"submitAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"submitSignaturesAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"registrationWeight\",\"type\":\"uint256\"}],\"name\":\"VoterRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"VoterRemoved\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_noOfRewardEpochs\",\"type\":\"uint256\"}],\"name\":\"chillVoter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_untilRewardEpochId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"chilledUntilRewardEpochId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"createSigningPolicySnapshot\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"_normalisedWeights\",\"type\":\"uint16[]\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSum\",\"type\":\"uint16\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"entityManager\",\"outputs\":[{\"internalType\":\"contractEntityManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemCalculator\",\"outputs\":[{\"internalType\":\"contractFlareSystemCalculator\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemManager\",\"outputs\":[{\"internalType\":\"contractFlareSystemManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getNumberOfRegisteredVoters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_signingPolicyAddress\",\"type\":\"address\"}],\"name\":\"getPublicKeyAndNormalisedWeight\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"_publicKeyPart1\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"_publicKeyPart2\",\"type\":\"bytes32\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeight\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSumOfVotersWithPublicKeys\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredDelegationAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_delegationAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredNodeIds\",\"outputs\":[{\"internalType\":\"bytes20[][]\",\"name\":\"_nodeIds\",\"type\":\"bytes20[][]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredPublicKeys\",\"outputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_parts1\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"_parts2\",\"type\":\"bytes32[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSigningPolicyAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSubmitAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSubmitSignaturesAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_signingPolicyAddress\",\"type\":\"address\"}],\"name\":\"getVoterWithNormalisedWeight\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeight\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getWeightsSums\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"_weightsSum\",\"type\":\"uint128\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSum\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSumOfVotersWithPublicKeys\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"isVoterRegistered\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxVoters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"newSigningPolicyInitializationStartBlockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structVoterRegistry.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"registerVoter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_maxVoters\",\"type\":\"uint256\"}],\"name\":\"setMaxVoters\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"setNewSigningPolicyInitializationStartBlockNumber\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_systemRegistrationContractAddress\",\"type\":\"address\"}],\"name\":\"setSystemRegistrationContractAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"systemRegistration\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"systemRegistrationContractAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_maxVoters\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_initialRewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"_initialVoters\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"_initialNormalisedWeights\",\"type\":\"uint16[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ECDSAInvalidSignature\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"name\":\"ECDSAInvalidSignatureLength\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"ECDSAInvalidSignatureS\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"untilRewardEpochId\",\"type\":\"uint256\"}],\"name\":\"VoterChilled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"delegationAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"submitAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"submitSignaturesAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"registrationWeight\",\"type\":\"uint256\"}],\"name\":\"VoterRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"VoterRemoved\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_noOfRewardEpochs\",\"type\":\"uint256\"}],\"name\":\"chillVoter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_untilRewardEpochId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"chilledUntilRewardEpochId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"createSigningPolicySnapshot\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"},{\"internalType\":\"uint16[]\",\"name\":\"_normalisedWeights\",\"type\":\"uint16[]\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSum\",\"type\":\"uint16\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"entityManager\",\"outputs\":[{\"internalType\":\"contractIIEntityManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemCalculator\",\"outputs\":[{\"internalType\":\"contractIIFlareSystemCalculator\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareSystemManager\",\"outputs\":[{\"internalType\":\"contractIFlareSystemManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getNumberOfRegisteredVoters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_signingPolicyAddress\",\"type\":\"address\"}],\"name\":\"getPublicKeyAndNormalisedWeight\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"_publicKeyPart1\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"_publicKeyPart2\",\"type\":\"bytes32\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeight\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSumOfVotersWithPublicKeys\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredDelegationAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_delegationAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredNodeIds\",\"outputs\":[{\"internalType\":\"bytes20[][]\",\"name\":\"_nodeIds\",\"type\":\"bytes20[][]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredPublicKeys\",\"outputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_parts1\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"_parts2\",\"type\":\"bytes32[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSigningPolicyAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSubmitAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredSubmitSignaturesAddresses\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"_signingPolicyAddresses\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getRegisteredVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_signingPolicyAddress\",\"type\":\"address\"}],\"name\":\"getVoterWithNormalisedWeight\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeight\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getWeightsSums\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"_weightsSum\",\"type\":\"uint128\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSum\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"_normalisedWeightsSumOfVotersWithPublicKeys\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"isVoterRegistered\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxVoters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"newSigningPolicyInitializationStartBlockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIVoterRegistry.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"registerVoter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_maxVoters\",\"type\":\"uint256\"}],\"name\":\"setMaxVoters\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"setNewSigningPolicyInitializationStartBlockNumber\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_systemRegistrationContractAddress\",\"type\":\"address\"}],\"name\":\"setSystemRegistrationContractAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"systemRegistration\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"systemRegistrationContractAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // RegistryABI is the input ABI used to generate the binding from.
@@ -1155,21 +1155,21 @@ func (_Registry *RegistryTransactorSession) Initialise(_governanceSettings commo
 // RegisterVoter is a paid mutator transaction binding the contract method 0x8f7d0957.
 //
 // Solidity: function registerVoter(address _voter, (uint8,bytes32,bytes32) _signature) returns()
-func (_Registry *RegistryTransactor) RegisterVoter(opts *bind.TransactOpts, _voter common.Address, _signature VoterRegistrySignature) (*types.Transaction, error) {
+func (_Registry *RegistryTransactor) RegisterVoter(opts *bind.TransactOpts, _voter common.Address, _signature IVoterRegistrySignature) (*types.Transaction, error) {
 	return _Registry.contract.Transact(opts, "registerVoter", _voter, _signature)
 }
 
 // RegisterVoter is a paid mutator transaction binding the contract method 0x8f7d0957.
 //
 // Solidity: function registerVoter(address _voter, (uint8,bytes32,bytes32) _signature) returns()
-func (_Registry *RegistrySession) RegisterVoter(_voter common.Address, _signature VoterRegistrySignature) (*types.Transaction, error) {
+func (_Registry *RegistrySession) RegisterVoter(_voter common.Address, _signature IVoterRegistrySignature) (*types.Transaction, error) {
 	return _Registry.Contract.RegisterVoter(&_Registry.TransactOpts, _voter, _signature)
 }
 
 // RegisterVoter is a paid mutator transaction binding the contract method 0x8f7d0957.
 //
 // Solidity: function registerVoter(address _voter, (uint8,bytes32,bytes32) _signature) returns()
-func (_Registry *RegistryTransactorSession) RegisterVoter(_voter common.Address, _signature VoterRegistrySignature) (*types.Transaction, error) {
+func (_Registry *RegistryTransactorSession) RegisterVoter(_voter common.Address, _signature IVoterRegistrySignature) (*types.Transaction, error) {
 	return _Registry.Contract.RegisterVoter(&_Registry.TransactOpts, _voter, _signature)
 }
 
@@ -2049,10 +2049,15 @@ type RegistryVoterChilled struct {
 
 // FilterVoterChilled is a free log retrieval operation binding the contract event 0x0c2fcef22ab22997ed46cd27f7f0aa308600145401a7a141065d61c5d87341d2.
 //
-// Solidity: event VoterChilled(address voter, uint256 untilRewardEpochId)
-func (_Registry *RegistryFilterer) FilterVoterChilled(opts *bind.FilterOpts) (*RegistryVoterChilledIterator, error) {
+// Solidity: event VoterChilled(address indexed voter, uint256 untilRewardEpochId)
+func (_Registry *RegistryFilterer) FilterVoterChilled(opts *bind.FilterOpts, voter []common.Address) (*RegistryVoterChilledIterator, error) {
 
-	logs, sub, err := _Registry.contract.FilterLogs(opts, "VoterChilled")
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _Registry.contract.FilterLogs(opts, "VoterChilled", voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2061,10 +2066,15 @@ func (_Registry *RegistryFilterer) FilterVoterChilled(opts *bind.FilterOpts) (*R
 
 // WatchVoterChilled is a free log subscription operation binding the contract event 0x0c2fcef22ab22997ed46cd27f7f0aa308600145401a7a141065d61c5d87341d2.
 //
-// Solidity: event VoterChilled(address voter, uint256 untilRewardEpochId)
-func (_Registry *RegistryFilterer) WatchVoterChilled(opts *bind.WatchOpts, sink chan<- *RegistryVoterChilled) (event.Subscription, error) {
+// Solidity: event VoterChilled(address indexed voter, uint256 untilRewardEpochId)
+func (_Registry *RegistryFilterer) WatchVoterChilled(opts *bind.WatchOpts, sink chan<- *RegistryVoterChilled, voter []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _Registry.contract.WatchLogs(opts, "VoterChilled")
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _Registry.contract.WatchLogs(opts, "VoterChilled", voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2098,7 +2108,7 @@ func (_Registry *RegistryFilterer) WatchVoterChilled(opts *bind.WatchOpts, sink 
 
 // ParseVoterChilled is a log parse operation binding the contract event 0x0c2fcef22ab22997ed46cd27f7f0aa308600145401a7a141065d61c5d87341d2.
 //
-// Solidity: event VoterChilled(address voter, uint256 untilRewardEpochId)
+// Solidity: event VoterChilled(address indexed voter, uint256 untilRewardEpochId)
 func (_Registry *RegistryFilterer) ParseVoterChilled(log types.Log) (*RegistryVoterChilled, error) {
 	event := new(RegistryVoterChilled)
 	if err := _Registry.contract.UnpackLog(event, "VoterChilled", log); err != nil {
@@ -2189,10 +2199,23 @@ type RegistryVoterRegistered struct {
 
 // FilterVoterRegistered is a free log retrieval operation binding the contract event 0x36e64c7339af9c00a1b00e5da00d8c2159dff48c9c7020a2088b622e11777820.
 //
-// Solidity: event VoterRegistered(address voter, uint24 rewardEpochId, address signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
-func (_Registry *RegistryFilterer) FilterVoterRegistered(opts *bind.FilterOpts) (*RegistryVoterRegisteredIterator, error) {
+// Solidity: event VoterRegistered(address indexed voter, uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
+func (_Registry *RegistryFilterer) FilterVoterRegistered(opts *bind.FilterOpts, voter []common.Address, rewardEpochId []*big.Int, signingPolicyAddress []common.Address) (*RegistryVoterRegisteredIterator, error) {
 
-	logs, sub, err := _Registry.contract.FilterLogs(opts, "VoterRegistered")
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+
+	logs, sub, err := _Registry.contract.FilterLogs(opts, "VoterRegistered", voterRule, rewardEpochIdRule, signingPolicyAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2201,10 +2224,23 @@ func (_Registry *RegistryFilterer) FilterVoterRegistered(opts *bind.FilterOpts) 
 
 // WatchVoterRegistered is a free log subscription operation binding the contract event 0x36e64c7339af9c00a1b00e5da00d8c2159dff48c9c7020a2088b622e11777820.
 //
-// Solidity: event VoterRegistered(address voter, uint24 rewardEpochId, address signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
-func (_Registry *RegistryFilterer) WatchVoterRegistered(opts *bind.WatchOpts, sink chan<- *RegistryVoterRegistered) (event.Subscription, error) {
+// Solidity: event VoterRegistered(address indexed voter, uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
+func (_Registry *RegistryFilterer) WatchVoterRegistered(opts *bind.WatchOpts, sink chan<- *RegistryVoterRegistered, voter []common.Address, rewardEpochId []*big.Int, signingPolicyAddress []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _Registry.contract.WatchLogs(opts, "VoterRegistered")
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+
+	logs, sub, err := _Registry.contract.WatchLogs(opts, "VoterRegistered", voterRule, rewardEpochIdRule, signingPolicyAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2238,7 +2274,7 @@ func (_Registry *RegistryFilterer) WatchVoterRegistered(opts *bind.WatchOpts, si
 
 // ParseVoterRegistered is a log parse operation binding the contract event 0x36e64c7339af9c00a1b00e5da00d8c2159dff48c9c7020a2088b622e11777820.
 //
-// Solidity: event VoterRegistered(address voter, uint24 rewardEpochId, address signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
+// Solidity: event VoterRegistered(address indexed voter, uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address delegationAddress, address submitAddress, address submitSignaturesAddress, uint256 registrationWeight)
 func (_Registry *RegistryFilterer) ParseVoterRegistered(log types.Log) (*RegistryVoterRegistered, error) {
 	event := new(RegistryVoterRegistered)
 	if err := _Registry.contract.UnpackLog(event, "VoterRegistered", log); err != nil {
@@ -2324,10 +2360,19 @@ type RegistryVoterRemoved struct {
 
 // FilterVoterRemoved is a free log retrieval operation binding the contract event 0x98a7f87f8e2aa2f23f43769eff67782bb12946384b142d1ce1e8e38e05d9a3e6.
 //
-// Solidity: event VoterRemoved(address voter, uint256 rewardEpochId)
-func (_Registry *RegistryFilterer) FilterVoterRemoved(opts *bind.FilterOpts) (*RegistryVoterRemovedIterator, error) {
+// Solidity: event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId)
+func (_Registry *RegistryFilterer) FilterVoterRemoved(opts *bind.FilterOpts, voter []common.Address, rewardEpochId []*big.Int) (*RegistryVoterRemovedIterator, error) {
 
-	logs, sub, err := _Registry.contract.FilterLogs(opts, "VoterRemoved")
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _Registry.contract.FilterLogs(opts, "VoterRemoved", voterRule, rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2336,10 +2381,19 @@ func (_Registry *RegistryFilterer) FilterVoterRemoved(opts *bind.FilterOpts) (*R
 
 // WatchVoterRemoved is a free log subscription operation binding the contract event 0x98a7f87f8e2aa2f23f43769eff67782bb12946384b142d1ce1e8e38e05d9a3e6.
 //
-// Solidity: event VoterRemoved(address voter, uint256 rewardEpochId)
-func (_Registry *RegistryFilterer) WatchVoterRemoved(opts *bind.WatchOpts, sink chan<- *RegistryVoterRemoved) (event.Subscription, error) {
+// Solidity: event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId)
+func (_Registry *RegistryFilterer) WatchVoterRemoved(opts *bind.WatchOpts, sink chan<- *RegistryVoterRemoved, voter []common.Address, rewardEpochId []*big.Int) (event.Subscription, error) {
 
-	logs, sub, err := _Registry.contract.WatchLogs(opts, "VoterRemoved")
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _Registry.contract.WatchLogs(opts, "VoterRemoved", voterRule, rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2373,7 +2427,7 @@ func (_Registry *RegistryFilterer) WatchVoterRemoved(opts *bind.WatchOpts, sink 
 
 // ParseVoterRemoved is a log parse operation binding the contract event 0x98a7f87f8e2aa2f23f43769eff67782bb12946384b142d1ce1e8e38e05d9a3e6.
 //
-// Solidity: event VoterRemoved(address voter, uint256 rewardEpochId)
+// Solidity: event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId)
 func (_Registry *RegistryFilterer) ParseVoterRemoved(log types.Log) (*RegistryVoterRemoved, error) {
 	event := new(RegistryVoterRemoved)
 	if err := _Registry.contract.UnpackLog(event, "VoterRemoved", log); err != nil {
