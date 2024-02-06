@@ -186,10 +186,7 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 }
 
 func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
-	logger.Info("Processing submission data for timestamp %d, payload items = %d", slr.timestamp, len(slr.payload))
-
 	for _, payloadItem := range slr.payload {
-		logger.Debug("Processing submission for voting round %d", payloadItem.votingRoundId)
 		if payloadItem.votingRoundId < c.finalizerContext.startingVotingRound {
 			logger.Debug("Skipping submission for voting round %d - before startingVotingRound", payloadItem.votingRoundId)
 			continue
