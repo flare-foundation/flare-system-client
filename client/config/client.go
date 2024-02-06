@@ -3,6 +3,8 @@ package config
 import (
 	"flare-tlc/config"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type ClientConfig struct {
@@ -31,7 +33,7 @@ type MetricsConfig struct {
 }
 
 type IdentityConfig struct {
-	Address string `toml:"address"`
+	Address common.Address `toml:"address"`
 }
 
 type CredentialsConfig struct {

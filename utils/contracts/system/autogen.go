@@ -44,13 +44,15 @@ type FlareSystemManagerSettings struct {
 	NewSigningPolicyMinNumberOfVotingRoundsDelay uint8
 	VoterRegistrationMinDurationSeconds          uint16
 	VoterRegistrationMinDurationBlocks           uint16
+	SubmitUptimeVoteMinDurationSeconds           uint16
+	SubmitUptimeVoteMinDurationBlocks            uint16
 	SigningPolicyThresholdPPM                    *big.Int
 	SigningPolicyMinNumberOfVoters               uint16
 	RewardExpiryOffsetSeconds                    uint32
 }
 
-// FlareSystemManagerSignature is an auto generated low-level Go binding around an user-defined struct.
-type FlareSystemManagerSignature struct {
+// IFlareSystemManagerSignature is an auto generated low-level Go binding around an user-defined struct.
+type IFlareSystemManagerSignature struct {
 	V uint8
 	R [32]byte
 	S [32]byte
@@ -58,7 +60,7 @@ type FlareSystemManagerSignature struct {
 
 // FlareSystemManagerMetaData contains all meta data concerning the FlareSystemManager contract.
 var FlareSystemManagerMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_flareDaemon\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint16\",\"name\":\"randomAcquisitionMaxDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"randomAcquisitionMaxDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"newSigningPolicyInitializationStartSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint8\",\"name\":\"newSigningPolicyMinNumberOfVotingRoundsDelay\",\"type\":\"uint8\"},{\"internalType\":\"uint16\",\"name\":\"voterRegistrationMinDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"voterRegistrationMinDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint24\",\"name\":\"signingPolicyThresholdPPM\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"signingPolicyMinNumberOfVoters\",\"type\":\"uint16\"},{\"internalType\":\"uint32\",\"name\":\"rewardExpiryOffsetSeconds\",\"type\":\"uint32\"}],\"internalType\":\"structFlareSystemManager.Settings\",\"name\":\"_settings\",\"type\":\"tuple\"},{\"internalType\":\"uint32\",\"name\":\"_firstVotingRoundStartTs\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"_votingEpochDurationSeconds\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"_firstRewardEpochStartVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"_rewardEpochDurationInVotingEpochs\",\"type\":\"uint16\"},{\"components\":[{\"internalType\":\"uint16\",\"name\":\"initialRandomVotePowerBlockSelectionSize\",\"type\":\"uint16\"},{\"internalType\":\"uint24\",\"name\":\"initialRewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"initialRewardEpochThreshold\",\"type\":\"uint16\"}],\"internalType\":\"structFlareSystemManager.InitialSettings\",\"name\":\"_initialSettings\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ECDSAInvalidSignature\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"name\":\"ECDSAInvalidSignatureLength\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"ECDSAInvalidSignatureS\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"bits\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"SafeCastOverflowedUintDowncast\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"ClosingExpiredRewardEpochFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"RandomAcquisitionStarted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"startVotingRoundId\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"RewardEpochStarted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"rewardsHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"noOfWeightBasedClaims\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"thresholdReached\",\"type\":\"bool\"}],\"name\":\"RewardsSigned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockNumber\",\"type\":\"uint64\"}],\"name\":\"SettingCleanUpBlockNumberFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"thresholdReached\",\"type\":\"bool\"}],\"name\":\"SigningPolicySigned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"TriggeringVoterRegistrationFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"uptimeVoteHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"thresholdReached\",\"type\":\"bool\"}],\"name\":\"UptimeVoteSigned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"votePowerBlock\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"VotePowerBlockSelected\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_signingPolicyThresholdPPM\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"_signingPolicyMinNumberOfVoters\",\"type\":\"uint16\"}],\"name\":\"changeSigningPolicySettings\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"cleanupBlockNumberManager\",\"outputs\":[{\"internalType\":\"contractICleanupBlockNumberManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"currentRewardEpochExpectedEndTs\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"daemonize\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"firstRewardEpochStartTs\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"firstVotingRoundStartTs\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareDaemon\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getContractName\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRandom\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_currentRandom\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRandomWithQuality\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_currentRandom\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_isSecureRandom\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRewardEpochId\",\"outputs\":[{\"internalType\":\"uint24\",\"name\":\"_currentRewardEpochId\",\"type\":\"uint24\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getRandomAcquisitionInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_randomAcquisitionStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_randomAcquisitionStartBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_randomAcquisitionEndTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_randomAcquisitionEndBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getRewarEpochStartInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_rewardEpochStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardEpochStartBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRewardEpochSwitchoverTriggerContracts\",\"outputs\":[{\"internalType\":\"contractIRewardEpochSwitchoverTrigger[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getRewardsSignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_rewardsSignStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardsSignStartBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardsSignEndTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardsSignEndBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getSeed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getSigningPolicySignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignStartBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignEndTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignEndBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getStartVotingRoundId\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getThreshold\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getVotePowerBlock\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_votePowerBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getVoterRegistrationData\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_votePowerBlock\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterRewardsSignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_rewardsSignTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardsSignBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterSigningPolicySignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterUptimeVoteSignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_uptimeVoteSignTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_uptimeVoteSignBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"initialRandomVotePowerBlockSelectionSize\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isVoterRegistrationEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastInitializedVotingRoundId\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"newSigningPolicyInitializationStartSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"newSigningPolicyMinNumberOfVotingRoundsDelay\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"noOfWeightBasedClaims\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"randomAcquisitionMaxDurationBlocks\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"randomAcquisitionMaxDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"relay\",\"outputs\":[{\"internalType\":\"contractRelay\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardEpochDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardEpochIdToExpireNext\",\"outputs\":[{\"internalType\":\"uint24\",\"name\":\"\",\"type\":\"uint24\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardExpiryOffsetSeconds\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardManager\",\"outputs\":[{\"internalType\":\"contractRewardManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"rewardsHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIRewardEpochSwitchoverTrigger[]\",\"name\":\"_contracts\",\"type\":\"address[]\"}],\"name\":\"setRewardEpochSwitchoverTriggerContracts\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"uint64\",\"name\":\"_noOfWeightBasedClaims\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"_rewardsHash\",\"type\":\"bytes32\"}],\"name\":\"setRewardsData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_triggerExpirationAndCleanup\",\"type\":\"bool\"}],\"name\":\"setTriggerExpirationAndCleanup\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIVoterRegistrationTrigger\",\"name\":\"_contract\",\"type\":\"address\"}],\"name\":\"setVoterRegistrationTriggerContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"bytes32\",\"name\":\"_newSigningPolicyHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structFlareSystemManager.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"signNewSigningPolicy\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"uint64\",\"name\":\"_noOfWeightBasedClaims\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"_rewardsHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structFlareSystemManager.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"signRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"bytes32\",\"name\":\"_uptimeVoteHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structFlareSystemManager.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"signUptimeVote\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"signingPolicyMinNumberOfVoters\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"signingPolicyThresholdPPM\",\"outputs\":[{\"internalType\":\"uint24\",\"name\":\"\",\"type\":\"uint24\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submission\",\"outputs\":[{\"internalType\":\"contractSubmission\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToFallbackMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"triggerExpirationAndCleanup\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint16\",\"name\":\"randomAcquisitionMaxDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"randomAcquisitionMaxDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"newSigningPolicyInitializationStartSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint8\",\"name\":\"newSigningPolicyMinNumberOfVotingRoundsDelay\",\"type\":\"uint8\"},{\"internalType\":\"uint16\",\"name\":\"voterRegistrationMinDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"voterRegistrationMinDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint24\",\"name\":\"signingPolicyThresholdPPM\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"signingPolicyMinNumberOfVoters\",\"type\":\"uint16\"},{\"internalType\":\"uint32\",\"name\":\"rewardExpiryOffsetSeconds\",\"type\":\"uint32\"}],\"internalType\":\"structFlareSystemManager.Settings\",\"name\":\"_settings\",\"type\":\"tuple\"}],\"name\":\"updateSettings\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"uptimeVoteHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"voterRegistrationMinDurationBlocks\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"voterRegistrationMinDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"voterRegistrationTriggerContract\",\"outputs\":[{\"internalType\":\"contractIVoterRegistrationTrigger\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"voterRegistry\",\"outputs\":[{\"internalType\":\"contractVoterRegistry\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"votingEpochDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_flareDaemon\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint16\",\"name\":\"randomAcquisitionMaxDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"randomAcquisitionMaxDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"newSigningPolicyInitializationStartSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint8\",\"name\":\"newSigningPolicyMinNumberOfVotingRoundsDelay\",\"type\":\"uint8\"},{\"internalType\":\"uint16\",\"name\":\"voterRegistrationMinDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"voterRegistrationMinDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"submitUptimeVoteMinDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"submitUptimeVoteMinDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint24\",\"name\":\"signingPolicyThresholdPPM\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"signingPolicyMinNumberOfVoters\",\"type\":\"uint16\"},{\"internalType\":\"uint32\",\"name\":\"rewardExpiryOffsetSeconds\",\"type\":\"uint32\"}],\"internalType\":\"structFlareSystemManager.Settings\",\"name\":\"_settings\",\"type\":\"tuple\"},{\"internalType\":\"uint32\",\"name\":\"_firstVotingRoundStartTs\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"_votingEpochDurationSeconds\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"_firstRewardEpochStartVotingRoundId\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"_rewardEpochDurationInVotingEpochs\",\"type\":\"uint16\"},{\"components\":[{\"internalType\":\"uint16\",\"name\":\"initialRandomVotePowerBlockSelectionSize\",\"type\":\"uint16\"},{\"internalType\":\"uint24\",\"name\":\"initialRewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"initialRewardEpochThreshold\",\"type\":\"uint16\"}],\"internalType\":\"structFlareSystemManager.InitialSettings\",\"name\":\"_initialSettings\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ECDSAInvalidSignature\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"name\":\"ECDSAInvalidSignatureLength\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"ECDSAInvalidSignatureS\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"bits\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"SafeCastOverflowedUintDowncast\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"ClosingExpiredRewardEpochFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"name\":\"GovernanceCallTimelocked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"initialGovernance\",\"type\":\"address\"}],\"name\":\"GovernanceInitialised\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"governanceSettings\",\"type\":\"address\"}],\"name\":\"GovernedProductionModeEntered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"RandomAcquisitionStarted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"startVotingRoundId\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"RewardEpochStarted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"rewardsHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"noOfWeightBasedClaims\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"thresholdReached\",\"type\":\"bool\"}],\"name\":\"RewardsSigned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockNumber\",\"type\":\"uint64\"}],\"name\":\"SettingCleanUpBlockNumberFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"thresholdReached\",\"type\":\"bool\"}],\"name\":\"SigningPolicySigned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"SingUptimeVoteEnabled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"TimelockedGovernanceCallExecuted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"TriggeringVoterRegistrationFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"uptimeVoteHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"thresholdReached\",\"type\":\"bool\"}],\"name\":\"UptimeVoteSigned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"signingPolicyAddress\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes20[]\",\"name\":\"nodeIds\",\"type\":\"bytes20[]\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"UptimeVoteSubmitted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"rewardEpochId\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"votePowerBlock\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"VotePowerBlockSelected\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"cancelGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_signingPolicyThresholdPPM\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"_signingPolicyMinNumberOfVoters\",\"type\":\"uint16\"}],\"name\":\"changeSigningPolicySettings\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"cleanupBlockNumberManager\",\"outputs\":[{\"internalType\":\"contractIICleanupBlockNumberManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"currentRewardEpochExpectedEndTs\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"daemonize\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"}],\"name\":\"executeGovernanceCall\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"firstRewardEpochStartTs\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"firstVotingRoundStartTs\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"flareDaemon\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAddressUpdater\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_addressUpdater\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getContractName\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRewardEpochId\",\"outputs\":[{\"internalType\":\"uint24\",\"name\":\"\",\"type\":\"uint24\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getRandomAcquisitionInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_randomAcquisitionStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_randomAcquisitionStartBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_randomAcquisitionEndTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_randomAcquisitionEndBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getRewardEpochStartInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_rewardEpochStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardEpochStartBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRewardEpochSwitchoverTriggerContracts\",\"outputs\":[{\"internalType\":\"contractIIRewardEpochSwitchoverTrigger[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getRewardsSignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_rewardsSignStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardsSignStartBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardsSignEndTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardsSignEndBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getSeed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getSigningPolicySignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignStartBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignEndTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignEndBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getStartVotingRoundId\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getThreshold\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"}],\"name\":\"getUptimeVoteSignStartInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_uptimeVoteSignStartTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_uptimeVoteSignStartBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getVotePowerBlock\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_votePowerBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewardEpochId\",\"type\":\"uint256\"}],\"name\":\"getVoterRegistrationData\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_votePowerBlock\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterRewardsSignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_rewardsSignTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_rewardsSignBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterSigningPolicySignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_signingPolicySignBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterUptimeVoteSignInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_uptimeVoteSignTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_uptimeVoteSignBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterUptimeVoteSubmitInfo\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"_uptimeVoteSubmitTs\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_uptimeVoteSubmitBlock\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governance\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"governanceSettings\",\"outputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"initialRandomVotePowerBlockSelectionSize\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIGovernanceSettings\",\"name\":\"_governanceSettings\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_initialGovernance\",\"type\":\"address\"}],\"name\":\"initialise\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isExecutor\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isVoterRegistrationEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastInitializedVotingRoundId\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"newSigningPolicyInitializationStartSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"newSigningPolicyMinNumberOfVotingRoundsDelay\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"noOfWeightBasedClaims\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"productionMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"randomAcquisitionMaxDurationBlocks\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"randomAcquisitionMaxDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"relay\",\"outputs\":[{\"internalType\":\"contractIIRelay\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardEpochDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardEpochIdToExpireNext\",\"outputs\":[{\"internalType\":\"uint24\",\"name\":\"\",\"type\":\"uint24\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardExpiryOffsetSeconds\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardManager\",\"outputs\":[{\"internalType\":\"contractIIRewardManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"rewardsHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIIRewardEpochSwitchoverTrigger[]\",\"name\":\"_contracts\",\"type\":\"address[]\"}],\"name\":\"setRewardEpochSwitchoverTriggerContracts\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"uint64\",\"name\":\"_noOfWeightBasedClaims\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"_rewardsHash\",\"type\":\"bytes32\"}],\"name\":\"setRewardsData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_submit3Aligned\",\"type\":\"bool\"}],\"name\":\"setSubmit3Aligned\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_triggerExpirationAndCleanup\",\"type\":\"bool\"}],\"name\":\"setTriggerExpirationAndCleanup\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIIVoterRegistrationTrigger\",\"name\":\"_contract\",\"type\":\"address\"}],\"name\":\"setVoterRegistrationTriggerContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"bytes32\",\"name\":\"_newSigningPolicyHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIFlareSystemManager.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"signNewSigningPolicy\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"uint64\",\"name\":\"_noOfWeightBasedClaims\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"_rewardsHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIFlareSystemManager.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"signRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"bytes32\",\"name\":\"_uptimeVoteHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIFlareSystemManager.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"signUptimeVote\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"signingPolicyMinNumberOfVoters\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"signingPolicyThresholdPPM\",\"outputs\":[{\"internalType\":\"uint24\",\"name\":\"\",\"type\":\"uint24\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submission\",\"outputs\":[{\"internalType\":\"contractIISubmission\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submit3Aligned\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint24\",\"name\":\"_rewardEpochId\",\"type\":\"uint24\"},{\"internalType\":\"bytes20[]\",\"name\":\"_nodeIds\",\"type\":\"bytes20[]\"},{\"components\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIFlareSystemManager.Signature\",\"name\":\"_signature\",\"type\":\"tuple\"}],\"name\":\"submitUptimeVote\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitUptimeVoteMinDurationBlocks\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"submitUptimeVoteMinDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToFallbackMode\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"switchToProductionMode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"name\":\"timelockedCalls\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowedAfterTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"encodedCall\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"triggerExpirationAndCleanup\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_contractNameHashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"address[]\",\"name\":\"_contractAddresses\",\"type\":\"address[]\"}],\"name\":\"updateContractAddresses\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint16\",\"name\":\"randomAcquisitionMaxDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"randomAcquisitionMaxDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"newSigningPolicyInitializationStartSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint8\",\"name\":\"newSigningPolicyMinNumberOfVotingRoundsDelay\",\"type\":\"uint8\"},{\"internalType\":\"uint16\",\"name\":\"voterRegistrationMinDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"voterRegistrationMinDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"submitUptimeVoteMinDurationSeconds\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"submitUptimeVoteMinDurationBlocks\",\"type\":\"uint16\"},{\"internalType\":\"uint24\",\"name\":\"signingPolicyThresholdPPM\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"signingPolicyMinNumberOfVoters\",\"type\":\"uint16\"},{\"internalType\":\"uint32\",\"name\":\"rewardExpiryOffsetSeconds\",\"type\":\"uint32\"}],\"internalType\":\"structFlareSystemManager.Settings\",\"name\":\"_settings\",\"type\":\"tuple\"}],\"name\":\"updateSettings\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"uptimeVoteHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"voterRegistrationMinDurationBlocks\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"voterRegistrationMinDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"voterRegistrationTriggerContract\",\"outputs\":[{\"internalType\":\"contractIIVoterRegistrationTrigger\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"voterRegistry\",\"outputs\":[{\"internalType\":\"contractIIVoterRegistry\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"votingEpochDurationSeconds\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // FlareSystemManagerABI is the input ABI used to generate the binding from.
@@ -424,85 +426,9 @@ func (_FlareSystemManager *FlareSystemManagerCallerSession) GetContractName() (s
 	return _FlareSystemManager.Contract.GetContractName(&_FlareSystemManager.CallOpts)
 }
 
-// GetCurrentRandom is a free data retrieval call binding the contract method 0xd89601fd.
-//
-// Solidity: function getCurrentRandom() view returns(uint256 _currentRandom)
-func (_FlareSystemManager *FlareSystemManagerCaller) GetCurrentRandom(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _FlareSystemManager.contract.Call(opts, &out, "getCurrentRandom")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// GetCurrentRandom is a free data retrieval call binding the contract method 0xd89601fd.
-//
-// Solidity: function getCurrentRandom() view returns(uint256 _currentRandom)
-func (_FlareSystemManager *FlareSystemManagerSession) GetCurrentRandom() (*big.Int, error) {
-	return _FlareSystemManager.Contract.GetCurrentRandom(&_FlareSystemManager.CallOpts)
-}
-
-// GetCurrentRandom is a free data retrieval call binding the contract method 0xd89601fd.
-//
-// Solidity: function getCurrentRandom() view returns(uint256 _currentRandom)
-func (_FlareSystemManager *FlareSystemManagerCallerSession) GetCurrentRandom() (*big.Int, error) {
-	return _FlareSystemManager.Contract.GetCurrentRandom(&_FlareSystemManager.CallOpts)
-}
-
-// GetCurrentRandomWithQuality is a free data retrieval call binding the contract method 0xa978fb6b.
-//
-// Solidity: function getCurrentRandomWithQuality() view returns(uint256 _currentRandom, bool _isSecureRandom)
-func (_FlareSystemManager *FlareSystemManagerCaller) GetCurrentRandomWithQuality(opts *bind.CallOpts) (struct {
-	CurrentRandom  *big.Int
-	IsSecureRandom bool
-}, error) {
-	var out []interface{}
-	err := _FlareSystemManager.contract.Call(opts, &out, "getCurrentRandomWithQuality")
-
-	outstruct := new(struct {
-		CurrentRandom  *big.Int
-		IsSecureRandom bool
-	})
-	if err != nil {
-		return *outstruct, err
-	}
-
-	outstruct.CurrentRandom = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	outstruct.IsSecureRandom = *abi.ConvertType(out[1], new(bool)).(*bool)
-
-	return *outstruct, err
-
-}
-
-// GetCurrentRandomWithQuality is a free data retrieval call binding the contract method 0xa978fb6b.
-//
-// Solidity: function getCurrentRandomWithQuality() view returns(uint256 _currentRandom, bool _isSecureRandom)
-func (_FlareSystemManager *FlareSystemManagerSession) GetCurrentRandomWithQuality() (struct {
-	CurrentRandom  *big.Int
-	IsSecureRandom bool
-}, error) {
-	return _FlareSystemManager.Contract.GetCurrentRandomWithQuality(&_FlareSystemManager.CallOpts)
-}
-
-// GetCurrentRandomWithQuality is a free data retrieval call binding the contract method 0xa978fb6b.
-//
-// Solidity: function getCurrentRandomWithQuality() view returns(uint256 _currentRandom, bool _isSecureRandom)
-func (_FlareSystemManager *FlareSystemManagerCallerSession) GetCurrentRandomWithQuality() (struct {
-	CurrentRandom  *big.Int
-	IsSecureRandom bool
-}, error) {
-	return _FlareSystemManager.Contract.GetCurrentRandomWithQuality(&_FlareSystemManager.CallOpts)
-}
-
 // GetCurrentRewardEpochId is a free data retrieval call binding the contract method 0x70562697.
 //
-// Solidity: function getCurrentRewardEpochId() view returns(uint24 _currentRewardEpochId)
+// Solidity: function getCurrentRewardEpochId() view returns(uint24)
 func (_FlareSystemManager *FlareSystemManagerCaller) GetCurrentRewardEpochId(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _FlareSystemManager.contract.Call(opts, &out, "getCurrentRewardEpochId")
@@ -519,14 +445,14 @@ func (_FlareSystemManager *FlareSystemManagerCaller) GetCurrentRewardEpochId(opt
 
 // GetCurrentRewardEpochId is a free data retrieval call binding the contract method 0x70562697.
 //
-// Solidity: function getCurrentRewardEpochId() view returns(uint24 _currentRewardEpochId)
+// Solidity: function getCurrentRewardEpochId() view returns(uint24)
 func (_FlareSystemManager *FlareSystemManagerSession) GetCurrentRewardEpochId() (*big.Int, error) {
 	return _FlareSystemManager.Contract.GetCurrentRewardEpochId(&_FlareSystemManager.CallOpts)
 }
 
 // GetCurrentRewardEpochId is a free data retrieval call binding the contract method 0x70562697.
 //
-// Solidity: function getCurrentRewardEpochId() view returns(uint24 _currentRewardEpochId)
+// Solidity: function getCurrentRewardEpochId() view returns(uint24)
 func (_FlareSystemManager *FlareSystemManagerCallerSession) GetCurrentRewardEpochId() (*big.Int, error) {
 	return _FlareSystemManager.Contract.GetCurrentRewardEpochId(&_FlareSystemManager.CallOpts)
 }
@@ -586,15 +512,15 @@ func (_FlareSystemManager *FlareSystemManagerCallerSession) GetRandomAcquisition
 	return _FlareSystemManager.Contract.GetRandomAcquisitionInfo(&_FlareSystemManager.CallOpts, _rewardEpochId)
 }
 
-// GetRewarEpochStartInfo is a free data retrieval call binding the contract method 0xcd69ef15.
+// GetRewardEpochStartInfo is a free data retrieval call binding the contract method 0x00ddae53.
 //
-// Solidity: function getRewarEpochStartInfo(uint24 _rewardEpochId) view returns(uint64 _rewardEpochStartTs, uint64 _rewardEpochStartBlock)
-func (_FlareSystemManager *FlareSystemManagerCaller) GetRewarEpochStartInfo(opts *bind.CallOpts, _rewardEpochId *big.Int) (struct {
+// Solidity: function getRewardEpochStartInfo(uint24 _rewardEpochId) view returns(uint64 _rewardEpochStartTs, uint64 _rewardEpochStartBlock)
+func (_FlareSystemManager *FlareSystemManagerCaller) GetRewardEpochStartInfo(opts *bind.CallOpts, _rewardEpochId *big.Int) (struct {
 	RewardEpochStartTs    uint64
 	RewardEpochStartBlock uint64
 }, error) {
 	var out []interface{}
-	err := _FlareSystemManager.contract.Call(opts, &out, "getRewarEpochStartInfo", _rewardEpochId)
+	err := _FlareSystemManager.contract.Call(opts, &out, "getRewardEpochStartInfo", _rewardEpochId)
 
 	outstruct := new(struct {
 		RewardEpochStartTs    uint64
@@ -611,24 +537,24 @@ func (_FlareSystemManager *FlareSystemManagerCaller) GetRewarEpochStartInfo(opts
 
 }
 
-// GetRewarEpochStartInfo is a free data retrieval call binding the contract method 0xcd69ef15.
+// GetRewardEpochStartInfo is a free data retrieval call binding the contract method 0x00ddae53.
 //
-// Solidity: function getRewarEpochStartInfo(uint24 _rewardEpochId) view returns(uint64 _rewardEpochStartTs, uint64 _rewardEpochStartBlock)
-func (_FlareSystemManager *FlareSystemManagerSession) GetRewarEpochStartInfo(_rewardEpochId *big.Int) (struct {
+// Solidity: function getRewardEpochStartInfo(uint24 _rewardEpochId) view returns(uint64 _rewardEpochStartTs, uint64 _rewardEpochStartBlock)
+func (_FlareSystemManager *FlareSystemManagerSession) GetRewardEpochStartInfo(_rewardEpochId *big.Int) (struct {
 	RewardEpochStartTs    uint64
 	RewardEpochStartBlock uint64
 }, error) {
-	return _FlareSystemManager.Contract.GetRewarEpochStartInfo(&_FlareSystemManager.CallOpts, _rewardEpochId)
+	return _FlareSystemManager.Contract.GetRewardEpochStartInfo(&_FlareSystemManager.CallOpts, _rewardEpochId)
 }
 
-// GetRewarEpochStartInfo is a free data retrieval call binding the contract method 0xcd69ef15.
+// GetRewardEpochStartInfo is a free data retrieval call binding the contract method 0x00ddae53.
 //
-// Solidity: function getRewarEpochStartInfo(uint24 _rewardEpochId) view returns(uint64 _rewardEpochStartTs, uint64 _rewardEpochStartBlock)
-func (_FlareSystemManager *FlareSystemManagerCallerSession) GetRewarEpochStartInfo(_rewardEpochId *big.Int) (struct {
+// Solidity: function getRewardEpochStartInfo(uint24 _rewardEpochId) view returns(uint64 _rewardEpochStartTs, uint64 _rewardEpochStartBlock)
+func (_FlareSystemManager *FlareSystemManagerCallerSession) GetRewardEpochStartInfo(_rewardEpochId *big.Int) (struct {
 	RewardEpochStartTs    uint64
 	RewardEpochStartBlock uint64
 }, error) {
-	return _FlareSystemManager.Contract.GetRewarEpochStartInfo(&_FlareSystemManager.CallOpts, _rewardEpochId)
+	return _FlareSystemManager.Contract.GetRewardEpochStartInfo(&_FlareSystemManager.CallOpts, _rewardEpochId)
 }
 
 // GetRewardEpochSwitchoverTriggerContracts is a free data retrieval call binding the contract method 0x46831531.
@@ -865,6 +791,51 @@ func (_FlareSystemManager *FlareSystemManagerCallerSession) GetThreshold(_reward
 	return _FlareSystemManager.Contract.GetThreshold(&_FlareSystemManager.CallOpts, _rewardEpochId)
 }
 
+// GetUptimeVoteSignStartInfo is a free data retrieval call binding the contract method 0xc9f1d2aa.
+//
+// Solidity: function getUptimeVoteSignStartInfo(uint24 _rewardEpochId) view returns(uint64 _uptimeVoteSignStartTs, uint64 _uptimeVoteSignStartBlock)
+func (_FlareSystemManager *FlareSystemManagerCaller) GetUptimeVoteSignStartInfo(opts *bind.CallOpts, _rewardEpochId *big.Int) (struct {
+	UptimeVoteSignStartTs    uint64
+	UptimeVoteSignStartBlock uint64
+}, error) {
+	var out []interface{}
+	err := _FlareSystemManager.contract.Call(opts, &out, "getUptimeVoteSignStartInfo", _rewardEpochId)
+
+	outstruct := new(struct {
+		UptimeVoteSignStartTs    uint64
+		UptimeVoteSignStartBlock uint64
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.UptimeVoteSignStartTs = *abi.ConvertType(out[0], new(uint64)).(*uint64)
+	outstruct.UptimeVoteSignStartBlock = *abi.ConvertType(out[1], new(uint64)).(*uint64)
+
+	return *outstruct, err
+
+}
+
+// GetUptimeVoteSignStartInfo is a free data retrieval call binding the contract method 0xc9f1d2aa.
+//
+// Solidity: function getUptimeVoteSignStartInfo(uint24 _rewardEpochId) view returns(uint64 _uptimeVoteSignStartTs, uint64 _uptimeVoteSignStartBlock)
+func (_FlareSystemManager *FlareSystemManagerSession) GetUptimeVoteSignStartInfo(_rewardEpochId *big.Int) (struct {
+	UptimeVoteSignStartTs    uint64
+	UptimeVoteSignStartBlock uint64
+}, error) {
+	return _FlareSystemManager.Contract.GetUptimeVoteSignStartInfo(&_FlareSystemManager.CallOpts, _rewardEpochId)
+}
+
+// GetUptimeVoteSignStartInfo is a free data retrieval call binding the contract method 0xc9f1d2aa.
+//
+// Solidity: function getUptimeVoteSignStartInfo(uint24 _rewardEpochId) view returns(uint64 _uptimeVoteSignStartTs, uint64 _uptimeVoteSignStartBlock)
+func (_FlareSystemManager *FlareSystemManagerCallerSession) GetUptimeVoteSignStartInfo(_rewardEpochId *big.Int) (struct {
+	UptimeVoteSignStartTs    uint64
+	UptimeVoteSignStartBlock uint64
+}, error) {
+	return _FlareSystemManager.Contract.GetUptimeVoteSignStartInfo(&_FlareSystemManager.CallOpts, _rewardEpochId)
+}
+
 // GetVotePowerBlock is a free data retrieval call binding the contract method 0xc2632216.
 //
 // Solidity: function getVotePowerBlock(uint256 _rewardEpochId) view returns(uint64 _votePowerBlock)
@@ -1074,6 +1045,51 @@ func (_FlareSystemManager *FlareSystemManagerCallerSession) GetVoterUptimeVoteSi
 	UptimeVoteSignBlock uint64
 }, error) {
 	return _FlareSystemManager.Contract.GetVoterUptimeVoteSignInfo(&_FlareSystemManager.CallOpts, _rewardEpochId, _voter)
+}
+
+// GetVoterUptimeVoteSubmitInfo is a free data retrieval call binding the contract method 0x59db0e2f.
+//
+// Solidity: function getVoterUptimeVoteSubmitInfo(uint24 _rewardEpochId, address _voter) view returns(uint64 _uptimeVoteSubmitTs, uint64 _uptimeVoteSubmitBlock)
+func (_FlareSystemManager *FlareSystemManagerCaller) GetVoterUptimeVoteSubmitInfo(opts *bind.CallOpts, _rewardEpochId *big.Int, _voter common.Address) (struct {
+	UptimeVoteSubmitTs    uint64
+	UptimeVoteSubmitBlock uint64
+}, error) {
+	var out []interface{}
+	err := _FlareSystemManager.contract.Call(opts, &out, "getVoterUptimeVoteSubmitInfo", _rewardEpochId, _voter)
+
+	outstruct := new(struct {
+		UptimeVoteSubmitTs    uint64
+		UptimeVoteSubmitBlock uint64
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.UptimeVoteSubmitTs = *abi.ConvertType(out[0], new(uint64)).(*uint64)
+	outstruct.UptimeVoteSubmitBlock = *abi.ConvertType(out[1], new(uint64)).(*uint64)
+
+	return *outstruct, err
+
+}
+
+// GetVoterUptimeVoteSubmitInfo is a free data retrieval call binding the contract method 0x59db0e2f.
+//
+// Solidity: function getVoterUptimeVoteSubmitInfo(uint24 _rewardEpochId, address _voter) view returns(uint64 _uptimeVoteSubmitTs, uint64 _uptimeVoteSubmitBlock)
+func (_FlareSystemManager *FlareSystemManagerSession) GetVoterUptimeVoteSubmitInfo(_rewardEpochId *big.Int, _voter common.Address) (struct {
+	UptimeVoteSubmitTs    uint64
+	UptimeVoteSubmitBlock uint64
+}, error) {
+	return _FlareSystemManager.Contract.GetVoterUptimeVoteSubmitInfo(&_FlareSystemManager.CallOpts, _rewardEpochId, _voter)
+}
+
+// GetVoterUptimeVoteSubmitInfo is a free data retrieval call binding the contract method 0x59db0e2f.
+//
+// Solidity: function getVoterUptimeVoteSubmitInfo(uint24 _rewardEpochId, address _voter) view returns(uint64 _uptimeVoteSubmitTs, uint64 _uptimeVoteSubmitBlock)
+func (_FlareSystemManager *FlareSystemManagerCallerSession) GetVoterUptimeVoteSubmitInfo(_rewardEpochId *big.Int, _voter common.Address) (struct {
+	UptimeVoteSubmitTs    uint64
+	UptimeVoteSubmitBlock uint64
+}, error) {
+	return _FlareSystemManager.Contract.GetVoterUptimeVoteSubmitInfo(&_FlareSystemManager.CallOpts, _rewardEpochId, _voter)
 }
 
 // Governance is a free data retrieval call binding the contract method 0x5aa6e675.
@@ -1727,9 +1743,102 @@ func (_FlareSystemManager *FlareSystemManagerCallerSession) Submission() (common
 	return _FlareSystemManager.Contract.Submission(&_FlareSystemManager.CallOpts)
 }
 
+// Submit3Aligned is a free data retrieval call binding the contract method 0x107d8ffb.
+//
+// Solidity: function submit3Aligned() view returns(bool)
+func (_FlareSystemManager *FlareSystemManagerCaller) Submit3Aligned(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _FlareSystemManager.contract.Call(opts, &out, "submit3Aligned")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// Submit3Aligned is a free data retrieval call binding the contract method 0x107d8ffb.
+//
+// Solidity: function submit3Aligned() view returns(bool)
+func (_FlareSystemManager *FlareSystemManagerSession) Submit3Aligned() (bool, error) {
+	return _FlareSystemManager.Contract.Submit3Aligned(&_FlareSystemManager.CallOpts)
+}
+
+// Submit3Aligned is a free data retrieval call binding the contract method 0x107d8ffb.
+//
+// Solidity: function submit3Aligned() view returns(bool)
+func (_FlareSystemManager *FlareSystemManagerCallerSession) Submit3Aligned() (bool, error) {
+	return _FlareSystemManager.Contract.Submit3Aligned(&_FlareSystemManager.CallOpts)
+}
+
+// SubmitUptimeVoteMinDurationBlocks is a free data retrieval call binding the contract method 0xd8a01a0a.
+//
+// Solidity: function submitUptimeVoteMinDurationBlocks() view returns(uint64)
+func (_FlareSystemManager *FlareSystemManagerCaller) SubmitUptimeVoteMinDurationBlocks(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _FlareSystemManager.contract.Call(opts, &out, "submitUptimeVoteMinDurationBlocks")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// SubmitUptimeVoteMinDurationBlocks is a free data retrieval call binding the contract method 0xd8a01a0a.
+//
+// Solidity: function submitUptimeVoteMinDurationBlocks() view returns(uint64)
+func (_FlareSystemManager *FlareSystemManagerSession) SubmitUptimeVoteMinDurationBlocks() (uint64, error) {
+	return _FlareSystemManager.Contract.SubmitUptimeVoteMinDurationBlocks(&_FlareSystemManager.CallOpts)
+}
+
+// SubmitUptimeVoteMinDurationBlocks is a free data retrieval call binding the contract method 0xd8a01a0a.
+//
+// Solidity: function submitUptimeVoteMinDurationBlocks() view returns(uint64)
+func (_FlareSystemManager *FlareSystemManagerCallerSession) SubmitUptimeVoteMinDurationBlocks() (uint64, error) {
+	return _FlareSystemManager.Contract.SubmitUptimeVoteMinDurationBlocks(&_FlareSystemManager.CallOpts)
+}
+
+// SubmitUptimeVoteMinDurationSeconds is a free data retrieval call binding the contract method 0x4c528765.
+//
+// Solidity: function submitUptimeVoteMinDurationSeconds() view returns(uint64)
+func (_FlareSystemManager *FlareSystemManagerCaller) SubmitUptimeVoteMinDurationSeconds(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _FlareSystemManager.contract.Call(opts, &out, "submitUptimeVoteMinDurationSeconds")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// SubmitUptimeVoteMinDurationSeconds is a free data retrieval call binding the contract method 0x4c528765.
+//
+// Solidity: function submitUptimeVoteMinDurationSeconds() view returns(uint64)
+func (_FlareSystemManager *FlareSystemManagerSession) SubmitUptimeVoteMinDurationSeconds() (uint64, error) {
+	return _FlareSystemManager.Contract.SubmitUptimeVoteMinDurationSeconds(&_FlareSystemManager.CallOpts)
+}
+
+// SubmitUptimeVoteMinDurationSeconds is a free data retrieval call binding the contract method 0x4c528765.
+//
+// Solidity: function submitUptimeVoteMinDurationSeconds() view returns(uint64)
+func (_FlareSystemManager *FlareSystemManagerCallerSession) SubmitUptimeVoteMinDurationSeconds() (uint64, error) {
+	return _FlareSystemManager.Contract.SubmitUptimeVoteMinDurationSeconds(&_FlareSystemManager.CallOpts)
+}
+
 // SwitchToFallbackMode is a free data retrieval call binding the contract method 0xe22fdece.
 //
-// Solidity: function switchToFallbackMode() pure returns(bool)
+// Solidity: function switchToFallbackMode() view returns(bool)
 func (_FlareSystemManager *FlareSystemManagerCaller) SwitchToFallbackMode(opts *bind.CallOpts) (bool, error) {
 	var out []interface{}
 	err := _FlareSystemManager.contract.Call(opts, &out, "switchToFallbackMode")
@@ -1746,14 +1855,14 @@ func (_FlareSystemManager *FlareSystemManagerCaller) SwitchToFallbackMode(opts *
 
 // SwitchToFallbackMode is a free data retrieval call binding the contract method 0xe22fdece.
 //
-// Solidity: function switchToFallbackMode() pure returns(bool)
+// Solidity: function switchToFallbackMode() view returns(bool)
 func (_FlareSystemManager *FlareSystemManagerSession) SwitchToFallbackMode() (bool, error) {
 	return _FlareSystemManager.Contract.SwitchToFallbackMode(&_FlareSystemManager.CallOpts)
 }
 
 // SwitchToFallbackMode is a free data retrieval call binding the contract method 0xe22fdece.
 //
-// Solidity: function switchToFallbackMode() pure returns(bool)
+// Solidity: function switchToFallbackMode() view returns(bool)
 func (_FlareSystemManager *FlareSystemManagerCallerSession) SwitchToFallbackMode() (bool, error) {
 	return _FlareSystemManager.Contract.SwitchToFallbackMode(&_FlareSystemManager.CallOpts)
 }
@@ -2167,6 +2276,27 @@ func (_FlareSystemManager *FlareSystemManagerTransactorSession) SetRewardsData(_
 	return _FlareSystemManager.Contract.SetRewardsData(&_FlareSystemManager.TransactOpts, _rewardEpochId, _noOfWeightBasedClaims, _rewardsHash)
 }
 
+// SetSubmit3Aligned is a paid mutator transaction binding the contract method 0xa72b826e.
+//
+// Solidity: function setSubmit3Aligned(bool _submit3Aligned) returns()
+func (_FlareSystemManager *FlareSystemManagerTransactor) SetSubmit3Aligned(opts *bind.TransactOpts, _submit3Aligned bool) (*types.Transaction, error) {
+	return _FlareSystemManager.contract.Transact(opts, "setSubmit3Aligned", _submit3Aligned)
+}
+
+// SetSubmit3Aligned is a paid mutator transaction binding the contract method 0xa72b826e.
+//
+// Solidity: function setSubmit3Aligned(bool _submit3Aligned) returns()
+func (_FlareSystemManager *FlareSystemManagerSession) SetSubmit3Aligned(_submit3Aligned bool) (*types.Transaction, error) {
+	return _FlareSystemManager.Contract.SetSubmit3Aligned(&_FlareSystemManager.TransactOpts, _submit3Aligned)
+}
+
+// SetSubmit3Aligned is a paid mutator transaction binding the contract method 0xa72b826e.
+//
+// Solidity: function setSubmit3Aligned(bool _submit3Aligned) returns()
+func (_FlareSystemManager *FlareSystemManagerTransactorSession) SetSubmit3Aligned(_submit3Aligned bool) (*types.Transaction, error) {
+	return _FlareSystemManager.Contract.SetSubmit3Aligned(&_FlareSystemManager.TransactOpts, _submit3Aligned)
+}
+
 // SetTriggerExpirationAndCleanup is a paid mutator transaction binding the contract method 0x67daec89.
 //
 // Solidity: function setTriggerExpirationAndCleanup(bool _triggerExpirationAndCleanup) returns()
@@ -2212,64 +2342,85 @@ func (_FlareSystemManager *FlareSystemManagerTransactorSession) SetVoterRegistra
 // SignNewSigningPolicy is a paid mutator transaction binding the contract method 0x6b4c7bd6.
 //
 // Solidity: function signNewSigningPolicy(uint24 _rewardEpochId, bytes32 _newSigningPolicyHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerTransactor) SignNewSigningPolicy(opts *bind.TransactOpts, _rewardEpochId *big.Int, _newSigningPolicyHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerTransactor) SignNewSigningPolicy(opts *bind.TransactOpts, _rewardEpochId *big.Int, _newSigningPolicyHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.contract.Transact(opts, "signNewSigningPolicy", _rewardEpochId, _newSigningPolicyHash, _signature)
 }
 
 // SignNewSigningPolicy is a paid mutator transaction binding the contract method 0x6b4c7bd6.
 //
 // Solidity: function signNewSigningPolicy(uint24 _rewardEpochId, bytes32 _newSigningPolicyHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerSession) SignNewSigningPolicy(_rewardEpochId *big.Int, _newSigningPolicyHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerSession) SignNewSigningPolicy(_rewardEpochId *big.Int, _newSigningPolicyHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.Contract.SignNewSigningPolicy(&_FlareSystemManager.TransactOpts, _rewardEpochId, _newSigningPolicyHash, _signature)
 }
 
 // SignNewSigningPolicy is a paid mutator transaction binding the contract method 0x6b4c7bd6.
 //
 // Solidity: function signNewSigningPolicy(uint24 _rewardEpochId, bytes32 _newSigningPolicyHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerTransactorSession) SignNewSigningPolicy(_rewardEpochId *big.Int, _newSigningPolicyHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerTransactorSession) SignNewSigningPolicy(_rewardEpochId *big.Int, _newSigningPolicyHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.Contract.SignNewSigningPolicy(&_FlareSystemManager.TransactOpts, _rewardEpochId, _newSigningPolicyHash, _signature)
 }
 
 // SignRewards is a paid mutator transaction binding the contract method 0xab25ac5b.
 //
 // Solidity: function signRewards(uint24 _rewardEpochId, uint64 _noOfWeightBasedClaims, bytes32 _rewardsHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerTransactor) SignRewards(opts *bind.TransactOpts, _rewardEpochId *big.Int, _noOfWeightBasedClaims uint64, _rewardsHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerTransactor) SignRewards(opts *bind.TransactOpts, _rewardEpochId *big.Int, _noOfWeightBasedClaims uint64, _rewardsHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.contract.Transact(opts, "signRewards", _rewardEpochId, _noOfWeightBasedClaims, _rewardsHash, _signature)
 }
 
 // SignRewards is a paid mutator transaction binding the contract method 0xab25ac5b.
 //
 // Solidity: function signRewards(uint24 _rewardEpochId, uint64 _noOfWeightBasedClaims, bytes32 _rewardsHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerSession) SignRewards(_rewardEpochId *big.Int, _noOfWeightBasedClaims uint64, _rewardsHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerSession) SignRewards(_rewardEpochId *big.Int, _noOfWeightBasedClaims uint64, _rewardsHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.Contract.SignRewards(&_FlareSystemManager.TransactOpts, _rewardEpochId, _noOfWeightBasedClaims, _rewardsHash, _signature)
 }
 
 // SignRewards is a paid mutator transaction binding the contract method 0xab25ac5b.
 //
 // Solidity: function signRewards(uint24 _rewardEpochId, uint64 _noOfWeightBasedClaims, bytes32 _rewardsHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerTransactorSession) SignRewards(_rewardEpochId *big.Int, _noOfWeightBasedClaims uint64, _rewardsHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerTransactorSession) SignRewards(_rewardEpochId *big.Int, _noOfWeightBasedClaims uint64, _rewardsHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.Contract.SignRewards(&_FlareSystemManager.TransactOpts, _rewardEpochId, _noOfWeightBasedClaims, _rewardsHash, _signature)
 }
 
 // SignUptimeVote is a paid mutator transaction binding the contract method 0xdc5a4225.
 //
 // Solidity: function signUptimeVote(uint24 _rewardEpochId, bytes32 _uptimeVoteHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerTransactor) SignUptimeVote(opts *bind.TransactOpts, _rewardEpochId *big.Int, _uptimeVoteHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerTransactor) SignUptimeVote(opts *bind.TransactOpts, _rewardEpochId *big.Int, _uptimeVoteHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.contract.Transact(opts, "signUptimeVote", _rewardEpochId, _uptimeVoteHash, _signature)
 }
 
 // SignUptimeVote is a paid mutator transaction binding the contract method 0xdc5a4225.
 //
 // Solidity: function signUptimeVote(uint24 _rewardEpochId, bytes32 _uptimeVoteHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerSession) SignUptimeVote(_rewardEpochId *big.Int, _uptimeVoteHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerSession) SignUptimeVote(_rewardEpochId *big.Int, _uptimeVoteHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.Contract.SignUptimeVote(&_FlareSystemManager.TransactOpts, _rewardEpochId, _uptimeVoteHash, _signature)
 }
 
 // SignUptimeVote is a paid mutator transaction binding the contract method 0xdc5a4225.
 //
 // Solidity: function signUptimeVote(uint24 _rewardEpochId, bytes32 _uptimeVoteHash, (uint8,bytes32,bytes32) _signature) returns()
-func (_FlareSystemManager *FlareSystemManagerTransactorSession) SignUptimeVote(_rewardEpochId *big.Int, _uptimeVoteHash [32]byte, _signature FlareSystemManagerSignature) (*types.Transaction, error) {
+func (_FlareSystemManager *FlareSystemManagerTransactorSession) SignUptimeVote(_rewardEpochId *big.Int, _uptimeVoteHash [32]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
 	return _FlareSystemManager.Contract.SignUptimeVote(&_FlareSystemManager.TransactOpts, _rewardEpochId, _uptimeVoteHash, _signature)
+}
+
+// SubmitUptimeVote is a paid mutator transaction binding the contract method 0x9dd6850f.
+//
+// Solidity: function submitUptimeVote(uint24 _rewardEpochId, bytes20[] _nodeIds, (uint8,bytes32,bytes32) _signature) returns()
+func (_FlareSystemManager *FlareSystemManagerTransactor) SubmitUptimeVote(opts *bind.TransactOpts, _rewardEpochId *big.Int, _nodeIds [][20]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
+	return _FlareSystemManager.contract.Transact(opts, "submitUptimeVote", _rewardEpochId, _nodeIds, _signature)
+}
+
+// SubmitUptimeVote is a paid mutator transaction binding the contract method 0x9dd6850f.
+//
+// Solidity: function submitUptimeVote(uint24 _rewardEpochId, bytes20[] _nodeIds, (uint8,bytes32,bytes32) _signature) returns()
+func (_FlareSystemManager *FlareSystemManagerSession) SubmitUptimeVote(_rewardEpochId *big.Int, _nodeIds [][20]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
+	return _FlareSystemManager.Contract.SubmitUptimeVote(&_FlareSystemManager.TransactOpts, _rewardEpochId, _nodeIds, _signature)
+}
+
+// SubmitUptimeVote is a paid mutator transaction binding the contract method 0x9dd6850f.
+//
+// Solidity: function submitUptimeVote(uint24 _rewardEpochId, bytes20[] _nodeIds, (uint8,bytes32,bytes32) _signature) returns()
+func (_FlareSystemManager *FlareSystemManagerTransactorSession) SubmitUptimeVote(_rewardEpochId *big.Int, _nodeIds [][20]byte, _signature IFlareSystemManagerSignature) (*types.Transaction, error) {
+	return _FlareSystemManager.Contract.SubmitUptimeVote(&_FlareSystemManager.TransactOpts, _rewardEpochId, _nodeIds, _signature)
 }
 
 // SwitchToProductionMode is a paid mutator transaction binding the contract method 0xf5a98383.
@@ -2314,23 +2465,23 @@ func (_FlareSystemManager *FlareSystemManagerTransactorSession) UpdateContractAd
 	return _FlareSystemManager.Contract.UpdateContractAddresses(&_FlareSystemManager.TransactOpts, _contractNameHashes, _contractAddresses)
 }
 
-// UpdateSettings is a paid mutator transaction binding the contract method 0x65b05d66.
+// UpdateSettings is a paid mutator transaction binding the contract method 0x8fbaf860.
 //
-// Solidity: function updateSettings((uint16,uint16,uint16,uint8,uint16,uint16,uint24,uint16,uint32) _settings) returns()
+// Solidity: function updateSettings((uint16,uint16,uint16,uint8,uint16,uint16,uint16,uint16,uint24,uint16,uint32) _settings) returns()
 func (_FlareSystemManager *FlareSystemManagerTransactor) UpdateSettings(opts *bind.TransactOpts, _settings FlareSystemManagerSettings) (*types.Transaction, error) {
 	return _FlareSystemManager.contract.Transact(opts, "updateSettings", _settings)
 }
 
-// UpdateSettings is a paid mutator transaction binding the contract method 0x65b05d66.
+// UpdateSettings is a paid mutator transaction binding the contract method 0x8fbaf860.
 //
-// Solidity: function updateSettings((uint16,uint16,uint16,uint8,uint16,uint16,uint24,uint16,uint32) _settings) returns()
+// Solidity: function updateSettings((uint16,uint16,uint16,uint8,uint16,uint16,uint16,uint16,uint24,uint16,uint32) _settings) returns()
 func (_FlareSystemManager *FlareSystemManagerSession) UpdateSettings(_settings FlareSystemManagerSettings) (*types.Transaction, error) {
 	return _FlareSystemManager.Contract.UpdateSettings(&_FlareSystemManager.TransactOpts, _settings)
 }
 
-// UpdateSettings is a paid mutator transaction binding the contract method 0x65b05d66.
+// UpdateSettings is a paid mutator transaction binding the contract method 0x8fbaf860.
 //
-// Solidity: function updateSettings((uint16,uint16,uint16,uint8,uint16,uint16,uint24,uint16,uint32) _settings) returns()
+// Solidity: function updateSettings((uint16,uint16,uint16,uint8,uint16,uint16,uint16,uint16,uint24,uint16,uint32) _settings) returns()
 func (_FlareSystemManager *FlareSystemManagerTransactorSession) UpdateSettings(_settings FlareSystemManagerSettings) (*types.Transaction, error) {
 	return _FlareSystemManager.Contract.UpdateSettings(&_FlareSystemManager.TransactOpts, _settings)
 }
@@ -2949,10 +3100,15 @@ type FlareSystemManagerRandomAcquisitionStarted struct {
 
 // FilterRandomAcquisitionStarted is a free log retrieval operation binding the contract event 0xf9991783e5e480e42d9a54d3f35f4321857f8f0ebeb3742d326dce28b1126708.
 //
-// Solidity: event RandomAcquisitionStarted(uint24 rewardEpochId, uint64 timestamp)
-func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRandomAcquisitionStarted(opts *bind.FilterOpts) (*FlareSystemManagerRandomAcquisitionStartedIterator, error) {
+// Solidity: event RandomAcquisitionStarted(uint24 indexed rewardEpochId, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRandomAcquisitionStarted(opts *bind.FilterOpts, rewardEpochId []*big.Int) (*FlareSystemManagerRandomAcquisitionStartedIterator, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "RandomAcquisitionStarted")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "RandomAcquisitionStarted", rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2961,10 +3117,15 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRandomAcquisitionSt
 
 // WatchRandomAcquisitionStarted is a free log subscription operation binding the contract event 0xf9991783e5e480e42d9a54d3f35f4321857f8f0ebeb3742d326dce28b1126708.
 //
-// Solidity: event RandomAcquisitionStarted(uint24 rewardEpochId, uint64 timestamp)
-func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRandomAcquisitionStarted(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerRandomAcquisitionStarted) (event.Subscription, error) {
+// Solidity: event RandomAcquisitionStarted(uint24 indexed rewardEpochId, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRandomAcquisitionStarted(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerRandomAcquisitionStarted, rewardEpochId []*big.Int) (event.Subscription, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "RandomAcquisitionStarted")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "RandomAcquisitionStarted", rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2998,7 +3159,7 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRandomAcquisitionSta
 
 // ParseRandomAcquisitionStarted is a log parse operation binding the contract event 0xf9991783e5e480e42d9a54d3f35f4321857f8f0ebeb3742d326dce28b1126708.
 //
-// Solidity: event RandomAcquisitionStarted(uint24 rewardEpochId, uint64 timestamp)
+// Solidity: event RandomAcquisitionStarted(uint24 indexed rewardEpochId, uint64 timestamp)
 func (_FlareSystemManager *FlareSystemManagerFilterer) ParseRandomAcquisitionStarted(log types.Log) (*FlareSystemManagerRandomAcquisitionStarted, error) {
 	event := new(FlareSystemManagerRandomAcquisitionStarted)
 	if err := _FlareSystemManager.contract.UnpackLog(event, "RandomAcquisitionStarted", log); err != nil {
@@ -3085,10 +3246,15 @@ type FlareSystemManagerRewardEpochStarted struct {
 
 // FilterRewardEpochStarted is a free log retrieval operation binding the contract event 0x4abb62ab1e4c42a11b90e4e45b92af1274f74cc634b759518e8c99e000d8be6d.
 //
-// Solidity: event RewardEpochStarted(uint24 rewardEpochId, uint32 startVotingRoundId, uint64 timestamp)
-func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRewardEpochStarted(opts *bind.FilterOpts) (*FlareSystemManagerRewardEpochStartedIterator, error) {
+// Solidity: event RewardEpochStarted(uint24 indexed rewardEpochId, uint32 startVotingRoundId, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRewardEpochStarted(opts *bind.FilterOpts, rewardEpochId []*big.Int) (*FlareSystemManagerRewardEpochStartedIterator, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "RewardEpochStarted")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "RewardEpochStarted", rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3097,10 +3263,15 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRewardEpochStarted(
 
 // WatchRewardEpochStarted is a free log subscription operation binding the contract event 0x4abb62ab1e4c42a11b90e4e45b92af1274f74cc634b759518e8c99e000d8be6d.
 //
-// Solidity: event RewardEpochStarted(uint24 rewardEpochId, uint32 startVotingRoundId, uint64 timestamp)
-func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRewardEpochStarted(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerRewardEpochStarted) (event.Subscription, error) {
+// Solidity: event RewardEpochStarted(uint24 indexed rewardEpochId, uint32 startVotingRoundId, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRewardEpochStarted(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerRewardEpochStarted, rewardEpochId []*big.Int) (event.Subscription, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "RewardEpochStarted")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "RewardEpochStarted", rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3134,7 +3305,7 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRewardEpochStarted(o
 
 // ParseRewardEpochStarted is a log parse operation binding the contract event 0x4abb62ab1e4c42a11b90e4e45b92af1274f74cc634b759518e8c99e000d8be6d.
 //
-// Solidity: event RewardEpochStarted(uint24 rewardEpochId, uint32 startVotingRoundId, uint64 timestamp)
+// Solidity: event RewardEpochStarted(uint24 indexed rewardEpochId, uint32 startVotingRoundId, uint64 timestamp)
 func (_FlareSystemManager *FlareSystemManagerFilterer) ParseRewardEpochStarted(log types.Log) (*FlareSystemManagerRewardEpochStarted, error) {
 	event := new(FlareSystemManagerRewardEpochStarted)
 	if err := _FlareSystemManager.contract.UnpackLog(event, "RewardEpochStarted", log); err != nil {
@@ -3225,10 +3396,23 @@ type FlareSystemManagerRewardsSigned struct {
 
 // FilterRewardsSigned is a free log retrieval operation binding the contract event 0x80df246a47153e3604b0026fcf53ec85ea48178efd4f3cad24f9a1e1da2dd52a.
 //
-// Solidity: event RewardsSigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, bytes32 rewardsHash, uint256 noOfWeightBasedClaims, uint64 timestamp, bool thresholdReached)
-func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRewardsSigned(opts *bind.FilterOpts) (*FlareSystemManagerRewardsSignedIterator, error) {
+// Solidity: event RewardsSigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes32 rewardsHash, uint256 noOfWeightBasedClaims, uint64 timestamp, bool thresholdReached)
+func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRewardsSigned(opts *bind.FilterOpts, rewardEpochId []*big.Int, signingPolicyAddress []common.Address, voter []common.Address) (*FlareSystemManagerRewardsSignedIterator, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "RewardsSigned")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "RewardsSigned", rewardEpochIdRule, signingPolicyAddressRule, voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3237,10 +3421,23 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) FilterRewardsSigned(opts 
 
 // WatchRewardsSigned is a free log subscription operation binding the contract event 0x80df246a47153e3604b0026fcf53ec85ea48178efd4f3cad24f9a1e1da2dd52a.
 //
-// Solidity: event RewardsSigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, bytes32 rewardsHash, uint256 noOfWeightBasedClaims, uint64 timestamp, bool thresholdReached)
-func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRewardsSigned(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerRewardsSigned) (event.Subscription, error) {
+// Solidity: event RewardsSigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes32 rewardsHash, uint256 noOfWeightBasedClaims, uint64 timestamp, bool thresholdReached)
+func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRewardsSigned(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerRewardsSigned, rewardEpochId []*big.Int, signingPolicyAddress []common.Address, voter []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "RewardsSigned")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "RewardsSigned", rewardEpochIdRule, signingPolicyAddressRule, voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3274,7 +3471,7 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) WatchRewardsSigned(opts *
 
 // ParseRewardsSigned is a log parse operation binding the contract event 0x80df246a47153e3604b0026fcf53ec85ea48178efd4f3cad24f9a1e1da2dd52a.
 //
-// Solidity: event RewardsSigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, bytes32 rewardsHash, uint256 noOfWeightBasedClaims, uint64 timestamp, bool thresholdReached)
+// Solidity: event RewardsSigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes32 rewardsHash, uint256 noOfWeightBasedClaims, uint64 timestamp, bool thresholdReached)
 func (_FlareSystemManager *FlareSystemManagerFilterer) ParseRewardsSigned(log types.Log) (*FlareSystemManagerRewardsSigned, error) {
 	event := new(FlareSystemManagerRewardsSigned)
 	if err := _FlareSystemManager.contract.UnpackLog(event, "RewardsSigned", log); err != nil {
@@ -3497,10 +3694,23 @@ type FlareSystemManagerSigningPolicySigned struct {
 
 // FilterSigningPolicySigned is a free log retrieval operation binding the contract event 0x154b0214ae62d8a5548c1eac25fabd87c38b04932a217732e1022f3118da67f3.
 //
-// Solidity: event SigningPolicySigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, uint64 timestamp, bool thresholdReached)
-func (_FlareSystemManager *FlareSystemManagerFilterer) FilterSigningPolicySigned(opts *bind.FilterOpts) (*FlareSystemManagerSigningPolicySignedIterator, error) {
+// Solidity: event SigningPolicySigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, uint64 timestamp, bool thresholdReached)
+func (_FlareSystemManager *FlareSystemManagerFilterer) FilterSigningPolicySigned(opts *bind.FilterOpts, rewardEpochId []*big.Int, signingPolicyAddress []common.Address, voter []common.Address) (*FlareSystemManagerSigningPolicySignedIterator, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "SigningPolicySigned")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "SigningPolicySigned", rewardEpochIdRule, signingPolicyAddressRule, voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3509,10 +3719,23 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) FilterSigningPolicySigned
 
 // WatchSigningPolicySigned is a free log subscription operation binding the contract event 0x154b0214ae62d8a5548c1eac25fabd87c38b04932a217732e1022f3118da67f3.
 //
-// Solidity: event SigningPolicySigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, uint64 timestamp, bool thresholdReached)
-func (_FlareSystemManager *FlareSystemManagerFilterer) WatchSigningPolicySigned(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerSigningPolicySigned) (event.Subscription, error) {
+// Solidity: event SigningPolicySigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, uint64 timestamp, bool thresholdReached)
+func (_FlareSystemManager *FlareSystemManagerFilterer) WatchSigningPolicySigned(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerSigningPolicySigned, rewardEpochId []*big.Int, signingPolicyAddress []common.Address, voter []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "SigningPolicySigned")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "SigningPolicySigned", rewardEpochIdRule, signingPolicyAddressRule, voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3546,10 +3769,155 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) WatchSigningPolicySigned(
 
 // ParseSigningPolicySigned is a log parse operation binding the contract event 0x154b0214ae62d8a5548c1eac25fabd87c38b04932a217732e1022f3118da67f3.
 //
-// Solidity: event SigningPolicySigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, uint64 timestamp, bool thresholdReached)
+// Solidity: event SigningPolicySigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, uint64 timestamp, bool thresholdReached)
 func (_FlareSystemManager *FlareSystemManagerFilterer) ParseSigningPolicySigned(log types.Log) (*FlareSystemManagerSigningPolicySigned, error) {
 	event := new(FlareSystemManagerSigningPolicySigned)
 	if err := _FlareSystemManager.contract.UnpackLog(event, "SigningPolicySigned", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// FlareSystemManagerSingUptimeVoteEnabledIterator is returned from FilterSingUptimeVoteEnabled and is used to iterate over the raw logs and unpacked data for SingUptimeVoteEnabled events raised by the FlareSystemManager contract.
+type FlareSystemManagerSingUptimeVoteEnabledIterator struct {
+	Event *FlareSystemManagerSingUptimeVoteEnabled // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *FlareSystemManagerSingUptimeVoteEnabledIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FlareSystemManagerSingUptimeVoteEnabled)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(FlareSystemManagerSingUptimeVoteEnabled)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *FlareSystemManagerSingUptimeVoteEnabledIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *FlareSystemManagerSingUptimeVoteEnabledIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// FlareSystemManagerSingUptimeVoteEnabled represents a SingUptimeVoteEnabled event raised by the FlareSystemManager contract.
+type FlareSystemManagerSingUptimeVoteEnabled struct {
+	RewardEpochId *big.Int
+	Timestamp     uint64
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterSingUptimeVoteEnabled is a free log retrieval operation binding the contract event 0xf03263754f56959acf7e09464f5d304491e4e5389363e5e12d2ce2ad492632f4.
+//
+// Solidity: event SingUptimeVoteEnabled(uint24 indexed rewardEpochId, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) FilterSingUptimeVoteEnabled(opts *bind.FilterOpts, rewardEpochId []*big.Int) (*FlareSystemManagerSingUptimeVoteEnabledIterator, error) {
+
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "SingUptimeVoteEnabled", rewardEpochIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FlareSystemManagerSingUptimeVoteEnabledIterator{contract: _FlareSystemManager.contract, event: "SingUptimeVoteEnabled", logs: logs, sub: sub}, nil
+}
+
+// WatchSingUptimeVoteEnabled is a free log subscription operation binding the contract event 0xf03263754f56959acf7e09464f5d304491e4e5389363e5e12d2ce2ad492632f4.
+//
+// Solidity: event SingUptimeVoteEnabled(uint24 indexed rewardEpochId, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) WatchSingUptimeVoteEnabled(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerSingUptimeVoteEnabled, rewardEpochId []*big.Int) (event.Subscription, error) {
+
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "SingUptimeVoteEnabled", rewardEpochIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(FlareSystemManagerSingUptimeVoteEnabled)
+				if err := _FlareSystemManager.contract.UnpackLog(event, "SingUptimeVoteEnabled", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseSingUptimeVoteEnabled is a log parse operation binding the contract event 0xf03263754f56959acf7e09464f5d304491e4e5389363e5e12d2ce2ad492632f4.
+//
+// Solidity: event SingUptimeVoteEnabled(uint24 indexed rewardEpochId, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) ParseSingUptimeVoteEnabled(log types.Log) (*FlareSystemManagerSingUptimeVoteEnabled, error) {
+	event := new(FlareSystemManagerSingUptimeVoteEnabled)
+	if err := _FlareSystemManager.contract.UnpackLog(event, "SingUptimeVoteEnabled", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4040,10 +4408,23 @@ type FlareSystemManagerUptimeVoteSigned struct {
 
 // FilterUptimeVoteSigned is a free log retrieval operation binding the contract event 0x5506337d1266599f8b64675a1c8321701657ca2f2f70be0e0c58302b6c22e797.
 //
-// Solidity: event UptimeVoteSigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, bytes32 uptimeVoteHash, uint64 timestamp, bool thresholdReached)
-func (_FlareSystemManager *FlareSystemManagerFilterer) FilterUptimeVoteSigned(opts *bind.FilterOpts) (*FlareSystemManagerUptimeVoteSignedIterator, error) {
+// Solidity: event UptimeVoteSigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes32 uptimeVoteHash, uint64 timestamp, bool thresholdReached)
+func (_FlareSystemManager *FlareSystemManagerFilterer) FilterUptimeVoteSigned(opts *bind.FilterOpts, rewardEpochId []*big.Int, signingPolicyAddress []common.Address, voter []common.Address) (*FlareSystemManagerUptimeVoteSignedIterator, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "UptimeVoteSigned")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "UptimeVoteSigned", rewardEpochIdRule, signingPolicyAddressRule, voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4052,10 +4433,23 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) FilterUptimeVoteSigned(op
 
 // WatchUptimeVoteSigned is a free log subscription operation binding the contract event 0x5506337d1266599f8b64675a1c8321701657ca2f2f70be0e0c58302b6c22e797.
 //
-// Solidity: event UptimeVoteSigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, bytes32 uptimeVoteHash, uint64 timestamp, bool thresholdReached)
-func (_FlareSystemManager *FlareSystemManagerFilterer) WatchUptimeVoteSigned(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerUptimeVoteSigned) (event.Subscription, error) {
+// Solidity: event UptimeVoteSigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes32 uptimeVoteHash, uint64 timestamp, bool thresholdReached)
+func (_FlareSystemManager *FlareSystemManagerFilterer) WatchUptimeVoteSigned(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerUptimeVoteSigned, rewardEpochId []*big.Int, signingPolicyAddress []common.Address, voter []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "UptimeVoteSigned")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "UptimeVoteSigned", rewardEpochIdRule, signingPolicyAddressRule, voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4089,10 +4483,174 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) WatchUptimeVoteSigned(opt
 
 // ParseUptimeVoteSigned is a log parse operation binding the contract event 0x5506337d1266599f8b64675a1c8321701657ca2f2f70be0e0c58302b6c22e797.
 //
-// Solidity: event UptimeVoteSigned(uint24 rewardEpochId, address signingPolicyAddress, address voter, bytes32 uptimeVoteHash, uint64 timestamp, bool thresholdReached)
+// Solidity: event UptimeVoteSigned(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes32 uptimeVoteHash, uint64 timestamp, bool thresholdReached)
 func (_FlareSystemManager *FlareSystemManagerFilterer) ParseUptimeVoteSigned(log types.Log) (*FlareSystemManagerUptimeVoteSigned, error) {
 	event := new(FlareSystemManagerUptimeVoteSigned)
 	if err := _FlareSystemManager.contract.UnpackLog(event, "UptimeVoteSigned", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// FlareSystemManagerUptimeVoteSubmittedIterator is returned from FilterUptimeVoteSubmitted and is used to iterate over the raw logs and unpacked data for UptimeVoteSubmitted events raised by the FlareSystemManager contract.
+type FlareSystemManagerUptimeVoteSubmittedIterator struct {
+	Event *FlareSystemManagerUptimeVoteSubmitted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *FlareSystemManagerUptimeVoteSubmittedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FlareSystemManagerUptimeVoteSubmitted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(FlareSystemManagerUptimeVoteSubmitted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *FlareSystemManagerUptimeVoteSubmittedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *FlareSystemManagerUptimeVoteSubmittedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// FlareSystemManagerUptimeVoteSubmitted represents a UptimeVoteSubmitted event raised by the FlareSystemManager contract.
+type FlareSystemManagerUptimeVoteSubmitted struct {
+	RewardEpochId        *big.Int
+	SigningPolicyAddress common.Address
+	Voter                common.Address
+	NodeIds              [][20]byte
+	Timestamp            uint64
+	Raw                  types.Log // Blockchain specific contextual infos
+}
+
+// FilterUptimeVoteSubmitted is a free log retrieval operation binding the contract event 0xed370d61eb315e1d46d979894585530b99f94dab64c0d40366685aebe39e3db0.
+//
+// Solidity: event UptimeVoteSubmitted(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes20[] nodeIds, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) FilterUptimeVoteSubmitted(opts *bind.FilterOpts, rewardEpochId []*big.Int, signingPolicyAddress []common.Address, voter []common.Address) (*FlareSystemManagerUptimeVoteSubmittedIterator, error) {
+
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "UptimeVoteSubmitted", rewardEpochIdRule, signingPolicyAddressRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FlareSystemManagerUptimeVoteSubmittedIterator{contract: _FlareSystemManager.contract, event: "UptimeVoteSubmitted", logs: logs, sub: sub}, nil
+}
+
+// WatchUptimeVoteSubmitted is a free log subscription operation binding the contract event 0xed370d61eb315e1d46d979894585530b99f94dab64c0d40366685aebe39e3db0.
+//
+// Solidity: event UptimeVoteSubmitted(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes20[] nodeIds, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) WatchUptimeVoteSubmitted(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerUptimeVoteSubmitted, rewardEpochId []*big.Int, signingPolicyAddress []common.Address, voter []common.Address) (event.Subscription, error) {
+
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+	var signingPolicyAddressRule []interface{}
+	for _, signingPolicyAddressItem := range signingPolicyAddress {
+		signingPolicyAddressRule = append(signingPolicyAddressRule, signingPolicyAddressItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "UptimeVoteSubmitted", rewardEpochIdRule, signingPolicyAddressRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(FlareSystemManagerUptimeVoteSubmitted)
+				if err := _FlareSystemManager.contract.UnpackLog(event, "UptimeVoteSubmitted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseUptimeVoteSubmitted is a log parse operation binding the contract event 0xed370d61eb315e1d46d979894585530b99f94dab64c0d40366685aebe39e3db0.
+//
+// Solidity: event UptimeVoteSubmitted(uint24 indexed rewardEpochId, address indexed signingPolicyAddress, address indexed voter, bytes20[] nodeIds, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) ParseUptimeVoteSubmitted(log types.Log) (*FlareSystemManagerUptimeVoteSubmitted, error) {
+	event := new(FlareSystemManagerUptimeVoteSubmitted)
+	if err := _FlareSystemManager.contract.UnpackLog(event, "UptimeVoteSubmitted", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4176,10 +4734,15 @@ type FlareSystemManagerVotePowerBlockSelected struct {
 
 // FilterVotePowerBlockSelected is a free log retrieval operation binding the contract event 0xf21722dbe044a7cea0f6d81c871cae750971e36c9dd10999e46f2b46f26ac7ff.
 //
-// Solidity: event VotePowerBlockSelected(uint24 rewardEpochId, uint64 votePowerBlock, uint64 timestamp)
-func (_FlareSystemManager *FlareSystemManagerFilterer) FilterVotePowerBlockSelected(opts *bind.FilterOpts) (*FlareSystemManagerVotePowerBlockSelectedIterator, error) {
+// Solidity: event VotePowerBlockSelected(uint24 indexed rewardEpochId, uint64 votePowerBlock, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) FilterVotePowerBlockSelected(opts *bind.FilterOpts, rewardEpochId []*big.Int) (*FlareSystemManagerVotePowerBlockSelectedIterator, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "VotePowerBlockSelected")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.FilterLogs(opts, "VotePowerBlockSelected", rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4188,10 +4751,15 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) FilterVotePowerBlockSelec
 
 // WatchVotePowerBlockSelected is a free log subscription operation binding the contract event 0xf21722dbe044a7cea0f6d81c871cae750971e36c9dd10999e46f2b46f26ac7ff.
 //
-// Solidity: event VotePowerBlockSelected(uint24 rewardEpochId, uint64 votePowerBlock, uint64 timestamp)
-func (_FlareSystemManager *FlareSystemManagerFilterer) WatchVotePowerBlockSelected(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerVotePowerBlockSelected) (event.Subscription, error) {
+// Solidity: event VotePowerBlockSelected(uint24 indexed rewardEpochId, uint64 votePowerBlock, uint64 timestamp)
+func (_FlareSystemManager *FlareSystemManagerFilterer) WatchVotePowerBlockSelected(opts *bind.WatchOpts, sink chan<- *FlareSystemManagerVotePowerBlockSelected, rewardEpochId []*big.Int) (event.Subscription, error) {
 
-	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "VotePowerBlockSelected")
+	var rewardEpochIdRule []interface{}
+	for _, rewardEpochIdItem := range rewardEpochId {
+		rewardEpochIdRule = append(rewardEpochIdRule, rewardEpochIdItem)
+	}
+
+	logs, sub, err := _FlareSystemManager.contract.WatchLogs(opts, "VotePowerBlockSelected", rewardEpochIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4225,7 +4793,7 @@ func (_FlareSystemManager *FlareSystemManagerFilterer) WatchVotePowerBlockSelect
 
 // ParseVotePowerBlockSelected is a log parse operation binding the contract event 0xf21722dbe044a7cea0f6d81c871cae750971e36c9dd10999e46f2b46f26ac7ff.
 //
-// Solidity: event VotePowerBlockSelected(uint24 rewardEpochId, uint64 votePowerBlock, uint64 timestamp)
+// Solidity: event VotePowerBlockSelected(uint24 indexed rewardEpochId, uint64 votePowerBlock, uint64 timestamp)
 func (_FlareSystemManager *FlareSystemManagerFilterer) ParseVotePowerBlockSelected(log types.Log) (*FlareSystemManagerVotePowerBlockSelected, error) {
 	event := new(FlareSystemManagerVotePowerBlockSelected)
 	if err := _FlareSystemManager.contract.UnpackLog(event, "VotePowerBlockSelected", log); err != nil {

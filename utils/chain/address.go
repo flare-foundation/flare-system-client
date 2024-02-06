@@ -8,6 +8,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	EmptyAddress = common.Address{}
+)
+
 func PrivateKeyToEthAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
