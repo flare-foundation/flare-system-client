@@ -10,10 +10,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"gorm.io/gorm"
 )
 
-type RelayContractClient struct {
+type relayContractClient interface {
+	SigningPolicyInitializedListener(registrationClientDB, uint64) <-chan *relay.RelaySigningPolicyInitialized
+}
+
+type relayContractClientImpl struct {
 	address    common.Address
 	relay      *relay.Relay
 	txVerifier *chain.TxVerifier
@@ -22,20 +25,20 @@ type RelayContractClient struct {
 func NewRelayContractClient(
 	ethClient *ethclient.Client,
 	address common.Address,
-) (*RelayContractClient, error) {
+) (*relayContractClientImpl, error) {
 	relay, err := relay.NewRelay(address, ethClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return &RelayContractClient{
+	return &relayContractClientImpl{
 		address:    address,
 		relay:      relay,
 		txVerifier: chain.NewTxVerifier(ethClient),
 	}, nil
 }
 
-func (r *RelayContractClient) SigningPolicyInitializedListener(db *gorm.DB, startTimestamp uint64) <-chan *relay.RelaySigningPolicyInitialized {
+func (r *relayContractClientImpl) SigningPolicyInitializedListener(db registrationClientDB, startTimestamp uint64) <-chan *relay.RelaySigningPolicyInitialized {
 	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal
@@ -47,7 +50,7 @@ func (r *RelayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := database.FetchLogsByAddressAndTopic0(db, r.address.Hex(), topic0, int64(startTimestamp), now)
+			logs, err := db.FetchLogsByAddressAndTopic0(r.address, topic0, int64(startTimestamp), now)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue
@@ -66,6 +69,6 @@ func (r *RelayContractClient) SigningPolicyInitializedListener(db *gorm.DB, star
 	return out
 }
 
-func (r *RelayContractClient) parseSigningPolicyInitializedEvent(dbLog database.Log) (*relay.RelaySigningPolicyInitialized, error) {
+func (r *relayContractClientImpl) parseSigningPolicyInitializedEvent(dbLog database.Log) (*relay.RelaySigningPolicyInitialized, error) {
 	return shared.ParseSigningPolicyInitializedEvent(r.relay, dbLog)
 }

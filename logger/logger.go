@@ -28,6 +28,10 @@ func init() {
 	})
 }
 
+func Configure(config config.LoggerConfig) {
+	sugar = createSugaredLogger(config)
+}
+
 func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
 	atom := zap.NewAtomicLevel()
 	cores := make([]zapcore.Core, 0)

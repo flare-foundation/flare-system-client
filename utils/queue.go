@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"flare-tlc/logger"
 	"sync"
 	"time"
 )
@@ -47,9 +48,11 @@ func (l *DelayedQueueManager[T]) Get(t time.Time) []T {
 
 func (l *DelayedQueueManager[T]) createTimer(t time.Time) {
 	go func() {
-		timer := time.NewTimer(t.Sub(time.Now()))
+		timer := time.NewTimer(time.Until(t))
 		<-timer.C
 		items := l.Get(t)
-		l.processor(items)
+		if err := l.processor(items); err != nil {
+			logger.Error("DelayedQueueManager processor error: %s", err)
+		}
 	}()
 }

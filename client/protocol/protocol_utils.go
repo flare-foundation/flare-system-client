@@ -114,7 +114,7 @@ func (sp *SubProtocol) getDataWithRetry(
 			err = dataVerifier(data)
 		}
 		if err != nil {
-			logger.Info("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
+			logger.Error("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
 				sp.Id, sp.ApiEndpoint, votingRound, err)
 			return nil, err
 		}
