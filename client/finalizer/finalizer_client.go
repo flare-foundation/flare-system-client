@@ -1,20 +1,25 @@
 package finalizer
 
 import (
+	"context"
+	"encoding/hex"
 	clientContext "flare-tlc/client/context"
 	"flare-tlc/config"
+	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/system"
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 )
 
 type finalizerClient struct {
-	db *gorm.DB
+	db finalizerDB
 
 	relayClient          *relayContractClient
 	submissionClient     *submissionContractClient
@@ -23,6 +28,30 @@ type finalizerClient struct {
 	queueProcessor       *finalizerQueueProcessor
 
 	finalizerContext *finalizerContext
+}
+
+type finalizerDB interface {
+	FetchTransactionsByAddressAndSelector(
+		common.Address, []byte, int64, int64,
+	) ([]database.Transaction, error)
+	FetchLogsByAddressAndTopic0(common.Address, string, int64, int64) ([]database.Log, error)
+}
+
+type finalizerDBImpl struct {
+	client *gorm.DB
+}
+
+func (db finalizerDBImpl) FetchTransactionsByAddressAndSelector(
+	address common.Address, selector []byte, from, to int64,
+) ([]database.Transaction, error) {
+	hexSelector := hex.EncodeToString(selector)
+	return database.FetchTransactionsByAddressAndSelector(db.client, address.Hex(), hexSelector, from, to)
+}
+
+func (db finalizerDBImpl) FetchLogsByAddressAndTopic0(
+	address common.Address, topic0 string, from, to int64,
+) ([]database.Log, error) {
+	return database.FetchLogsByAddressAndTopic0(db.client, address.Hex(), topic0, from, to)
 }
 
 func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, error) {
@@ -66,37 +95,52 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 	submissionClient := NewSubmissionContractClient(cfg.ContractAddresses.Submission)
 	submissionStorage := newSubmissionStorage()
 
+	db := finalizerDBImpl{client: ctx.DB()}
+
 	return &finalizerClient{
-		db:                   ctx.DB(),
+		db:                   db,
 		relayClient:          relayClient,
 		signingPolicyStorage: newSigningPolicyStorage(),
 		submissionStorage:    submissionStorage,
 		submissionClient:     submissionClient,
-		queueProcessor:       newFinalizerQueueProcessor(ctx.DB(), submissionStorage, relayClient, finalizerContext),
+		queueProcessor:       newFinalizerQueueProcessor(db, submissionStorage, relayClient, finalizerContext),
 		finalizerContext:     finalizerContext,
 	}, nil
 }
 
 func (c *finalizerClient) Run() error {
+	return c.RunContext(context.Background())
+}
+
+func (c *finalizerClient) RunContext(ctx context.Context) error {
+	eg, ctx := errgroup.WithContext(ctx)
+
 	startTime := time.Now().Add(-c.finalizerContext.startTimeOffset)
-	err := c.startSigningPolicyInitializedListener(startTime)
+	startTime, err := c.fetchExistingSigningPolicies(ctx, startTime)
 	if err != nil {
 		return err
 	}
-	go func() {
-		c.submissionClient.SubmissionTxListener(c.db, startTime, c)
-	}()
-	go func() {
-		c.queueProcessor.Run()
-	}()
-	return nil
+
+	eg.Go(func() error {
+		return c.runSigningPolicyInitializedListener(ctx, startTime)
+	})
+	eg.Go(func() error {
+		return c.submissionClient.SubmissionTxListener(ctx, c.db, startTime, c)
+	})
+	eg.Go(func() error {
+		return c.queueProcessor.Run(ctx)
+	})
+
+	return eg.Wait()
 }
 
-func (c *finalizerClient) startSigningPolicyInitializedListener(startTime time.Time) error {
+func (c *finalizerClient) fetchExistingSigningPolicies(
+	ctx context.Context, startTime time.Time,
+) (time.Time, error) {
 	// Read current signing policies from the database and add them to the storage
 	spList, err := c.relayClient.FetchSigningPolicies(c.db, startTime.Unix(), time.Now().Unix())
 	if err != nil {
-		return err
+		return startTime, err
 	}
 	for _, sp := range spList {
 		policy := newSigningPolicy(sp.policyData)
@@ -104,35 +148,47 @@ func (c *finalizerClient) startSigningPolicyInitializedListener(startTime time.T
 			continue
 		}
 		if err := c.signingPolicyStorage.Add(policy); err != nil {
-			return err
+			return startTime, err
 		}
 	}
 	logger.Info("Added %d signing policies", len(spList))
 
-	go func() {
-		if len(spList) > 0 {
-			startTime = time.Unix(spList[len(spList)-1].timestamp, 0)
+	if len(spList) > 0 {
+		return time.Unix(spList[len(spList)-1].timestamp, 0), nil
+	}
+
+	return startTime, nil
+}
+
+func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
+	spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
+	for {
+		var dbPolicy signingPolicyListenerResponse
+		select {
+		case dbPolicy = <-spListener:
+			break
+
+		case <-ctx.Done():
+			logger.Info("Signing policy initialized listener stopped")
+			return ctx.Err()
 		}
-		spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
-		for {
-			dbPolicy := <-spListener
-			policy := newSigningPolicy(dbPolicy.policyData)
-			if policy.rewardEpochId < c.finalizerContext.startingRewardEpoch {
-				continue
-			}
-			if err := c.signingPolicyStorage.Add(policy); err != nil {
-				logger.Warn("Error adding signing policy %v", err)
-			}
-			logger.Info("New signing policy received for epoch %v", policy.rewardEpochId)
-			c.rewardEpochCleanup()
+
+		policy := newSigningPolicy(dbPolicy.policyData)
+		if policy.rewardEpochId < c.finalizerContext.startingRewardEpoch {
+			continue
 		}
-	}()
-	return nil
+		if err := c.signingPolicyStorage.Add(policy); err != nil {
+			logger.Warn("Error adding signing policy %v", err)
+		}
+		logger.Info("New signing policy received for epoch %v", policy.rewardEpochId)
+		c.rewardEpochCleanup()
+	}
 }
 
 func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
 	for _, payloadItem := range slr.payload {
 		if payloadItem.votingRoundId < c.finalizerContext.startingVotingRound {
+			logger.Debug("Skipping submission for voting round %d - before startingVotingRound", payloadItem.votingRoundId)
 			continue
 		}
 
@@ -141,6 +197,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			first := c.signingPolicyStorage.First()
 			if first != nil && payloadItem.votingRoundId < first.startVotingRoundId {
 				// This is a submission for an old voting round, skip it
+				logger.Debug("Skipping submission for voting round %d - before policy startVotingRoundId", payloadItem.votingRoundId)
 				continue
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)

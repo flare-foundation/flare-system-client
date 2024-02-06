@@ -1,6 +1,7 @@
 package finalizer
 
 import (
+	"context"
 	"flare-tlc/logger"
 	"flare-tlc/utils"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/slices"
-	"gorm.io/gorm"
 )
 
 const (
@@ -33,7 +33,7 @@ type finalizerQueue struct {
 }
 
 type finalizerQueueProcessor struct {
-	db            *gorm.DB
+	db            finalizerDB
 	queue         *finalizerQueue
 	delayedQueues *utils.DelayedQueueManager[*queueItem]
 
@@ -43,7 +43,7 @@ type finalizerQueueProcessor struct {
 }
 
 func newFinalizerQueueProcessor(
-	db *gorm.DB,
+	db finalizerDB,
 	submissionStorage *submissionStorage,
 	relayClient *relayContractClient,
 	finalizerContext *finalizerContext,
@@ -96,10 +96,17 @@ func (p *finalizerQueueProcessor) Add(item *submitterPayloadItem) {
 }
 
 // Infinite loop, should be run in a goroutine
-func (p *finalizerQueueProcessor) Run() {
+func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 	ticker := time.NewTicker(finalizerQueueProcessorInterval)
 	for {
-		<-ticker.C
+		select {
+		case <-ticker.C:
+			break
+
+		case <-ctx.Done():
+			logger.Info("Finalizer queue processor stopped")
+			return ctx.Err()
+		}
 
 		item := p.queue.Pop()
 
@@ -134,6 +141,7 @@ func (p *finalizerQueueProcessor) IsVoterForCurrentEpoch(item *queueItem) bool {
 	if data == nil {
 		return false
 	}
+
 	voters, err := data.signingPolicy.voters.SelectVoters(item.protocolId, item.votingRoundId, p.finalizerContext.voterThresholdBIPS)
 	if err != nil {
 		return false
