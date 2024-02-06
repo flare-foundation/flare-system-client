@@ -3,7 +3,6 @@ package shared
 import (
 	"encoding/hex"
 	"flare-tlc/database"
-	"flare-tlc/logger"
 	"flare-tlc/utils/contracts/relay"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -44,8 +43,6 @@ func ParseSigningPolicyInitializedEvent(relay *relay.Relay, dbLog database.Log) 
 	if err != nil {
 		return nil, err
 	}
-
-	logger.Debug("log topics: %+v", contractLog.Topics)
 	return relay.RelayFilterer.ParseSigningPolicyInitialized(*contractLog)
 }
 

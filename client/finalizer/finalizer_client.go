@@ -215,8 +215,6 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		if addResult.thresholdReached {
 			logger.Info("Threshold reached for voting round %d and hash %v", payloadItem.votingRoundId, payloadItem.payload.messageHash)
 			c.queueProcessor.Add(payloadItem)
-		} else {
-			logger.Debug("Threshold not reached for voting round %d and hash %v", payloadItem.votingRoundId, payloadItem.payload.messageHash)
 		}
 	}
 	return nil
