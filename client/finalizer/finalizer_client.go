@@ -116,6 +116,10 @@ func (c *finalizerClient) RunContext(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	startTime := time.Now().Add(-c.finalizerContext.startTimeOffset)
+	startTime, err := c.fetchExistingSigningPolicies(ctx, startTime)
+	if err != nil {
+		return err
+	}
 
 	eg.Go(func() error {
 		return c.runSigningPolicyInitializedListener(ctx, startTime)
@@ -130,11 +134,13 @@ func (c *finalizerClient) RunContext(ctx context.Context) error {
 	return eg.Wait()
 }
 
-func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
+func (c *finalizerClient) fetchExistingSigningPolicies(
+	ctx context.Context, startTime time.Time,
+) (time.Time, error) {
 	// Read current signing policies from the database and add them to the storage
 	spList, err := c.relayClient.FetchSigningPolicies(c.db, startTime.Unix(), time.Now().Unix())
 	if err != nil {
-		return err
+		return startTime, err
 	}
 	for _, sp := range spList {
 		policy := newSigningPolicy(sp.policyData)
@@ -142,14 +148,19 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 			continue
 		}
 		if err := c.signingPolicyStorage.Add(policy); err != nil {
-			return err
+			return startTime, err
 		}
 	}
 	logger.Info("Added %d signing policies", len(spList))
 
 	if len(spList) > 0 {
-		startTime = time.Unix(spList[len(spList)-1].timestamp, 0)
+		return time.Unix(spList[len(spList)-1].timestamp, 0), nil
 	}
+
+	return startTime, nil
+}
+
+func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
 	spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
 	for {
 		var dbPolicy signingPolicyListenerResponse
@@ -175,8 +186,12 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 }
 
 func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
+	logger.Info("Processing submission data for timestamp %d, payload items = %d", slr.timestamp, len(slr.payload))
+
 	for _, payloadItem := range slr.payload {
+		logger.Debug("Processing submission for voting round %d", payloadItem.votingRoundId)
 		if payloadItem.votingRoundId < c.finalizerContext.startingVotingRound {
+			logger.Debug("Skipping submission for voting round %d - before startingVotingRound", payloadItem.votingRoundId)
 			continue
 		}
 
@@ -185,6 +200,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			first := c.signingPolicyStorage.First()
 			if first != nil && payloadItem.votingRoundId < first.startVotingRoundId {
 				// This is a submission for an old voting round, skip it
+				logger.Debug("Skipping submission for voting round %d - before policy startVotingRoundId", payloadItem.votingRoundId)
 				continue
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)
@@ -199,6 +215,8 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		if addResult.thresholdReached {
 			logger.Info("Threshold reached for voting round %d and hash %v", payloadItem.votingRoundId, payloadItem.payload.messageHash)
 			c.queueProcessor.Add(payloadItem)
+		} else {
+			logger.Debug("Threshold not reached for voting round %d and hash %v", payloadItem.votingRoundId, payloadItem.payload.messageHash)
 		}
 	}
 	return nil
