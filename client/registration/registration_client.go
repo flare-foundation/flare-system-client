@@ -106,14 +106,19 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 		return nil, err
 	}
 
-	db := registrationClientDBGorm{db: ctx.DB()}
+	identityAddress := cfg.Identity.Address
+	if !common.IsHexAddress(identityAddress) {
+		return nil, errors.New("invalid identity address provided")
+	}
 
+	logger.Debug("Identity addr %s", cfg.Identity.Address)
+	db := registrationClientDBGorm{db: ctx.DB()}
 	return &registrationClient{
 		db:                  db,
 		systemManagerClient: systemManagerClient,
 		relayClient:         relayClient,
 		registryClient:      registryClient,
-		identityAddress:     cfg.Identity.Address,
+		identityAddress:     identityAddress,
 	}, nil
 }
 

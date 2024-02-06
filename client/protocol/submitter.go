@@ -234,7 +234,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 				logger.Error("error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
-			err := s.WritePayload(buffer, currentEpoch-1, data.Value)
+			err := s.WritePayload(buffer, currentEpoch, data.Value)
 			if err != nil {
 				logger.Error("error writing payload for submitter %s: %v", s.name, err)
 				continue

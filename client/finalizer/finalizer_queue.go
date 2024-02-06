@@ -116,7 +116,9 @@ func (p *finalizerQueueProcessor) Run() {
 
 			data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
 			if data != nil {
-				st := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundId)).Add(p.finalizerContext.gracePeriodEndOffset)
+				// Finalization for a votingRoundId should happen in the following voting round votingRoundId + 1
+				votingRoundStartTime := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundId + 1))
+				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
 				logger.Debug("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
 			}
