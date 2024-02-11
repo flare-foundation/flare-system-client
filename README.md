@@ -30,10 +30,8 @@ console = true      # also log to console
 prometheus_address = "localhost:2112"  # expose client metrics to this address (empty value does not expose this endpoint)
 
 [chain]
-node_url = "http://localhost:9650/"  # node client address
-address_hrp = "localflare"  # HRP (human readable part) of chain -- used to properly encode/decode addresses
-chain_id = 162  # chain id
 eth_rpc_url = "http://localhost:9650/ext/C/rpc"  # Ethereum RPC URL
+chain_id = 162  # chain id
 
 [contract_addresses]
 submission = "0xfae0fd738dabc8a0426f47437322b6d026a9fd95"

@@ -19,10 +19,8 @@ console = true
 # prometheus_address = "localhost:2112"
 
 [chain]
-node_url = "http://127.0.0.1:8545/"
-address_hrp = "localflare"
-chain_id = 31337
 eth_rpc_url = "http://127.0.0.1:8545/ext/C/rpc"
+chain_id = 31337
 
 [contract_addresses]
 submission = "0x18b9306737eaf6e8fc8e737f488a1ae077b18053"
@@ -48,8 +46,8 @@ id = 1
 api_endpoint = "http://localhost:3100/"
 
 [submit1]
-start_offset = "2s"   
-tx_submit_retries = 1  
+start_offset = "2s"
+tx_submit_retries = 1
 
 [submit2]
 start_offset = "5s"
@@ -58,8 +56,8 @@ tx_submit_retries = 1
 [submit_signatures]
 start_offset = "12s"
 tx_submit_retries = 1
-data_fetch_retries = 1 
-max_rounds = 3          
+data_fetch_retries = 1
+max_rounds = 3
 
 [finalizer]
 starting_reward_epoch = 0

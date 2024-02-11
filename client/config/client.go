@@ -86,7 +86,7 @@ type FinalizerConfig struct {
 func newConfig() *ClientConfig {
 	return &ClientConfig{
 		Chain: config.ChainConfig{
-			NodeURL: "http://localhost:9650/",
+			EthRPCURL: "http://localhost:9650/ext/C/rpc",
 		},
 		Finalizer: FinalizerConfig{
 			StartOffset:        7 * 24 * time.Hour,
