@@ -192,6 +192,11 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			continue
 		}
 
+		// Skip if voting round is in the future
+		if !c.checkVotingRoundTime(payloadItem.votingRoundId) {
+			continue
+		}
+
 		sp := c.signingPolicyStorage.GetForVotingRound(payloadItem.votingRoundId)
 		if sp == nil {
 			first := c.signingPolicyStorage.First()
@@ -215,6 +220,12 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		}
 	}
 	return nil
+}
+
+// Return true if voting round in not in the future, i.e., is <= the current voting round
+func (c *finalizerClient) checkVotingRoundTime(votingRoundId uint32) bool {
+	currentEpochId := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
+	return votingRoundId <= uint32(currentEpochId)
 }
 
 func (c *finalizerClient) rewardEpochCleanup() {

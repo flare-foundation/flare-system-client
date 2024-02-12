@@ -114,7 +114,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 			continue
 		}
 
-		if p.IsVoterForCurrentEpoch(item) {
+		if p.isVoterForCurrentEpoch(item) {
 			logger.Debug("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
 
 			p.processItem(item)
@@ -133,7 +133,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 	}
 }
 
-func (p *finalizerQueueProcessor) IsVoterForCurrentEpoch(item *queueItem) bool {
+func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	if item == nil {
 		return false
 	}
