@@ -20,8 +20,8 @@ type finalizerContext struct {
 	votingEpoch *utils.Epoch
 }
 
-func newFinalizerContext(cfg *config.ClientConfig, systemManager *system.FlareSystemManager) (*finalizerContext, error) {
-	votingEpoch, err := shared.VotingEpochFromChain(systemManager)
+func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
+	votingEpoch, err := shared.VotingEpochFromChain(systemsManager)
 	if err != nil {
 		return nil, err
 	}

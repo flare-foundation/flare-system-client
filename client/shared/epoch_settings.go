@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func RewardEpochFromChain(fsm *system.FlareSystemManager) (*utils.Epoch, error) {
+func RewardEpochFromChain(fsm *system.FlareSystemsManager) (*utils.Epoch, error) {
 	epochStart, err := fsm.FirstRewardEpochStartTs(nil)
 	if err != nil {
 		return nil, err
@@ -21,7 +21,7 @@ func RewardEpochFromChain(fsm *system.FlareSystemManager) (*utils.Epoch, error) 
 	}, nil
 }
 
-func VotingEpochFromChain(fsm *system.FlareSystemManager) (*utils.Epoch, error) {
+func VotingEpochFromChain(fsm *system.FlareSystemsManager) (*utils.Epoch, error) {
 	epochStart, err := fsm.FirstVotingRoundStartTs(nil)
 	if err != nil {
 		return nil, err

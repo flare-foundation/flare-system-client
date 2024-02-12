@@ -35,14 +35,18 @@ chain_id = 162  # chain id
 
 [contract_addresses]
 submission = "0xfae0fd738dabc8a0426f47437322b6d026a9fd95"
-system_manager = "0x22474d350ec2da53d717e30b96e9a2b7628ede5b"
+systems_manager = "0x22474d350ec2da53d717e30b96e9a2b7628ede5b"
 voter_registry = "0xa4bcdf64cdd5451b6ac3743b414124a6299b65ff"
 relay = "0x18b9306737eaf6e8fc8e737f488a1ae077b18053"
 
+[identity]
+address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity account not private key
+
 [credentials]
-identity_address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity account not private key
-system_manager_sender_private_key_file = "../credentials/standard-account-0000.txt" # any account
-signing_policy_private_key_file = "../credentials/policy-signing-account.txt" # for signing and submitting votes
+system_client_sender_private_key_file = "../credentials/sender-private-key.txt" # any account
+signing_policy_private_key_file = "../credentials/policy-private-key.txt" # for signing and submitting votes
+protocol_manager_submit_private_key_file = "../credentials/submit-private-key.txt"
+protocol_manager_submit_signatures_private_key_file = "../credentials/signatures-private-key.txt"
 
 [clients]
 enabled_registration = true       # enable/disable registration - send RegisterVoter and SignNewSigningPolicy txs

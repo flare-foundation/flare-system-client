@@ -24,7 +24,7 @@ chain_id = 31337
 
 [contract_addresses]
 submission = "0x18b9306737eaf6e8fc8e737f488a1ae077b18053"
-system_manager = "0xa4bcdf64cdd5451b6ac3743b414124a6299b65ff"
+systems_manager = "0xa4bcdf64cdd5451b6ac3743b414124a6299b65ff"
 voter_registry = "0xb00cc45b4a7d3e1fee684cfc4417998a1c183e6d"
 relay = "0x5a0773ff307bf7c71a832dbb5312237fd3437f9f"
 

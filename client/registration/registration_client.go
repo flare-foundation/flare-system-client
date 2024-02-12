@@ -27,9 +27,9 @@ import (
 type registrationClient struct {
 	db registrationClientDB
 
-	systemManagerClient systemManagerContractClient
-	relayClient         relayContractClient
-	registryClient      registryContractClient
+	systemsManagerClient systemsManagerContractClient
+	relayClient          relayContractClient
+	registryClient       registryContractClient
 
 	identityAddress common.Address
 }
@@ -78,9 +78,9 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 		return nil, errors.Wrap(err, "error creating signer private key")
 	}
 
-	systemManagerClient, err := NewSystemManagerClient(
+	systemsManagerClient, err := NewSystemsManagerClient(
 		ethClient,
-		cfg.ContractAddresses.SystemManager,
+		cfg.ContractAddresses.SystemsManager,
 		senderTxOpts,
 		signerPk,
 	)
@@ -114,11 +114,11 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 
 	db := registrationClientDBGorm{db: ctx.DB()}
 	return &registrationClient{
-		db:                  db,
-		systemManagerClient: systemManagerClient,
-		relayClient:         relayClient,
-		registryClient:      registryClient,
-		identityAddress:     identityAddress,
+		db:                   db,
+		systemsManagerClient: systemsManagerClient,
+		relayClient:          relayClient,
+		registryClient:       registryClient,
+		identityAddress:      identityAddress,
 	}, nil
 }
 
@@ -128,17 +128,17 @@ func (c *registrationClient) Run() error {
 }
 
 func (c *registrationClient) RunContext(ctx context.Context) error {
-	epoch, err := c.systemManagerClient.RewardEpochFromChain()
+	epoch, err := c.systemsManagerClient.RewardEpochFromChain()
 	if err != nil {
 		return err
 	}
-	vpbsListener := c.systemManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
+	vpbsListener := c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
 
 	for {
 		// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
 		logger.Debug("Waiting for VotePowerBlockSelected event")
 
-		var powerBlockData *system.FlareSystemManagerVotePowerBlockSelected
+		var powerBlockData *system.FlareSystemsManagerVotePowerBlockSelected
 
 		select {
 		case powerBlockData = <-vpbsListener:
@@ -170,7 +170,7 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 		logger.Info("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
 
 		// Call signNewSigningPolicy
-		signingResult := <-c.systemManagerClient.SignNewSigningPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)
+		signingResult := <-c.systemsManagerClient.SignNewSigningPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)
 		if !signingResult.Success {
 			logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
 			continue
@@ -179,7 +179,7 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 }
 
 func (c *registrationClient) verifyEpoch(epochId *big.Int) bool {
-	epochIdResult := <-c.systemManagerClient.GetCurrentRewardEpochId()
+	epochIdResult := <-c.systemsManagerClient.GetCurrentRewardEpochId()
 	if !epochIdResult.Success {
 		logger.Error("GetCurrentRewardEpochId failed %s", epochIdResult.Message)
 		return false

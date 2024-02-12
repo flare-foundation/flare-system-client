@@ -31,16 +31,16 @@ func TestMain(m *testing.M) {
 }
 
 func TestRegistrationClientMainline(t *testing.T) {
-	systemManagerClient := newTestSystemManagerClient()
+	systemsManagerClient := newTestSystemsManagerClient()
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
 	c := &registrationClient{
-		db:                  testDB{},
-		systemManagerClient: systemManagerClient,
-		relayClient:         relayClient,
-		registryClient:      registryClient,
-		identityAddress:     common.HexToAddress("0x123456"),
+		db:                   testDB{},
+		systemsManagerClient: systemsManagerClient,
+		relayClient:          relayClient,
+		registryClient:       registryClient,
+		identityAddress:      common.HexToAddress("0x123456"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -54,7 +54,7 @@ func TestRegistrationClientMainline(t *testing.T) {
 	signingPolicyBytes := []byte{1, 2, 3}
 
 	t.Log("sending test VPBS")
-	systemManagerClient.sendTestVPBS(&system.FlareSystemManagerVotePowerBlockSelected{
+	systemsManagerClient.sendTestVPBS(&system.FlareSystemsManagerVotePowerBlockSelected{
 		RewardEpochId: rewardEpochID,
 	})
 
@@ -77,23 +77,23 @@ func TestRegistrationClientMainline(t *testing.T) {
 	})
 
 	t.Run("signed policies", func(t *testing.T) {
-		t.Logf("signed policies: %v", systemManagerClient.signedPolicies)
-		require.Equal(t, signingPolicyBytes, systemManagerClient.signedPolicies["2"])
-		cupaloy.SnapshotT(t, systemManagerClient.signedPolicies)
+		t.Logf("signed policies: %v", systemsManagerClient.signedPolicies)
+		require.Equal(t, signingPolicyBytes, systemsManagerClient.signedPolicies["2"])
+		cupaloy.SnapshotT(t, systemsManagerClient.signedPolicies)
 	})
 }
 
 func TestRegistrationClientInvalidEpoch(t *testing.T) {
-	systemManagerClient := newTestSystemManagerClient()
+	systemsManagerClient := newTestSystemsManagerClient()
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
 	c := &registrationClient{
-		db:                  testDB{},
-		systemManagerClient: systemManagerClient,
-		relayClient:         relayClient,
-		registryClient:      registryClient,
-		identityAddress:     common.HexToAddress("0x123456"),
+		db:                   testDB{},
+		systemsManagerClient: systemsManagerClient,
+		relayClient:          relayClient,
+		registryClient:       registryClient,
+		identityAddress:      common.HexToAddress("0x123456"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -107,7 +107,7 @@ func TestRegistrationClientInvalidEpoch(t *testing.T) {
 
 	// Reward Epoch ID is 0, so this should be ignored.
 	t.Log("sending test VPBS")
-	systemManagerClient.sendTestVPBS(&system.FlareSystemManagerVotePowerBlockSelected{
+	systemsManagerClient.sendTestVPBS(&system.FlareSystemsManagerVotePowerBlockSelected{
 		RewardEpochId: rewardEpochID,
 	})
 
@@ -119,8 +119,8 @@ func TestRegistrationClientInvalidEpoch(t *testing.T) {
 	t.Logf("registered voters: %v", registryClient.registeredVoters)
 	require.Empty(t, registryClient.registeredVoters)
 
-	t.Logf("signed policies: %v", systemManagerClient.signedPolicies)
-	require.Empty(t, systemManagerClient.signedPolicies)
+	t.Logf("signed policies: %v", systemsManagerClient.signedPolicies)
+	require.Empty(t, systemsManagerClient.signedPolicies)
 }
 
 type testDB struct{}
@@ -131,38 +131,38 @@ func (db testDB) FetchLogsByAddressAndTopic0(
 	return nil, errors.New("not implemented")
 }
 
-type testSystemManagerClient struct {
+type testSystemsManagerClient struct {
 	rewardEpoch    *utils.Epoch
-	vpbsChan       chan *system.FlareSystemManagerVotePowerBlockSelected
+	vpbsChan       chan *system.FlareSystemsManagerVotePowerBlockSelected
 	signedPolicies map[string][]byte
 }
 
-func newTestSystemManagerClient() testSystemManagerClient {
-	return testSystemManagerClient{
+func newTestSystemsManagerClient() testSystemsManagerClient {
+	return testSystemsManagerClient{
 		rewardEpoch: &utils.Epoch{
 			Start:  time.Time{},
 			Period: time.Hour,
 		},
-		vpbsChan:       make(chan *system.FlareSystemManagerVotePowerBlockSelected),
+		vpbsChan:       make(chan *system.FlareSystemsManagerVotePowerBlockSelected),
 		signedPolicies: make(map[string][]byte),
 	}
 }
 
-func (c testSystemManagerClient) sendTestVPBS(vpbs *system.FlareSystemManagerVotePowerBlockSelected) {
+func (c testSystemsManagerClient) sendTestVPBS(vpbs *system.FlareSystemsManagerVotePowerBlockSelected) {
 	c.vpbsChan <- vpbs
 }
 
-func (c testSystemManagerClient) RewardEpochFromChain() (*utils.Epoch, error) {
+func (c testSystemsManagerClient) RewardEpochFromChain() (*utils.Epoch, error) {
 	return c.rewardEpoch, nil
 }
 
-func (c testSystemManagerClient) VotePowerBlockSelectedListener(
+func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
 	db registrationClientDB, epoch *utils.Epoch,
-) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
+) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
 	return c.vpbsChan
 }
 
-func (c testSystemManagerClient) SignNewSigningPolicy(
+func (c testSystemsManagerClient) SignNewSigningPolicy(
 	epochID *big.Int, policy []byte,
 ) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetry(func() (any, error) {
@@ -178,7 +178,7 @@ func (c testSystemManagerClient) SignNewSigningPolicy(
 	}, 1, 0)
 }
 
-func (c testSystemManagerClient) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
+func (c testSystemsManagerClient) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
 	return shared.ExecuteWithRetry(func() (*big.Int, error) {
 		return big.NewInt(1), nil
 	}, 1, 0)
