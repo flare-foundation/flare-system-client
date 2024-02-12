@@ -71,6 +71,25 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "bytes20",
+        "name": "beneficiary",
+        "type": "bytes20"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "untilRewardEpochId",
+        "type": "uint256"
+      }
+    ],
+    "name": "BeneficiaryChilled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "bytes4",
         "name": "selector",
@@ -166,25 +185,6 @@
         "type": "address"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "untilRewardEpochId",
-        "type": "uint256"
-      }
-    ],
-    "name": "VoterChilled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "voter",
-        "type": "address"
-      },
-      {
         "indexed": true,
         "internalType": "uint24",
         "name": "rewardEpochId",
@@ -199,12 +199,6 @@
       {
         "indexed": false,
         "internalType": "address",
-        "name": "delegationAddress",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
         "name": "submitAddress",
         "type": "address"
       },
@@ -213,6 +207,18 @@
         "internalType": "address",
         "name": "submitSignaturesAddress",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "publicKeyPart1",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "publicKeyPart2",
+        "type": "bytes32"
       },
       {
         "indexed": false,
@@ -259,9 +265,9 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_voter",
-        "type": "address"
+        "internalType": "bytes20[]",
+        "name": "_beneficiaryList",
+        "type": "bytes20[]"
       },
       {
         "internalType": "uint256",
@@ -269,7 +275,7 @@
         "type": "uint256"
       }
     ],
-    "name": "chillVoter",
+    "name": "chill",
     "outputs": [
       {
         "internalType": "uint256",
@@ -283,9 +289,9 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
+        "internalType": "bytes20",
+        "name": "beneficiary",
+        "type": "bytes20"
       }
     ],
     "name": "chilledUntilRewardEpochId",
@@ -356,10 +362,10 @@
   },
   {
     "inputs": [],
-    "name": "flareSystemCalculator",
+    "name": "flareSystemsCalculator",
     "outputs": [
       {
-        "internalType": "contract IIFlareSystemCalculator",
+        "internalType": "contract IIFlareSystemsCalculator",
         "name": "",
         "type": "address"
       }
@@ -369,10 +375,10 @@
   },
   {
     "inputs": [],
-    "name": "flareSystemManager",
+    "name": "flareSystemsManager",
     "outputs": [
       {
-        "internalType": "contract IFlareSystemManager",
+        "internalType": "contract IFlareSystemsManager",
         "name": "",
         "type": "address"
       }
@@ -592,6 +598,30 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_voter",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_rewardEpochId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getVoterRegistrationWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "_registrationWeight",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "_rewardEpochId",
         "type": "uint256"
@@ -751,7 +781,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "rewardEpochId",
         "type": "uint256"
       }
     ],
@@ -769,6 +799,19 @@
   {
     "inputs": [],
     "name": "productionMode",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "publicKeyRequired",
     "outputs": [
       {
         "internalType": "bool",
@@ -843,6 +886,19 @@
   {
     "inputs": [
       {
+        "internalType": "bool",
+        "name": "_publicKeyRequired",
+        "type": "bool"
+      }
+    ],
+    "name": "setPublicKeyRequired",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "_systemRegistrationContractAddress",
         "type": "address"
@@ -890,7 +946,7 @@
     "inputs": [
       {
         "internalType": "bytes4",
-        "name": "",
+        "name": "selector",
         "type": "bytes4"
       }
     ],

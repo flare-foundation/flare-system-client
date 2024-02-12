@@ -242,12 +242,12 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "protocolId",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "votingRoundId",
         "type": "uint256"
       }
     ],
@@ -337,7 +337,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "rewardEpochId",
         "type": "uint256"
       }
     ],
@@ -414,7 +414,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "rewardEpochId",
         "type": "uint256"
       }
     ],
