@@ -148,7 +148,7 @@
   },
   {
     "inputs": [],
-    "name": "flareSystemManager",
+    "name": "flareSystemsManager",
     "outputs": [
       {
         "internalType": "address",
@@ -495,7 +495,7 @@
     "inputs": [
       {
         "internalType": "bytes4",
-        "name": "",
+        "name": "selector",
         "type": "bytes4"
       }
     ],

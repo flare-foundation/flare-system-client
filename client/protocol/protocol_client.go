@@ -20,8 +20,8 @@ type ProtocolClient struct {
 	submitter2         *Submitter
 	signatureSubmitter *SignatureSubmitter
 
-	votingEpoch   *utils.Epoch
-	systemManager *system.FlareSystemManager
+	votingEpoch    *utils.Epoch
+	systemsManager *system.FlareSystemsManager
 }
 
 func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error) {
@@ -37,12 +37,12 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 		return nil, err
 	}
 
-	systemManager, err := system.NewFlareSystemManager(cfg.ContractAddresses.SystemManager, cl)
+	systemsManager, err := system.NewFlareSystemsManager(cfg.ContractAddresses.SystemsManager, cl)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating system manager contract")
 	}
 
-	votingEpoch, err := shared.VotingEpochFromChain(systemManager)
+	votingEpoch, err := shared.VotingEpochFromChain(systemsManager)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting voting epoch")
 	}
@@ -62,7 +62,7 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 		protocolContext: protocolContext,
 		subProtocols:    subProtocols,
 		votingEpoch:     votingEpoch,
-		systemManager:   systemManager,
+		systemsManager:  systemsManager,
 	}
 
 	selectors := newContractSelectors()

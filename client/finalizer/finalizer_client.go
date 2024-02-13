@@ -66,11 +66,11 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		return nil, err
 	}
 
-	systemManager, err := system.NewFlareSystemManager(cfg.ContractAddresses.SystemManager, ethClient)
+	systemsManager, err := system.NewFlareSystemsManager(cfg.ContractAddresses.SystemsManager, ethClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating system manager contract")
 	}
-	finalizerContext, err := newFinalizerContext(cfg, systemManager)
+	finalizerContext, err := newFinalizerContext(cfg, systemsManager)
 	if err != nil {
 		return nil, err
 	}

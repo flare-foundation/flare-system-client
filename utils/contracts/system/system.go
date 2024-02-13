@@ -1,2 +1,2 @@
-//go:generate  abigen --abi=system.abi --pkg=system --type=FlareSystemManager --out=autogen.go
+//go:generate  abigen --abi=system.abi --pkg=system --type=FlareSystemsManager --out=autogen.go
 package system

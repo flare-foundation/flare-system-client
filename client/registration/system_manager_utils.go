@@ -25,44 +25,44 @@ var (
 	}
 )
 
-type systemManagerContractClient interface {
+type systemsManagerContractClient interface {
 	RewardEpochFromChain() (*utils.Epoch, error)
 	VotePowerBlockSelectedListener(
 		registrationClientDB, *utils.Epoch,
-	) <-chan *system.FlareSystemManagerVotePowerBlockSelected
+	) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
 	SignNewSigningPolicy(*big.Int, []byte) <-chan shared.ExecuteStatus[any]
 	GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int]
 }
 
-type systemManagerContractClientImpl struct {
-	address            common.Address
-	flareSystemManager *system.FlareSystemManager
-	senderTxOpts       *bind.TransactOpts
-	txVerifier         *chain.TxVerifier
-	signerPrivateKey   *ecdsa.PrivateKey
+type systemsManagerContractClientImpl struct {
+	address             common.Address
+	flareSystemsManager *system.FlareSystemsManager
+	senderTxOpts        *bind.TransactOpts
+	txVerifier          *chain.TxVerifier
+	signerPrivateKey    *ecdsa.PrivateKey
 }
 
-func NewSystemManagerClient(
+func NewSystemsManagerClient(
 	ethClient *ethclient.Client,
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPrivateKey *ecdsa.PrivateKey,
-) (*systemManagerContractClientImpl, error) {
-	flareSystemManager, err := system.NewFlareSystemManager(address, ethClient)
+) (*systemsManagerContractClientImpl, error) {
+	flareSystemsManager, err := system.NewFlareSystemsManager(address, ethClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return &systemManagerContractClientImpl{
-		address:            address,
-		flareSystemManager: flareSystemManager,
-		senderTxOpts:       senderTxOpts,
-		txVerifier:         chain.NewTxVerifier(ethClient),
-		signerPrivateKey:   signerPrivateKey,
+	return &systemsManagerContractClientImpl{
+		address:             address,
+		flareSystemsManager: flareSystemsManager,
+		senderTxOpts:        senderTxOpts,
+		txVerifier:          chain.NewTxVerifier(ethClient),
+		signerPrivateKey:    signerPrivateKey,
 	}, nil
 }
 
-func (s *systemManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
+func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetry(func() (any, error) {
 		err := s.sendSignNewSigningPolicy(rewardEpochId, signingPolicy)
 		if err != nil {
@@ -72,20 +72,20 @@ func (s *systemManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *bi
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (s *systemManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
+func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
 	newSigningPolicyHash := SigningPolicyHash(signingPolicy)
 	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.signerPrivateKey)
 	if err != nil {
 		return err
 	}
 
-	signature := system.IFlareSystemManagerSignature{
+	signature := system.IFlareSystemsManagerSignature{
 		R: [32]byte(hashSignature[0:32]),
 		S: [32]byte(hashSignature[32:64]),
 		V: hashSignature[64] + 27,
 	}
 
-	tx, err := s.flareSystemManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
+	tx, err := s.flareSystemsManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
 			logger.Info("Non fatal error sending sign new signing policy: %v", err)
@@ -112,9 +112,9 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 	return hash
 }
 
-func (s *systemManagerContractClientImpl) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
+func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
 	return shared.ExecuteWithRetry(func() (*big.Int, error) {
-		id, err := s.flareSystemManager.GetCurrentRewardEpochId(nil)
+		id, err := s.flareSystemsManager.GetCurrentRewardEpochId(nil)
 		if err != nil {
 			return nil, err
 		}
@@ -122,9 +122,9 @@ func (s *systemManagerContractClientImpl) GetCurrentRewardEpochId() <-chan share
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (s *systemManagerContractClientImpl) VotePowerBlockSelectedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemManagerVotePowerBlockSelected {
-	out := make(chan *system.FlareSystemManagerVotePowerBlockSelected)
-	topic0, err := chain.EventIDFromMetadata(system.FlareSystemManagerMetaData, "VotePowerBlockSelected")
+func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
+	out := make(chan *system.FlareSystemsManagerVotePowerBlockSelected)
+	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "VotePowerBlockSelected")
 	if err != nil {
 		// panic, this error is fatal
 		panic(err)
@@ -157,14 +157,14 @@ func (s *systemManagerContractClientImpl) VotePowerBlockSelectedListener(db regi
 	return out
 }
 
-func (s *systemManagerContractClientImpl) parseVotePowerBlockSelectedEvent(dbLog database.Log) (*system.FlareSystemManagerVotePowerBlockSelected, error) {
+func (s *systemsManagerContractClientImpl) parseVotePowerBlockSelectedEvent(dbLog database.Log) (*system.FlareSystemsManagerVotePowerBlockSelected, error) {
 	contractLog, err := shared.ConvertDatabaseLogToChainLog(dbLog)
 	if err != nil {
 		return nil, err
 	}
-	return s.flareSystemManager.FlareSystemManagerFilterer.ParseVotePowerBlockSelected(*contractLog)
+	return s.flareSystemsManager.FlareSystemsManagerFilterer.ParseVotePowerBlockSelected(*contractLog)
 }
 
-func (s *systemManagerContractClientImpl) RewardEpochFromChain() (*utils.Epoch, error) {
-	return shared.RewardEpochFromChain(s.flareSystemManager)
+func (s *systemsManagerContractClientImpl) RewardEpochFromChain() (*utils.Epoch, error) {
+	return shared.RewardEpochFromChain(s.flareSystemsManager)
 }
