@@ -3,6 +3,7 @@ package finalizer
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"flare-tlc/client/config"
 	"flare-tlc/client/shared"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
@@ -48,7 +49,7 @@ type relayEthClientImpl struct {
 }
 
 func (eth relayEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte) error {
-	return chain.SendRawTx(eth.client, privateKey, to, data)
+	return chain.SendRawTx(eth.client, privateKey, to, data, &config.GasConfig{})
 }
 
 type signingPolicyListenerResponse struct {

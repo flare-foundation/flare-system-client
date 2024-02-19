@@ -2,6 +2,7 @@ package config
 
 import (
 	"flare-tlc/config"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +27,8 @@ type ClientConfig struct {
 	SubmitSignatures SubmitSignaturesConfig `toml:"submit_signatures"`
 
 	Finalizer FinalizerConfig `toml:"finalizer"`
+
+	SubmitGas GasConfig `toml:"gas_submit"`
 }
 
 type MetricsConfig struct {
@@ -81,6 +84,12 @@ type FinalizerConfig struct {
 
 	// Offset from the start of the voting round
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
+}
+
+type GasConfig struct {
+	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
+	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
+	GasLimit           int      `toml:"gas_limit"`
 }
 
 func newConfig() *ClientConfig {
