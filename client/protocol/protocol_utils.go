@@ -23,6 +23,7 @@ type DataVerifier func(*SubProtocolResponse) error
 type SubProtocol struct {
 	Id          uint8
 	ApiEndpoint string
+	XApiKey     string
 }
 
 type SubProtocolResponse struct {
@@ -41,6 +42,7 @@ func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 	return &SubProtocol{
 		Id:          config.Id,
 		ApiEndpoint: config.ApiEndpoint,
+		XApiKey:     config.XApiKey,
 	}
 }
 
@@ -54,7 +56,14 @@ func (sp *SubProtocol) getData(votingRound int64, submitName string, submitAddre
 	client := http.Client{
 		Timeout: timeout,
 	}
-	resp, err := client.Get(url.String())
+	req, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating protocol client API request")
+	}
+	if len(sp.XApiKey) > 0 {
+		req.Header.Set("X-API-KEY", sp.XApiKey)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling protocol client API")
 	}

@@ -56,10 +56,12 @@ enabled_finalizer = false
 [protocol.ftso1]
 id = 1
 api_endpoint = "http://localhost:3000/ftso1"
+x_api_key = "your_api_key" # optional
 
 [protocol.ftso2]
 id = 2
 api_endpoint = "http://localhost:3000/ftso2"
+x_api_key = "your_api_key" # optional
 
 [submit1]
 start_offset = "5s"    # start fetching data and submitting txs after this offset from the start of the epoch
