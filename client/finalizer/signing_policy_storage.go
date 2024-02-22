@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-// Duplicates relay.RelaySigningPolicyInitialized but with fewer fields and
+// Duplicates relay.RelaySigningPolicyInitialized but with different fields and
 // different types for some fields
 type signingPolicy struct {
 	rewardEpochId      int64
@@ -22,6 +22,7 @@ type signingPolicy struct {
 	rawBytes           []byte
 	blockTimestamp     uint64
 
+	// The set of all voters and their weights
 	voters *voters.VoterSet
 }
 
@@ -88,11 +89,17 @@ func (s *signingPolicyStorage) Add(sp *signingPolicy) error {
 	return nil
 }
 
-func (s *signingPolicyStorage) GetForVotingRound(votingRoundId uint32) *signingPolicy {
+// Return the signing policy for the voting round, or nil if not found.
+// Also returns true if the policy is the last one or false otherwise.
+func (s *signingPolicyStorage) GetForVotingRound(votingRoundId uint32) (*signingPolicy, bool) {
 	s.Lock()
 	defer s.Unlock()
 
-	return s.findByVotingRoundId(votingRoundId)
+	sp := s.findByVotingRoundId(votingRoundId)
+	if sp == nil {
+		return nil, false
+	}
+	return sp, sp == s.spList[len(s.spList)-1]
 }
 
 func (s *signingPolicyStorage) First() *signingPolicy {

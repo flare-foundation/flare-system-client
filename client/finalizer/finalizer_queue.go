@@ -5,6 +5,7 @@ import (
 	"flare-tlc/logger"
 	"flare-tlc/utils"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -17,13 +18,14 @@ const (
 )
 
 type queueItem struct {
+	seed          *big.Int
 	votingRoundId uint32
 	protocolId    byte
 	messageHash   common.Hash
 }
 
 func (i *queueItem) String() string {
-	return fmt.Sprintf("votingRoundId=%v, protocolId=%v, messageHash=%v", i.votingRoundId, i.protocolId, i.messageHash.Hex())
+	return fmt.Sprintf("seed=%v, votingRoundId=%v, protocolId=%v, messageHash=%v", i.seed, i.votingRoundId, i.protocolId, i.messageHash.Hex())
 }
 
 type finalizerQueue struct {
@@ -87,8 +89,9 @@ func (q *finalizerQueue) Pop() *queueItem {
 	return item
 }
 
-func (p *finalizerQueueProcessor) Add(item *submitterPayloadItem) {
+func (p *finalizerQueueProcessor) Add(item *submitterPayloadItem, seed *big.Int) {
 	p.queue.Add(&queueItem{
+		seed:          seed,
 		votingRoundId: item.votingRoundId,
 		protocolId:    item.protocolId,
 		messageHash:   item.payload.messageHash,
@@ -142,7 +145,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 		return false
 	}
 
-	voters, err := data.signingPolicy.voters.SelectVoters(item.protocolId, item.votingRoundId, p.finalizerContext.voterThresholdBIPS)
+	voters, err := data.signingPolicy.voters.SelectVoters(item.seed, item.protocolId, item.votingRoundId, p.finalizerContext.voterThresholdBIPS)
 	if err != nil {
 		return false
 	}

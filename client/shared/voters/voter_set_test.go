@@ -3,6 +3,7 @@ package voters_test
 import (
 	"flare-tlc/client/shared/voters"
 	"flare-tlc/utils"
+	"math/big"
 	"slices"
 	"testing"
 
@@ -24,8 +25,8 @@ var (
 )
 
 func TestInitialHashSeed(t *testing.T) {
-	seed := voters.InitialHashSeed(1, 2)
-	if seed != common.HexToHash("0xe90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0") {
+	seed := voters.InitialHashSeed(big.NewInt(1), 2, 3)
+	if seed != common.HexToHash("0x6e0c627900b24bd432fe7b1f713f1b0744091a646a9fe4a65a18dfed21f2949c") {
 		t.Errorf("initial hash seed is not correct")
 	}
 }
@@ -62,7 +63,7 @@ func TestBinarySearch(t *testing.T) {
 }
 
 func TestRandomNumberSequence(t *testing.T) {
-	seed := voters.InitialHashSeed(1, 1)
+	seed := voters.InitialHashSeed(big.NewInt(1), 1, 1)
 	randoms := voters.RandomNumberSequence(seed, 5)
 
 	cupaloy.SnapshotT(t, randoms)
@@ -70,7 +71,7 @@ func TestRandomNumberSequence(t *testing.T) {
 
 func TestSelectVoters(t *testing.T) {
 	vs := voters.NewVoterSet(testVoters, testWeights)
-	seed := voters.InitialHashSeed(1, 1)
+	seed := voters.InitialHashSeed(big.NewInt(1), 1, 1)
 	voterSet, err := vs.RandomSelectThresholdWeightVoters(seed, 3000)
 
 	voterSetHex := utils.Map(voterSet.ToSlice(), func(addr common.Address) string {

@@ -4,7 +4,7 @@ import (
 	"flare-tlc/client/config"
 	"flare-tlc/client/shared"
 	"flare-tlc/utils"
-	"flare-tlc/utils/contracts/system"
+	"flare-tlc/utils/contracts/relay"
 	"time"
 )
 
@@ -18,10 +18,12 @@ type finalizerContext struct {
 	gracePeriodEndOffset time.Duration
 
 	votingEpoch *utils.Epoch
+	rewardEpoch *utils.IntEpoch
 }
 
-func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
-	votingEpoch, err := shared.VotingEpochFromChain(systemsManager)
+// func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
+func newFinalizerContext(cfg *config.ClientConfig, relay *relay.Relay) (*finalizerContext, error) {
+	votingEpoch, rewardEpoch, err := shared.EpochsFromChain(relay)
 	if err != nil {
 		return nil, err
 	}
@@ -32,5 +34,6 @@ func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareS
 		voterThresholdBIPS:   cfg.Finalizer.VoterThresholdBIPS,
 		gracePeriodEndOffset: cfg.Finalizer.GracePeriodEndOffset,
 		votingEpoch:          votingEpoch,
+		rewardEpoch:          rewardEpoch,
 	}, nil
 }

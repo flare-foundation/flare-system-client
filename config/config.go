@@ -117,3 +117,15 @@ func ReadFileToString(fileName string) (string, error) {
 	}
 	return strings.TrimSpace(string(content)), nil
 }
+
+// Read private key from env variable or file if unsecure private key handling
+// is enabled.
+func PrivateKeyFromConfig(file string, env string) (string, error) {
+	if file != "" {
+		return ReadFileToString(file)
+	} else if env != "" {
+		return env, nil
+	} else {
+		return "", fmt.Errorf("no private key found")
+	}
+}

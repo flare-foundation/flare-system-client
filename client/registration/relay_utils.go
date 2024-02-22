@@ -30,7 +30,6 @@ func NewRelayContractClient(
 	if err != nil {
 		return nil, err
 	}
-
 	return &relayContractClientImpl{
 		address:    address,
 		relay:      relay,
