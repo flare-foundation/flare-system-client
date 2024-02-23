@@ -29,7 +29,8 @@ type ClientConfig struct {
 
 	Finalizer FinalizerConfig `toml:"finalizer"`
 
-	SubmitGas GasConfig `toml:"gas_submit"`
+	SubmitGas   GasConfig `toml:"gas_submit"`
+	RegisterGas GasConfig `toml:"gas_register"`
 }
 
 type MetricsConfig struct {
@@ -131,7 +132,19 @@ func BuildConfig(cfgFileName string) (*ClientConfig, error) {
 }
 
 func validateConfig(cfg *ClientConfig) error {
-	if cfg.SubmitGas.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.SubmitGas.GasPriceMultiplier != 0.0 {
+	err := validateGasConfig(&cfg.SubmitGas)
+	if err != nil {
+		return err
+	}
+	err = validateGasConfig(&cfg.RegisterGas)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateGasConfig(cfg *GasConfig) error {
+	if cfg.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.GasPriceMultiplier != 0.0 {
 		return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value")
 	}
 	return nil
