@@ -27,6 +27,7 @@ const (
 
 type SubmitterBase struct {
 	ethClient submitterEthClient
+	gasConfig *config.GasConfig
 
 	protocolContext *protocolContext
 
@@ -40,15 +41,15 @@ type SubmitterBase struct {
 }
 
 type submitterEthClient interface {
-	SendRawTx(*ecdsa.PrivateKey, common.Address, []byte) error
+	SendRawTx(*ecdsa.PrivateKey, common.Address, []byte, *config.GasConfig) error
 }
 
 type submitterEthClientImpl struct {
 	ethClient *ethclient.Client
 }
 
-func (c submitterEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte) error {
-	return chain.SendRawTx(c.ethClient, privateKey, to, payload)
+func (c submitterEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *config.GasConfig) error {
+	return chain.SendRawTx(c.ethClient, privateKey, to, payload, gasConfig)
 }
 
 type Submitter struct {
@@ -66,7 +67,7 @@ type SignatureSubmitter struct {
 
 func (s *SubmitterBase) submit(payload []byte) bool {
 	sendResult := <-shared.ExecuteWithRetry(func() (any, error) {
-		err := s.ethClient.SendRawTx(s.protocolContext.submitPrivateKey, s.protocolContext.submitContractAddress, payload)
+		err := s.ethClient.SendRawTx(s.protocolContext.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
@@ -87,6 +88,7 @@ func newSubmitter(
 	pc *protocolContext,
 	epoch *utils.Epoch,
 	submitCfg *config.SubmitConfig,
+	gasCfg *config.GasConfig,
 	selector []byte,
 	subProtocols []*SubProtocol,
 	epochOffset int64,
@@ -95,6 +97,7 @@ func newSubmitter(
 	return &Submitter{
 		SubmitterBase: SubmitterBase{
 			ethClient:       submitterEthClientImpl{ethClient: ethClient},
+			gasConfig:       gasCfg,
 			protocolContext: pc,
 			epoch:           epoch,
 			selector:        selector,
@@ -148,12 +151,14 @@ func newSignatureSubmitter(
 	pc *protocolContext,
 	epoch *utils.Epoch,
 	submitCfg *config.SubmitSignaturesConfig,
+	gasCfg *config.GasConfig,
 	selector []byte,
 	subProtocols []*SubProtocol,
 ) *SignatureSubmitter {
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
 			ethClient:       submitterEthClientImpl{ethClient: ethClient},
+			gasConfig:       gasCfg,
 			protocolContext: pc,
 			epoch:           epoch,
 			startOffset:     submitCfg.StartOffset,

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"flare-tlc/client/config"
 	"flare-tlc/logger"
 	"math/big"
 	"strings"
@@ -22,6 +23,7 @@ import (
 const (
 	// default timeout for waiting for a tx to be mined.
 	DefaultTxTimeout = 60 * time.Second
+	DefaultGasLimit  = 2_500_000
 )
 
 type TxVerifier struct {
@@ -118,7 +120,7 @@ func PrivateKeyFromHex(privateKey string) (*ecdsa.PrivateKey, error) {
 	return pk, nil
 }
 
-func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte) error {
+func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, gasConfig *config.GasConfig) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -131,14 +133,14 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 		return err
 	}
 
-	value := big.NewInt(0)     // in wei (1 eth)
-	gasLimit := uint64(210000) // in units
-	gasPrice, err := client.SuggestGasPrice(context.Background())
+	value := big.NewInt(0) // in wei (1 eth)
+
+	gasLimit := getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
+	gasPrice, err := getGasPrice(gasConfig, client)
 	if err != nil {
 		return err
 	}
 
-	// TODO: NewTransaction is deprecated
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
 
 	chainID, err := client.NetworkID(context.Background())
@@ -152,17 +154,10 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	}
 
 	logger.Debug("Sending signed tx: %s", signedTx.Hash().Hex())
-
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		return err
 	}
-
-	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
-	if err != nil {
-		return err
-	}
-	logger.Debug("Receipt status: %v", rec.Status)
 
 	verifier := NewTxVerifier(client)
 
@@ -171,6 +166,55 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	if err != nil {
 		return err
 	}
-	logger.Debug("Tx mined")
+
+	logger.Debug("Tx mined, getting receipt %s", signedTx.Hash().Hex())
+	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
+	if err != nil {
+		return err
+	}
+	logger.Debug("Receipt status: %v", rec.Status)
 	return nil
+}
+
+func getGasLimit(gasConfig *config.GasConfig, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) uint64 {
+	var gasLimit uint64
+	if gasConfig.GasLimit == 0 {
+		estimatedGas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+			From:  fromAddress,
+			To:    &toAddress,
+			Value: value,
+			Data:  data,
+		})
+		if err != nil {
+			logger.Warn("Unable to estimate gas: %v, using default gas limit: %d", err, DefaultGasLimit)
+			gasLimit = DefaultGasLimit
+		} else {
+			logger.Debug("Estimated gas: %d", estimatedGas)
+			gasLimit = estimatedGas
+		}
+	} else {
+		gasLimit = uint64(gasConfig.GasLimit)
+	}
+	return gasLimit
+}
+
+func getGasPrice(gasConfig *config.GasConfig, client *ethclient.Client) (*big.Int, error) {
+	var gasPrice *big.Int
+	if gasConfig.GasPriceFixed.Cmp(common.Big0) != 0 {
+		gasPrice = gasConfig.GasPriceFixed
+	} else {
+		suggestedPrice, err := client.SuggestGasPrice(context.Background())
+		if err != nil {
+			return nil, errors.Wrap(err, "Unable to estimate gas price")
+		}
+		if gasConfig.GasPriceMultiplier != 0 {
+			gasPriceFloat := new(big.Float).SetInt(suggestedPrice)
+			gasPriceMultiplierFloat := new(big.Float).SetFloat64(float64(gasConfig.GasPriceMultiplier))
+			gasPriceFloat.Mul(gasPriceFloat, gasPriceMultiplierFloat)
+			gasPrice, _ = gasPriceFloat.Int(nil)
+		} else {
+			gasPrice = suggestedPrice
+		}
+	}
+	return gasPrice, nil
 }
