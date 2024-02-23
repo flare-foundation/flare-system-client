@@ -196,7 +196,6 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		if !c.checkVotingRoundTime(payloadItem.votingRoundId) {
 			continue
 		}
-
 		sp, threshold := c.signingPolicyData(payloadItem.votingRoundId)
 		if sp == nil {
 			first := c.signingPolicyStorage.First()
@@ -215,7 +214,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		}
 		if addResult.thresholdReached {
 			logger.Info("Threshold reached for voting round %d and hash %v", payloadItem.votingRoundId, payloadItem.payload.messageHash)
-			c.queueProcessor.Add(payloadItem)
+			c.queueProcessor.Add(payloadItem, sp.seed)
 		}
 	}
 	return nil
@@ -230,9 +229,9 @@ func (c *finalizerClient) signingPolicyData(votingRoundId uint32) (*signingPolic
 	if !last {
 		return sp, sp.threshold
 	}
+	endVotingEpoch := c.finalizerContext.rewardEpoch.EndEpoch(sp.rewardEpochId)
+	end := c.finalizerContext.votingEpoch.EndTime(endVotingEpoch)
 
-	ve := c.finalizerContext.votingEpoch
-	end := ve.EndTime(int64(sp.startVotingRoundId + uint32(c.finalizerContext.rewardEpoch.Period)))
 	if time.Now().Before(end) {
 		return sp, sp.threshold
 	} else {
