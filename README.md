@@ -32,8 +32,6 @@ prometheus_address = "localhost:2112"  # expose client metrics to this address (
 [chain]
 eth_rpc_url = "http://localhost:9650/ext/C/rpc"  # Ethereum RPC URL
 chain_id = 162  # chain id
-gas_limit = 2500000 # Transaction gas limit
-gas_price_multiplier = 1.2 # Multiplier for recommended gas price, to ensure transaction gets accepted
 
 [contract_addresses]
 submission = "0xfae0fd738dabc8a0426f47437322b6d026a9fd95"
