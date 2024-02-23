@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"flare-tlc/config"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +28,8 @@ type ClientConfig struct {
 	SubmitSignatures SubmitSignaturesConfig `toml:"submit_signatures"`
 
 	Finalizer FinalizerConfig `toml:"finalizer"`
+
+	SubmitGas GasConfig `toml:"gas_submit"`
 }
 
 type MetricsConfig struct {
@@ -83,6 +87,12 @@ type FinalizerConfig struct {
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 
+type GasConfig struct {
+	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
+	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
+	GasLimit           int      `toml:"gas_limit"`
+}
+
 func newConfig() *ClientConfig {
 	return &ClientConfig{
 		Chain: config.ChainConfig{
@@ -113,5 +123,16 @@ func BuildConfig(cfgFileName string) (*ClientConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = validateConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	return cfg, nil
+}
+
+func validateConfig(cfg *ClientConfig) error {
+	if cfg.SubmitGas.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.SubmitGas.GasPriceMultiplier != 0.0 {
+		return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value")
+	}
+	return nil
 }

@@ -82,4 +82,9 @@ starting_reward_epoch = 0
 starting_voting_round = 1005
 start_offset = "500s" # how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client default is 7 days
 grace_period_end_offset = "40s"  # Offset from the start of the voting round
+
+[gas_submit]              # applies to all submit1, submit2 and submitSignatures transactions. Note: only one of gas_price_multiplier and gas_price_fixed can be set.
+gas_price_multiplier = 0  # (optional) sets the gas price to be a multiplier of the estimated gas price. Defaults to 0, which will simply use the estimate, OR a fixed gas price if gas_price_fixed is set (!= 0).
+gas_price_fixed = 0       # (optional) sets a fixed gas price for the transaction. Defaults to 0, which will use an estimate OR a multiplier of the estimate if gas_price_multiplier is set (!= 0).
+gas_limit = 0             # (optional) gas limit for transaction. Defaults to 0, which will use gas limit estimates.
 ```

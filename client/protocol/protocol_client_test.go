@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	clientConfig "flare-tlc/client/config"
 	"flare-tlc/config"
 	"flare-tlc/logger"
 	"flare-tlc/utils"
@@ -63,6 +64,7 @@ func TestSubmitter(t *testing.T) {
 
 	base := SubmitterBase{
 		ethClient: &ethClient,
+		gasConfig: &clientConfig.GasConfig{},
 		protocolContext: &protocolContext{
 			submitPrivateKey:       privKey,
 			submitSignaturesTxOpts: &bind.TransactOpts{From: address},
@@ -129,7 +131,7 @@ type sentTxInfo struct {
 }
 
 func (c *testEthClient) SendRawTx(
-	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte,
+	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *clientConfig.GasConfig,
 ) error {
 	c.sentTxs = append(c.sentTxs, &sentTxInfo{
 		privateKey: privateKey,
