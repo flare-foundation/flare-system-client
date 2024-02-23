@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -119,13 +120,21 @@ func ReadFileToString(fileName string) (string, error) {
 }
 
 // Read private key from env variable or file if unsecure private key handling
-// is enabled.
-func PrivateKeyFromConfig(file string, env string) (string, error) {
-	if file != "" {
-		return ReadFileToString(file)
-	} else if env != "" {
-		return env, nil
-	} else {
-		return "", fmt.Errorf("no private key found")
+// is enabled (UNSECURE_PRIVATE_KEYS)
+func PrivateKeyFromConfig(fileName string, envString string) (string, error) {
+	envString = strings.TrimSpace(envString)
+	fileName = strings.TrimSpace(fileName)
+
+	if len(envString) > 0 {
+		return envString, nil
 	}
+	if len(fileName) > 0 {
+		allowUnsecureEnv := strings.ToLower(os.Getenv("UNSECURE_PRIVATE_KEYS"))
+		if allowUnsecureEnv == "true" {
+			return ReadFileToString(fileName)
+		} else {
+			return "", errors.New("private keys in files are disabled")
+		}
+	}
+	return "", errors.New("no private key specified")
 }

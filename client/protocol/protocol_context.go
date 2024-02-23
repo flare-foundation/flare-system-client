@@ -38,7 +38,8 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 	var err error
 
 	// Credentials
-	signerPkString, err := globalConfig.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
+	signerPkString, err := globalConfig.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
+		cfg.Credentials.SigningPolicyPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading signer private key")
 	}
@@ -47,7 +48,8 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 		return nil, errors.Wrap(err, "error creating signer private key")
 	}
 
-	submitPkString, err := globalConfig.ReadFileToString(cfg.Credentials.ProtocolManagerSubmitPrivateKeyFile)
+	submitPkString, err := globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitPrivateKeyFile,
+		cfg.Credentials.ProtocolManagerSubmitPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading submit private key")
 	}
@@ -56,7 +58,8 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 		return nil, errors.Wrap(err, "error creating submit private key")
 	}
 
-	submitSignaturesPkString, err := globalConfig.ReadFileToString(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile)
+	submitSignaturesPkString, err := globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile,
+		cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading submit signatures private key")
 	}

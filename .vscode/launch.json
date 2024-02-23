@@ -11,7 +11,10 @@
             "mode": "auto",
             "program": "${workspaceFolder}/client/main/client.go",
             "args": ["--config", "${workspaceFolder}/config.hardhat.toml"],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "UNSECURE_PRIVATE_KEYS": "true"
+            }
         }
     ]
 }

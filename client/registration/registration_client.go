@@ -60,7 +60,8 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 		return nil, err
 	}
 
-	senderPk, err := config.ReadFileToString(cfg.Credentials.SystemClientSenderPrivateKeyFile)
+	senderPk, err := config.PrivateKeyFromConfig(cfg.Credentials.SystemClientSenderPrivateKeyFile,
+		cfg.Credentials.SystemClientSenderPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading sender private key")
 	}
@@ -69,7 +70,8 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 		return nil, errors.Wrap(err, "error creating sender register tx opts")
 	}
 
-	signerPkString, err := config.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
+	signerPkString, err := config.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
+		cfg.Credentials.SigningPolicyPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading signer private key")
 	}

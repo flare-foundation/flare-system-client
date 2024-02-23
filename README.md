@@ -42,6 +42,14 @@ relay = "0x18b9306737eaf6e8fc8e737f488a1ae077b18053"
 [identity]
 address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity account not private key
 
+# reading the private keys from the file is discouraged, it is only allowed when
+# UNSECURE_PRIVATE_KEYS environment variable is set to true
+#
+# Otherwise the private keys should be set as environment variables
+#  - SYSTEM_CLIENT_SENDER_PRIVATE_KEY
+#  - SIGNING_POLICY_PRIVATE_KEY
+#  - PROTOCOL_MANAGER_SUBMIT_PRIVATE_KEY
+#  - PROTOCOL_MANAGER_SUBMIT_SIGNATURES_PRIVATE_KEY
 [credentials]
 system_client_sender_private_key_file = "../credentials/sender-private-key.txt" # any account
 signing_policy_private_key_file = "../credentials/policy-private-key.txt" # for signing and submitting votes

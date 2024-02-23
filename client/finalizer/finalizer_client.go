@@ -75,7 +75,8 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		return nil, err
 	}
 
-	senderPkString, err := config.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
+	senderPkString, err := config.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
+		cfg.Credentials.SigningPolicyPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading sender private key")
 	}
