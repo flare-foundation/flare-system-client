@@ -136,7 +136,7 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	value := big.NewInt(0) // in wei (1 eth)
 
 	gasLimit := getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
-	gasPrice, err := getGasPrice(gasConfig, client)
+	gasPrice, err := GetGasPrice(gasConfig, client)
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func getGasLimit(gasConfig *config.GasConfig, client *ethclient.Client, fromAddr
 	return gasLimit
 }
 
-func getGasPrice(gasConfig *config.GasConfig, client *ethclient.Client) (*big.Int, error) {
+func GetGasPrice(gasConfig *config.GasConfig, client *ethclient.Client) (*big.Int, error) {
 	var gasPrice *big.Int
 	if gasConfig.GasPriceFixed.Cmp(common.Big0) != 0 {
 		gasPrice = gasConfig.GasPriceFixed

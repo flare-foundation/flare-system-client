@@ -100,6 +100,7 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 
 	registryClient, err := NewRegistryContractClient(
 		ethClient,
+		&cfg.RegisterGas,
 		cfg.ContractAddresses.VoterRegistry,
 		senderTxOpts,
 		signerPk,

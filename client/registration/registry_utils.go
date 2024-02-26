@@ -2,6 +2,7 @@ package registration
 
 import (
 	"crypto/ecdsa"
+	"flare-tlc/client/config"
 	"flare-tlc/client/shared"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
@@ -19,6 +20,7 @@ import (
 
 var (
 	registratorArguments abi.Arguments
+	fallbackGasPrice     = big.NewInt(50 * 1e9)
 )
 
 func init() {
@@ -39,15 +41,18 @@ type registryContractClient interface {
 }
 
 type registryContractClientImpl struct {
+	ethClient        *ethclient.Client
 	address          common.Address
 	registry         *registry.Registry
 	senderTxOpts     *bind.TransactOpts
+	gasCfg           *config.GasConfig
 	txVerifier       *chain.TxVerifier
 	signerPrivateKey *ecdsa.PrivateKey
 }
 
 func NewRegistryContractClient(
 	ethClient *ethclient.Client,
+	gasCfg *config.GasConfig,
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPk *ecdsa.PrivateKey,
@@ -57,9 +62,11 @@ func NewRegistryContractClient(
 		return nil, err
 	}
 	return &registryContractClientImpl{
+		ethClient:        ethClient,
 		address:          address,
 		registry:         registry,
 		senderTxOpts:     senderTxOpts,
+		gasCfg:           gasCfg,
 		txVerifier:       chain.NewTxVerifier(ethClient),
 		signerPrivateKey: signerPk,
 	}, nil
@@ -87,7 +94,17 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 		S: [32]byte(signature[32:64]),
 		V: signature[64] + 27,
 	}
-	r.senderTxOpts.GasPrice = big.NewInt(50 * 1e9)
+
+	gasPrice, err := chain.GetGasPrice(r.gasCfg, r.ethClient)
+	if err != nil {
+		logger.Warn("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
+		gasPrice = fallbackGasPrice
+	}
+
+	if r.gasCfg.GasLimit != 0 {
+		r.senderTxOpts.GasLimit = uint64(r.gasCfg.GasLimit)
+	}
+	r.senderTxOpts.GasPrice = gasPrice
 	tx, err := r.registry.RegisterVoter(r.senderTxOpts, address, vrsSignature)
 	if err != nil {
 		return err
