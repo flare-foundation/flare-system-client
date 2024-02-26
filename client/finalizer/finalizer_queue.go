@@ -117,7 +117,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		if p.isVoterForCurrentEpoch(item) {
 			logger.Debug("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
 
-			p.processItem(item)
+			p.processItem(ctx, item)
 		} else {
 			logger.Debug("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
 
@@ -152,7 +152,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	return voters.Contains(p.relayClient.senderAddress)
 }
 
-func (p *finalizerQueueProcessor) processItem(item *queueItem) {
+func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueItem) {
 	if item == nil {
 		return
 	}
@@ -189,7 +189,7 @@ func (p *finalizerQueueProcessor) processItem(item *queueItem) {
 		return p.index < q.index
 	})
 
-	p.relayClient.SubmitPayloads(selected, data.signingPolicy)
+	p.relayClient.SubmitPayloads(ctx, selected, data.signingPolicy)
 }
 
 func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
@@ -207,7 +207,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error 
 			continue
 		}
 		logger.Debug("Finalizer processes delayed queue item %v", item)
-		p.processItem(item)
+		p.processItem(context.TODO(), item)
 	}
 	return nil
 }
