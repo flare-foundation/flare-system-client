@@ -49,14 +49,119 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestFinalizerClient(t *testing.T) {
+func TestFinalizerClientMainline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var ethClient testEthClient
+	clients, err := setupTest()
+	require.NoError(t, err)
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.RunContext(ctx)
+	})
+
+	require.Eventually(
+		t, clients.eth.hasAnyCalls, 10*time.Second, 100*time.Millisecond,
+	)
+
+	cancel()
+	err = eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Len(t, clients.eth.sentTxs, 1)
+	cupaloy.SnapshotT(t, clients.eth.sentTxs[0])
+}
+
+func TestFinalizerClientSendTxErr(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	clients, err := setupTest()
+	require.NoError(t, err)
+
+	clients.eth.sendTxErr = errors.New("sendRawTx error")
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.RunContext(ctx)
+	})
+
+	require.Eventually(
+		t, clients.eth.hasAnyCalls, 10*time.Second, 100*time.Millisecond,
+	)
+
+	cancel()
+	err = eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Empty(t, clients.eth.sentTxs)
+}
+
+func TestFinalizerClientFetchTxsErr(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	clients, err := setupTest()
+	require.NoError(t, err)
+
+	clients.db.fetchTxsErr = errors.New("fetchTxs error")
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.RunContext(ctx)
+	})
+
+	require.Eventually(
+		t, clients.db.hasAnyFetchTxsCalls, 10*time.Second, 100*time.Millisecond,
+	)
+
+	cancel()
+	err = eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Empty(t, clients.eth.sentTxs)
+}
+
+func TestFinalizerClientFetchLogssErr(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	clients, err := setupTest()
+	require.NoError(t, err)
+
+	clients.db.fetchLogsErr = errors.New("fetchLogs error")
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.RunContext(ctx)
+	})
+
+	err = eg.Wait()
+	require.True(t, errors.Is(err, clients.db.fetchLogsErr), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Empty(t, clients.eth.sentTxs)
+}
+
+type testClients struct {
+	db        *testDB
+	eth       *testEthClient
+	finalizer *finalizerClient
+}
+
+func setupTest() (*testClients, error) {
+	ethClient := new(testEthClient)
 
 	privateKey, err := crypto.HexToECDSA(testPrivateKeyHex)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
@@ -66,13 +171,18 @@ func TestFinalizerClient(t *testing.T) {
 		privateKey,
 		fromAddress,
 	)
-	require.NoError(t, err)
-	relayClient.ethClient = &ethClient
+	if err != nil {
+		return nil, err
+	}
+
+	relayClient.ethClient = ethClient
 
 	submissionStorage := newSubmissionStorage()
 
 	db, err := newTestDB(privateKey)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	fCtx := &finalizerContext{
 		votingEpoch: &utils.Epoch{
@@ -82,7 +192,7 @@ func TestFinalizerClient(t *testing.T) {
 		voterThresholdBIPS: 5000,
 	}
 
-	client := finalizerClient{
+	client := &finalizerClient{
 		db:                   db,
 		relayClient:          relayClient,
 		signingPolicyStorage: newSigningPolicyStorage(),
@@ -94,28 +204,18 @@ func TestFinalizerClient(t *testing.T) {
 		finalizerContext: fCtx,
 	}
 
-	eg, ctx := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		return client.RunContext(ctx)
-	})
-
-	require.Eventually(
-		t, ethClient.hasAnyTx, 10*time.Second, 100*time.Millisecond,
-	)
-
-	cancel()
-	err = eg.Wait()
-	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
-
-	t.Logf("sent transactions: %d", len(ethClient.sentTxs))
-	require.Len(t, ethClient.sentTxs, 1)
-	cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+	return &testClients{
+		db:        db,
+		eth:       ethClient,
+		finalizer: client,
+	}, nil
 }
 
 type testEthClient struct {
-	sentTxs []*sentTxInfo
-	mu      sync.RWMutex
+	calls     int
+	sentTxs   []*sentTxInfo
+	mu        sync.RWMutex
+	sendTxErr error
 }
 
 type sentTxInfo struct {
@@ -128,6 +228,12 @@ func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Addr
 	eth.mu.Lock()
 	defer eth.mu.Unlock()
 
+	eth.calls++
+
+	if eth.sendTxErr != nil {
+		return eth.sendTxErr
+	}
+
 	eth.sentTxs = append(eth.sentTxs, &sentTxInfo{
 		privateKey: privateKey,
 		to:         to,
@@ -137,13 +243,17 @@ func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Addr
 	return nil
 }
 
-func (eth *testEthClient) hasAnyTx() bool {
+func (eth *testEthClient) hasAnyCalls() bool {
 	eth.mu.RLock()
 	defer eth.mu.RUnlock()
-	return len(eth.sentTxs) > 0
+	return eth.calls > 0
 }
 
 type testDB struct {
+	fetchLogsErr     error
+	fetchTxsCalls    int
+	fetchTxsErr      error
+	mu               sync.Mutex
 	spiLog           *database.Log
 	submitterPayload []byte
 }
@@ -163,6 +273,12 @@ func newTestDB(privateKey *ecdsa.PrivateKey) (*testDB, error) {
 		spiLog:           spiLog,
 		submitterPayload: submitterPayload,
 	}, nil
+}
+
+func (db *testDB) hasAnyFetchTxsCalls() bool {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.fetchTxsCalls > 0
 }
 
 func newSPILog(privateKey *ecdsa.PrivateKey) (*database.Log, error) {
@@ -360,6 +476,15 @@ func encodeSubmittedPayload(payload *submittedPayload) ([]byte, error) {
 func (db *testDB) FetchTransactionsByAddressAndSelector(
 	address common.Address, selector []byte, from, to int64,
 ) ([]database.Transaction, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	db.fetchTxsCalls++
+
+	if db.fetchTxsErr != nil {
+		return nil, db.fetchTxsErr
+	}
+
 	logger.Debug("fetching transactions from db: address=%s, selector=%x", address.Hex(), selector)
 	if address != submissionContractAddress {
 		return nil, errors.New("unknown address")
@@ -380,6 +505,13 @@ func (db *testDB) FetchTransactionsByAddressAndSelector(
 func (db *testDB) FetchLogsByAddressAndTopic0(
 	address common.Address, topic string, from, to int64,
 ) ([]database.Log, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if db.fetchLogsErr != nil {
+		return nil, db.fetchLogsErr
+	}
+
 	logger.Debug("fetching logs from db: address=%s, topic=%s", address.Hex(), topic)
 	if topic != topicSPIHex {
 		return nil, errors.New("unknown topic")

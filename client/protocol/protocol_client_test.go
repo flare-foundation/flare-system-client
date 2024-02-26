@@ -94,6 +94,25 @@ func TestSubmitter(t *testing.T) {
 		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
 	})
 
+	t.Run("SubmitterError", func(t *testing.T) {
+		defer ethClient.reset()
+
+		errorStatus := http.StatusInternalServerError
+		apiEndpoint.errorStatus = &errorStatus
+		defer func() { apiEndpoint.errorStatus = nil }()
+
+		submitter := Submitter{
+			SubmitterBase: base,
+		}
+
+		epochID := int64(1)
+		submitter.RunEpoch(epochID)
+
+		t.Logf("sentTxs: %v", ethClient.sentTxs)
+		require.Len(t, ethClient.sentTxs, 1)
+		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+	})
+
 	t.Run("SignatureSubmitter", func(t *testing.T) {
 		defer ethClient.reset()
 
@@ -109,6 +128,26 @@ func TestSubmitter(t *testing.T) {
 		t.Logf("sentTxs: %v", ethClient.sentTxs)
 		require.Len(t, ethClient.sentTxs, 1)
 		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+	})
+
+	t.Run("SignatureSubmitterError", func(t *testing.T) {
+		defer ethClient.reset()
+
+		errorStatus := http.StatusInternalServerError
+		apiEndpoint.errorStatus = &errorStatus
+		defer func() { apiEndpoint.errorStatus = nil }()
+
+		submitter := SignatureSubmitter{
+			SubmitterBase:    base,
+			maxRounds:        1,
+			dataFetchRetries: 1,
+		}
+
+		epochID := int64(1)
+		submitter.RunEpoch(epochID)
+
+		t.Logf("sentTxs: %v", ethClient.sentTxs)
+		require.Empty(t, ethClient.sentTxs)
 	})
 
 	cancel()
@@ -142,7 +181,8 @@ func (c *testEthClient) SendRawTx(
 }
 
 type testAPIEndpoint struct {
-	listener net.Listener
+	listener    net.Listener
+	errorStatus *int
 }
 
 func (ep *testAPIEndpoint) Listen() error {
@@ -196,6 +236,11 @@ func (ep *testAPIEndpoint) Run(ctx context.Context) error {
 
 func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Info("test: handling API request: %+v", r)
+
+	if ep.errorStatus != nil {
+		http.Error(w, "test: error", *ep.errorStatus)
+		return
+	}
 
 	rsp := dataProviderResponse{
 		Status:         "OK",

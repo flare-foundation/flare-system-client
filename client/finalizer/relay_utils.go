@@ -2,6 +2,7 @@ package finalizer
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"flare-tlc/client/config"
 	"flare-tlc/client/shared"
@@ -144,7 +145,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 	return out
 }
 
-func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingPolicy *signingPolicy) {
+func (r *relayContractClient) SubmitPayloads(ctx context.Context, payloads []*signedPayload, signingPolicy *signingPolicy) {
 	if len(payloads) == 0 || signingPolicy == nil {
 		return
 	}
@@ -161,7 +162,7 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 	buffer.Write(signatureBytes)
 	payload := buffer.Bytes()
 
-	execStatus := <-shared.ExecuteWithRetry(func() (any, error) {
+	execStatusChan := shared.ExecuteWithRetry(func() (any, error) {
 		err := r.ethClient.SendRawTx(r.privateKey, r.address, payload)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
@@ -173,8 +174,14 @@ func (r *relayContractClient) SubmitPayloads(payloads []*signedPayload, signingP
 		return nil, nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 
-	if execStatus.Success {
-		logger.Info("Relay tx sent")
+	select {
+	case execStatus := <-execStatusChan:
+		if execStatus.Success {
+			logger.Info("Relay tx sent")
+		}
+
+	case <-ctx.Done():
+		return
 	}
 }
 
