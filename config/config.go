@@ -119,8 +119,8 @@ func ReadFileToString(fileName string) (string, error) {
 	return strings.TrimSpace(string(content)), nil
 }
 
-// Read private key from env variable or file if unsecure private key handling
-// is enabled (UNSECURE_PRIVATE_KEYS)
+// Read private key from env variable or file if insecure private key handling
+// is enabled (INSECURE_PRIVATE_KEYS)
 func PrivateKeyFromConfig(fileName string, envString string) (string, error) {
 	envString = strings.TrimSpace(envString)
 	fileName = strings.TrimSpace(fileName)
@@ -129,8 +129,8 @@ func PrivateKeyFromConfig(fileName string, envString string) (string, error) {
 		return envString, nil
 	}
 	if len(fileName) > 0 {
-		allowUnsecureEnv := strings.ToLower(os.Getenv("UNSECURE_PRIVATE_KEYS"))
-		if allowUnsecureEnv == "true" {
+		allowInsecureEnv := strings.ToLower(os.Getenv("INSECURE_PRIVATE_KEYS"))
+		if allowInsecureEnv == "true" {
 			return ReadFileToString(fileName)
 		} else {
 			return "", errors.New("private keys in files are disabled")

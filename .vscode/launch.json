@@ -13,7 +13,7 @@
             "args": ["--config", "${workspaceFolder}/config.hardhat.toml"],
             "cwd": "${workspaceFolder}",
             "env": {
-                "UNSECURE_PRIVATE_KEYS": "true"
+                "INSECURE_PRIVATE_KEYS": "true"
             }
         }
     ]

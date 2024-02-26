@@ -43,7 +43,7 @@ relay = "0x18b9306737eaf6e8fc8e737f488a1ae077b18053"
 address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity account not private key
 
 # reading the private keys from the file is discouraged, it is only allowed when
-# UNSECURE_PRIVATE_KEYS environment variable is set to true
+# INSECURE_PRIVATE_KEYS environment variable is set to true
 #
 # Otherwise the private keys should be set as environment variables
 #  - SYSTEM_CLIENT_SENDER_PRIVATE_KEY
@@ -98,6 +98,6 @@ gas_limit = 0             # (optional) gas limit for transaction. Defaults to 0,
 
 [gas_register]
 gas_price_multiplier = 0
-gas_price_fixed = 50000000000 # 50 * 1e9 
-gas_limit = 0 
+gas_price_fixed = 50000000000 # 50 * 1e9
+gas_limit = 0
 ```
