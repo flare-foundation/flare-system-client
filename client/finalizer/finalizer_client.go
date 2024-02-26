@@ -7,8 +7,8 @@ import (
 	"flare-tlc/config"
 	"flare-tlc/database"
 	"flare-tlc/logger"
-	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/relay"
+	"flare-tlc/utils/credentials"
 	"fmt"
 	"time"
 
@@ -80,7 +80,7 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading sender private key")
 	}
-	txOpts, senderPk, err := chain.CredentialsFromPrivateKey(senderPkString, chainCfg.ChainID)
+	txOpts, senderPk, err := credentials.CredentialsFromPrivateKey(senderPkString, chainCfg.ChainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating sender register tx opts")
 	}

@@ -99,7 +99,7 @@ func (s *signingPolicyStorage) GetForVotingRound(votingRoundId uint32) (*signing
 	if sp == nil {
 		return nil, false
 	}
-	return sp, sp == s.spList[len(s.spList)-1]
+	return sp, sp.rewardEpochId == s.spList[len(s.spList)-1].rewardEpochId
 }
 
 func (s *signingPolicyStorage) First() *signingPolicy {

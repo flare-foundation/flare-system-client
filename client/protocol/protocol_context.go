@@ -7,6 +7,7 @@ import (
 	globalConfig "flare-tlc/config"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/submission"
+	"flare-tlc/utils/credentials"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -38,32 +39,24 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 	var err error
 
 	// Credentials
-	signerPkString, err := globalConfig.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
+	ctx.signerPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
 		cfg.Credentials.SigningPolicyPrivateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading signer private key")
-	}
-	ctx.signerPrivateKey, err = chain.PrivateKeyFromHex(signerPkString)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating signer private key")
 	}
 
-	submitPkString, err := globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitPrivateKeyFile,
+	ctx.submitPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitPrivateKeyFile,
 		cfg.Credentials.ProtocolManagerSubmitPrivateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading submit private key")
-	}
-	ctx.submitPrivateKey, err = chain.PrivateKeyFromHex(submitPkString)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating submit private key")
 	}
 
-	submitSignaturesPkString, err := globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile,
+	submitSignaturesPk, err := globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile,
 		cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading submit signatures private key")
 	}
-	ctx.submitSignaturesTxOpts, _, err = chain.CredentialsFromPrivateKey(submitSignaturesPkString, chainID)
+	ctx.submitSignaturesTxOpts, _, err = credentials.CredentialsFromPrivateKey(submitSignaturesPk, chainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating submit signatures tx opts")
 	}
