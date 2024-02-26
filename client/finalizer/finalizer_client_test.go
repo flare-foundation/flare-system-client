@@ -249,13 +249,6 @@ func (eth *testEthClient) hasAnyCalls() bool {
 	return eth.calls > 0
 }
 
-func (eth *testEthClient) reset() {
-	eth.mu.Lock()
-	defer eth.mu.Unlock()
-	eth.calls = 0
-	eth.sentTxs = nil
-}
-
 type testDB struct {
 	fetchLogsErr     error
 	fetchTxsCalls    int
