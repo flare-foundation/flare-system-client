@@ -7,7 +7,6 @@ import (
 	"flare-tlc/client/config"
 	"flare-tlc/logger"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -83,41 +82,6 @@ func unpackError(result []byte) (string, error) {
 		return "<invalid tx result>", errors.Wrap(err, "unpacking revert reason")
 	}
 	return vs[0].(string), nil
-}
-
-func TransactOptsFromPrivateKey(privateKey string, chainID int) (*bind.TransactOpts, error) {
-	opts, _, err := CredentialsFromPrivateKey(privateKey, chainID)
-	return opts, err
-}
-
-func CredentialsFromPrivateKey(privateKey string, chainID int) (*bind.TransactOpts, *ecdsa.PrivateKey, error) {
-	pk, err := PrivateKeyFromHex(privateKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	opts, err := bind.NewKeyedTransactorWithChainID(
-		pk, big.NewInt(int64(chainID)),
-	)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
-	}
-	// bind.N
-	return opts, pk, nil
-}
-
-func PrivateKeyFromHex(privateKey string) (*ecdsa.PrivateKey, error) {
-	if len(privateKey) < 2 {
-		return nil, errors.New("privateKey is too short")
-	}
-
-	privateKey = strings.TrimPrefix(privateKey, "0x")
-
-	pk, err := crypto.HexToECDSA(privateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "crypto.HexToECDSA")
-	}
-	return pk, nil
 }
 
 func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, gasConfig *config.GasConfig) error {

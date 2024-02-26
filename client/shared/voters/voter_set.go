@@ -55,10 +55,16 @@ func NewVoterSet(voters []common.Address, weights []uint16) *VoterSet {
 // Initial seed for random voter selection for finalization reward calculation.
 // Initial seed is calculated as a hash of protocol ID and voting round ID.
 // The seed is used for the first random.
-func InitialHashSeed(protocolId byte, votingRoundId uint32) common.Hash {
-	seed := make([]byte, 64)
-	seed[31] = protocolId
-	binary.BigEndian.PutUint32(seed[60:64], votingRoundId)
+func InitialHashSeed(rewardEpochSeed *big.Int, protocolId byte, votingRoundId uint32) common.Hash {
+	seed := make([]byte, 96)
+	// 0-31 bytes are filled with the reward epoch seed
+	if rewardEpochSeed != nil {
+		rewardEpochSeed.FillBytes(seed[0:32])
+	}
+	// 32-63 bytes are filled with the protocol ID
+	seed[63] = protocolId
+	// 64-95 bytes are filled with the voting round ID
+	binary.BigEndian.PutUint32(seed[92:96], votingRoundId)
 	return common.BytesToHash(crypto.Keccak256(seed))
 }
 
@@ -72,8 +78,8 @@ func RandomNumberSequence(initialSeed common.Hash, length int) []common.Hash {
 	return sequence
 }
 
-func (vs *VoterSet) SelectVoters(protocolId byte, votingRoundId uint32, thresholdBIPS uint16) (mapset.Set[common.Address], error) {
-	seed := InitialHashSeed(protocolId, votingRoundId)
+func (vs *VoterSet) SelectVoters(rewardEpochSeed *big.Int, protocolId byte, votingRoundId uint32, thresholdBIPS uint16) (mapset.Set[common.Address], error) {
+	seed := InitialHashSeed(rewardEpochSeed, protocolId, votingRoundId)
 	return vs.RandomSelectThresholdWeightVoters(seed, thresholdBIPS)
 }
 

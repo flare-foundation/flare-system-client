@@ -44,15 +44,19 @@ type IdentityConfig struct {
 type CredentialsConfig struct {
 	// Sign all data
 	SigningPolicyPrivateKeyFile string `toml:"signing_policy_private_key_file"`
+	SigningPolicyPrivateKey     string `toml:"-" envconfig:"SIGNING_POLICY_PRIVATE_KEY"`
 
 	// Send RegisterVoter and SignNewSigningPolicy transactions
 	SystemClientSenderPrivateKeyFile string `toml:"system_client_sender_private_key_file"`
+	SystemClientSenderPrivateKey     string `toml:"-" envconfig:"SYSTEM_CLIENT_SENDER_PRIVATE_KEY"`
 
 	// Submit protocol data (submit1, submit2, submit3)
 	ProtocolManagerSubmitPrivateKeyFile string `toml:"protocol_manager_submit_private_key_file"`
+	ProtocolManagerSubmitPrivateKey     string `toml:"-" envconfig:"PROTOCOL_MANAGER_SUBMIT_PRIVATE_KEY"`
 
 	// Submit protocol signatures
 	ProtocolManagerSubmitSignaturesPrivateKeyFile string `toml:"protocol_manager_submit_signatures_private_key_file"`
+	ProtocolManagerSubmitSignaturesPrivateKey     string `toml:"-" envconfig:"PROTOCOL_MANAGER_SUBMIT_SIGNATURES_PRIVATE_KEY"`
 }
 
 type SubmitConfig struct {

@@ -8,9 +8,14 @@ import (
 )
 
 type messageData struct {
-	payload       []*signedPayload
-	weight        uint16
-	signingPolicy *signingPolicy
+	payload          []*signedPayload
+	weight           uint16
+	signingPolicy    *signingPolicy
+	thresholdReached bool
+}
+
+type MessageThresholdProvider interface {
+	MessageThreshold(votingRound uint16) bool
 }
 
 type votingRoundKey struct {
@@ -32,13 +37,33 @@ type submissionStorage struct {
 }
 
 type addPayloadResult struct {
-	added            bool
 	message          *messageData
 	thresholdReached bool // true if the threshold was reached after adding this payload (and was below before)
 }
 
-func (m *messageData) thresholdReached() bool {
-	return m.weight > m.signingPolicy.threshold
+func newMessageData(sp *signingPolicy) *messageData {
+	return &messageData{
+		payload:       make([]*signedPayload, sp.voters.Count()),
+		signingPolicy: sp,
+	}
+}
+
+func (m *messageData) addPayload(p *signedPayload, threshold uint16) error {
+	voterIndex := m.signingPolicy.voters.VoterIndex(p.signer)
+	if voterIndex < 0 {
+		return fmt.Errorf("signer %s is not a voter", p.signer.Hex())
+	}
+	if m.payload[voterIndex] != nil {
+		return nil // already added
+	}
+	p.index = voterIndex
+
+	m.payload[voterIndex] = p
+	m.weight += m.signingPolicy.voters.VoterWeight(voterIndex)
+	if !m.thresholdReached {
+		m.thresholdReached = m.weight > threshold
+	}
+	return nil
 }
 
 func newSubmissionStorage() *submissionStorage {
@@ -50,7 +75,7 @@ func newSubmissionStorage() *submissionStorage {
 // Add adds a signed payload to the submission storage
 // The provided signing policy must be the signing policy for the voting round
 // Returns true if the payload was added, false if it was already added
-func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayloadResult, error) {
+func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy, threshold uint16) (addPayloadResult, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -68,29 +93,19 @@ func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy) (addPayload
 	}
 	message, ok := vrItem.msgMap[key]
 	if !ok {
-		message = &messageData{
-			payload:       make([]*signedPayload, sp.voters.Count()),
-			signingPolicy: sp,
-		}
+		message = newMessageData(sp)
 		vrItem.msgMap[key] = message
 	}
 
-	voterIndex := sp.voters.VoterIndex(p.signer)
-	if voterIndex < 0 {
-		return addPayloadResult{}, fmt.Errorf("signer %s is not a voter", p.signer.Hex())
+	// Add the payload to the message
+	thresholdAlreadyReached := message.thresholdReached
+	err := message.addPayload(p, threshold)
+	if err != nil {
+		return addPayloadResult{}, err
 	}
-	if message.payload[voterIndex] != nil {
-		return addPayloadResult{added: false}, nil // already added
-	}
-	p.index = voterIndex
-	thresholdAlreadyReached := message.thresholdReached()
-
-	message.payload[voterIndex] = p
-	message.weight += sp.voters.VoterWeight(voterIndex)
 	return addPayloadResult{
-		added:            true,
 		message:          message,
-		thresholdReached: !thresholdAlreadyReached && message.thresholdReached(),
+		thresholdReached: !thresholdAlreadyReached && message.thresholdReached,
 	}, nil
 }
 

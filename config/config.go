@@ -1,6 +1,9 @@
 package config
 
 import (
+	"crypto/ecdsa"
+	"errors"
+	"flare-tlc/utils/credentials"
 	"fmt"
 	"net/url"
 	"os"
@@ -116,4 +119,33 @@ func ReadFileToString(fileName string) (string, error) {
 		return "", fmt.Errorf("error opening file: %w", err)
 	}
 	return strings.TrimSpace(string(content)), nil
+}
+
+// Read private key from env variable or file if insecure private key handling
+// is enabled (INSECURE_PRIVATE_KEYS)
+func PrivateKeyFromConfig(fileName string, envString string) (pk *ecdsa.PrivateKey, err error) {
+	envString = strings.TrimSpace(envString)
+	fileName = strings.TrimSpace(fileName)
+
+	var pkString string
+	if len(envString) > 0 {
+		pkString = envString
+	} else if len(fileName) > 0 {
+		allowInsecureEnv := strings.ToLower(os.Getenv("INSECURE_PRIVATE_KEYS"))
+		if allowInsecureEnv == "true" {
+			pkString, err = ReadFileToString(fileName)
+			if err != nil {
+				return nil, fmt.Errorf("error reading private key from file: %w", err)
+			}
+		} else {
+			return nil, errors.New("private keys in files are disabled")
+		}
+	} else {
+		return nil, errors.New("no private key specified")
+	}
+	pk, err = credentials.PrivateKeyFromHex(pkString)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing private key: %w", err)
+	}
+	return pk, nil
 }

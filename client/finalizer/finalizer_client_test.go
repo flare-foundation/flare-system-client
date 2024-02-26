@@ -189,6 +189,10 @@ func setupTest() (*testClients, error) {
 			Start:  time.Unix(0, 0),
 			Period: time.Hour,
 		},
+		rewardEpoch: &utils.IntEpoch{
+			Start:  0,
+			Period: 100,
+		},
 		voterThresholdBIPS: 5000,
 	}
 

@@ -7,8 +7,8 @@ import (
 	"flare-tlc/config"
 	"flare-tlc/database"
 	"flare-tlc/logger"
-	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/system"
+	"flare-tlc/utils/contracts/relay"
+	"flare-tlc/utils/credentials"
 	"fmt"
 	"time"
 
@@ -66,20 +66,21 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 		return nil, err
 	}
 
-	systemsManager, err := system.NewFlareSystemsManager(cfg.ContractAddresses.SystemsManager, ethClient)
+	relay, err := relay.NewRelay(cfg.ContractAddresses.Relay, ethClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating system manager contract")
+		return nil, errors.Wrap(err, "error creating relay contract")
 	}
-	finalizerContext, err := newFinalizerContext(cfg, systemsManager)
+	finalizerContext, err := newFinalizerContext(cfg, relay)
 	if err != nil {
 		return nil, err
 	}
 
-	senderPkString, err := config.ReadFileToString(cfg.Credentials.SigningPolicyPrivateKeyFile)
+	senderPkString, err := config.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
+		cfg.Credentials.SigningPolicyPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading sender private key")
 	}
-	txOpts, senderPk, err := chain.CredentialsFromPrivateKey(senderPkString, chainCfg.ChainID)
+	txOpts, senderPk, err := credentials.CredentialsFromPrivateKey(senderPkString, chainCfg.ChainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating sender register tx opts")
 	}
@@ -196,8 +197,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		if !c.checkVotingRoundTime(payloadItem.votingRoundId) {
 			continue
 		}
-
-		sp := c.signingPolicyStorage.GetForVotingRound(payloadItem.votingRoundId)
+		sp, threshold := c.signingPolicyData(payloadItem.votingRoundId)
 		if sp == nil {
 			first := c.signingPolicyStorage.First()
 			if first != nil && payloadItem.votingRoundId < first.startVotingRoundId {
@@ -207,8 +207,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)
 		}
-
-		addResult, err := c.submissionStorage.Add(payloadItem.payload, sp)
+		addResult, err := c.submissionStorage.Add(payloadItem.payload, sp, threshold)
 		if err != nil {
 			// Error is non-fatal, skip this submission
 			logger.Warn("Error adding submission %v", err)
@@ -216,13 +215,32 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		}
 		if addResult.thresholdReached {
 			logger.Info("Threshold reached for voting round %d and hash %v", payloadItem.votingRoundId, payloadItem.payload.messageHash)
-			c.queueProcessor.Add(payloadItem)
+			c.queueProcessor.Add(payloadItem, sp.seed)
 		}
 	}
 	return nil
 }
 
-// Return true if voting round in not in the future, i.e., is <= the current voting round
+// return signing policy and voting threshold for the given voting round
+func (c *finalizerClient) signingPolicyData(votingRoundId uint32) (*signingPolicy, uint16) {
+	sp, last := c.signingPolicyStorage.GetForVotingRound(votingRoundId)
+	if sp == nil {
+		return nil, 0
+	}
+	if !last {
+		return sp, sp.threshold
+	}
+	endVotingEpoch := c.finalizerContext.rewardEpoch.EndEpoch(sp.rewardEpochId)
+	end := c.finalizerContext.votingEpoch.EndTime(endVotingEpoch)
+
+	if time.Now().Before(end) {
+		return sp, sp.threshold
+	} else {
+		return sp, uint16((uint32(sp.voters.TotalWeight()) * 60) / 100)
+	}
+}
+
+// Return true if voting round is not in the future, i.e., is <= the current voting round
 func (c *finalizerClient) checkVotingRoundTime(votingRoundId uint32) bool {
 	currentEpochId := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
 	return votingRoundId <= uint32(currentEpochId)
