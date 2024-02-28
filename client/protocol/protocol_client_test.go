@@ -73,10 +73,11 @@ func TestSubmitter(t *testing.T) {
 			submitAddress:              address,
 			submitSignaturesAddress:    address,
 		},
-		epoch:         &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
-		subProtocols:  []*SubProtocol{subProtocol},
-		submitRetries: 1,
-		name:          "test",
+		epoch:            &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
+		subProtocols:     []*SubProtocol{subProtocol},
+		submitRetries:    1,
+		name:             "test",
+		submitPrivateKey: privKey,
 	}
 
 	t.Run("Submitter", func(t *testing.T) {
