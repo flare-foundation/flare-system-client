@@ -7,22 +7,21 @@ import (
 	globalConfig "flare-tlc/config"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/submission"
-	"flare-tlc/utils/credentials"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
 // Private keys and addresses needed for protocol voter
 type protocolContext struct {
-	submitPrivateKey       *ecdsa.PrivateKey  // sign tx for submit1, submit2, submit3
-	submitSignaturesTxOpts *bind.TransactOpts // submitSignatures
-	signerPrivateKey       *ecdsa.PrivateKey  // sign data for submitSignatures
+	submitPrivateKey           *ecdsa.PrivateKey // sign tx for submit1, submit2, submit3
+	submitSignaturesPrivateKey *ecdsa.PrivateKey // submitSignatures
+	signerPrivateKey           *ecdsa.PrivateKey // sign data for submitSignatures
 
-	submitContractAddress common.Address
-	signingAddress        common.Address // address of signerPrivateKey
-	submitAddress         common.Address // address of submitPrivateKey
+	submitContractAddress   common.Address
+	signingAddress          common.Address // address of signerPrivateKey
+	submitAddress           common.Address // address of submitPrivateKey
+	submitSignaturesAddress common.Address // address of submitSignaturesPrivateKey
 }
 
 type contractSelectors struct {
@@ -35,7 +34,6 @@ type contractSelectors struct {
 func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 	ctx := &protocolContext{}
 
-	chainID := cfg.ChainConfig().ChainID
 	var err error
 
 	// Credentials
@@ -51,14 +49,10 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 		return nil, errors.Wrap(err, "error creating submit private key")
 	}
 
-	submitSignaturesPk, err := globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile,
+	ctx.submitSignaturesPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile,
 		cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading submit signatures private key")
-	}
-	ctx.submitSignaturesTxOpts, _, err = credentials.CredentialsFromPrivateKey(submitSignaturesPk, chainID)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating submit signatures tx opts")
 	}
 
 	// Addresses
@@ -69,6 +63,10 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 	ctx.submitAddress, err = chain.PrivateKeyToEthAddress(ctx.submitPrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting submit address")
+	}
+	ctx.submitSignaturesAddress, err = chain.PrivateKeyToEthAddress(ctx.submitSignaturesPrivateKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting submit signatures address")
 	}
 	ctx.submitContractAddress = cfg.ContractAddresses.Submission
 

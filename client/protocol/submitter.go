@@ -35,9 +35,10 @@ type SubmitterBase struct {
 	selector     []byte
 	subProtocols []*SubProtocol
 
-	startOffset   time.Duration
-	submitRetries int    // number of retries for submitting tx
-	name          string // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
+	startOffset      time.Duration
+	submitRetries    int    // number of retries for submitting tx
+	name             string // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
+	submitPrivateKey *ecdsa.PrivateKey
 }
 
 type submitterEthClient interface {
@@ -67,7 +68,7 @@ type SignatureSubmitter struct {
 
 func (s *SubmitterBase) submit(payload []byte) bool {
 	sendResult := <-shared.ExecuteWithRetry(func() (any, error) {
-		err := s.ethClient.SendRawTx(s.protocolContext.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
+		err := s.ethClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
@@ -96,15 +97,16 @@ func newSubmitter(
 ) *Submitter {
 	return &Submitter{
 		SubmitterBase: SubmitterBase{
-			ethClient:       submitterEthClientImpl{ethClient: ethClient},
-			gasConfig:       gasCfg,
-			protocolContext: pc,
-			epoch:           epoch,
-			selector:        selector,
-			subProtocols:    subProtocols,
-			startOffset:     submitCfg.StartOffset,
-			submitRetries:   max(1, submitCfg.TxSubmitRetries),
-			name:            name,
+			ethClient:        submitterEthClientImpl{ethClient: ethClient},
+			gasConfig:        gasCfg,
+			protocolContext:  pc,
+			epoch:            epoch,
+			selector:         selector,
+			subProtocols:     subProtocols,
+			startOffset:      submitCfg.StartOffset,
+			submitRetries:    max(1, submitCfg.TxSubmitRetries),
+			name:             name,
+			submitPrivateKey: pc.submitPrivateKey,
 		},
 		epochOffset: epochOffset,
 	}
@@ -157,15 +159,16 @@ func newSignatureSubmitter(
 ) *SignatureSubmitter {
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
-			ethClient:       submitterEthClientImpl{ethClient: ethClient},
-			gasConfig:       gasCfg,
-			protocolContext: pc,
-			epoch:           epoch,
-			startOffset:     submitCfg.StartOffset,
-			selector:        selector,
-			subProtocols:    subProtocols,
-			submitRetries:   max(1, submitCfg.TxSubmitRetries),
-			name:            "submitSignatures",
+			ethClient:        submitterEthClientImpl{ethClient: ethClient},
+			gasConfig:        gasCfg,
+			protocolContext:  pc,
+			epoch:            epoch,
+			startOffset:      submitCfg.StartOffset,
+			selector:         selector,
+			subProtocols:     subProtocols,
+			submitRetries:    max(1, submitCfg.TxSubmitRetries),
+			name:             "submitSignatures",
+			submitPrivateKey: pc.submitSignaturesPrivateKey,
 		},
 		maxRounds:        submitCfg.MaxRounds,
 		dataFetchRetries: submitCfg.DataFetchRetries,
@@ -218,7 +221,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 			channels[i] = protocol.getDataWithRetry(
 				currentEpoch-1,
 				"submitSignatures",
-				s.protocolContext.submitSignaturesTxOpts.From.Hex(),
+				s.protocolContext.submitSignaturesAddress.Hex(),
 				s.dataFetchRetries,
 				signatureSubmitterDataTimeout,
 				SignatureSubmitterDataVerifier,

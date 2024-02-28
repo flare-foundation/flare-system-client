@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/bradleyjkemp/cupaloy"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -66,17 +65,19 @@ func TestSubmitter(t *testing.T) {
 		ethClient: &ethClient,
 		gasConfig: &clientConfig.GasConfig{},
 		protocolContext: &protocolContext{
-			submitPrivateKey:       privKey,
-			submitSignaturesTxOpts: &bind.TransactOpts{From: address},
-			signerPrivateKey:       privKey,
-			submitContractAddress:  common.HexToAddress(submitContractAddress),
-			signingAddress:         address,
-			submitAddress:          address,
+			submitPrivateKey:           privKey,
+			signerPrivateKey:           privKey,
+			submitSignaturesPrivateKey: privKey,
+			submitContractAddress:      common.HexToAddress(submitContractAddress),
+			signingAddress:             address,
+			submitAddress:              address,
+			submitSignaturesAddress:    address,
 		},
-		epoch:         &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
-		subProtocols:  []*SubProtocol{subProtocol},
-		submitRetries: 1,
-		name:          "test",
+		epoch:            &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
+		subProtocols:     []*SubProtocol{subProtocol},
+		submitRetries:    1,
+		name:             "test",
+		submitPrivateKey: privKey,
 	}
 
 	t.Run("Submitter", func(t *testing.T) {
