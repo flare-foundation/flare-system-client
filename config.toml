@@ -65,7 +65,7 @@ starting_voting_round = 1005
 start_offset = "500s"
 grace_period_end_offset = "17s"
 
-[gas_submit]             
-gas_price_multiplier = 1.5 
+[gas_submit]
+gas_price_multiplier = 1.5
 gas_price_fixed = 0
-gas_limit = 0   
+gas_limit = 0
