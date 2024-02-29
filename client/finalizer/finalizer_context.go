@@ -27,9 +27,13 @@ func newFinalizerContext(cfg *config.ClientConfig, relay *relay.Relay) (*finaliz
 	if err != nil {
 		return nil, err
 	}
+	startingVotingRound := cfg.Finalizer.StartingVotingRound
+	if startingVotingRound == 0 {
+		startingVotingRound = uint32(votingEpoch.EpochIndex(time.Now()))
+	}
 	return &finalizerContext{
 		startingRewardEpoch:  cfg.Finalizer.StartingRewardEpoch,
-		startingVotingRound:  cfg.Finalizer.StartingVotingRound,
+		startingVotingRound:  startingVotingRound,
 		startTimeOffset:      cfg.Finalizer.StartOffset,
 		voterThresholdBIPS:   cfg.Finalizer.VoterThresholdBIPS,
 		gracePeriodEndOffset: cfg.Finalizer.GracePeriodEndOffset,
