@@ -46,17 +46,25 @@ id = 1
 api_endpoint = "http://localhost:3100/"
 
 [submit1]
+enabled = true
 start_offset = "2s"
 tx_submit_retries = 1
+data_fetch_retries = 1
+data_fetch_timeout = "5s"
 
 [submit2]
+enabled = true
 start_offset = "5s"
 tx_submit_retries = 1
+data_fetch_retries = 1
+data_fetch_timeout = "5s"
 
 [submit_signatures]
+enabled = true
 start_offset = "12s"
 tx_submit_retries = 1
 data_fetch_retries = 1
+data_fetch_timeout = "5s"
 max_rounds = 3
 
 [finalizer]
