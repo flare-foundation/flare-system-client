@@ -210,7 +210,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		addResult, err := c.submissionStorage.Add(payloadItem.payload, sp, threshold)
 		if err != nil {
 			// Error is non-fatal, skip this submission
-			logger.Warn("Error adding submission %v", err)
+			logger.Warn("Skipping submission %v", err)
 			continue
 		}
 		if addResult.thresholdReached {

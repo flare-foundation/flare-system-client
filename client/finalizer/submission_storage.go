@@ -51,7 +51,7 @@ func newMessageData(sp *signingPolicy) *messageData {
 func (m *messageData) addPayload(p *signedPayload, threshold uint16) error {
 	voterIndex := m.signingPolicy.voters.VoterIndex(p.signer)
 	if voterIndex < 0 {
-		return fmt.Errorf("signer %s is not a voter", p.signer.Hex())
+		return fmt.Errorf("signer %s is not a registered voter in the current reward epoch", p.signer.Hex())
 	}
 	if m.payload[voterIndex] != nil {
 		return nil // already added
