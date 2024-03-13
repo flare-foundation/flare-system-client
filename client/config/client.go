@@ -59,17 +59,24 @@ type CredentialsConfig struct {
 	ProtocolManagerSubmitSignaturesPrivateKey     string `toml:"-" envconfig:"PROTOCOL_MANAGER_SUBMIT_SIGNATURES_PRIVATE_KEY"`
 }
 
+var defaultSubmitConfig = SubmitConfig{
+	Enabled:          true,
+	DataFetchRetries: 1,
+	DataFetchTimeout: 5 * time.Second,
+}
+
 type SubmitConfig struct {
-	// offset from the start of the epoch
-	StartOffset     time.Duration `toml:"start_offset"`
-	TxSubmitRetries int           `toml:"tx_submit_retries"`
+	Enabled          bool          `toml:"enabled"`
+	StartOffset      time.Duration `toml:"start_offset"` // offset from the start of the epoch
+	TxSubmitRetries  int           `toml:"tx_submit_retries"`
+	DataFetchRetries int           `toml:"data_fetch_retries"`
+	DataFetchTimeout time.Duration `toml:"data_fetch_timeout"`
 }
 
 type SubmitSignaturesConfig struct {
 	SubmitConfig
 
-	DataFetchRetries int `toml:"data_fetch_retries"`
-	MaxRounds        int `toml:"max_rounds"`
+	MaxRounds int `toml:"max_rounds"`
 }
 
 type VotingClientsConfig struct {
@@ -106,6 +113,11 @@ func newConfig() *ClientConfig {
 		Finalizer: FinalizerConfig{
 			StartOffset:        7 * 24 * time.Hour,
 			VoterThresholdBIPS: 500,
+		},
+		Submit1: defaultSubmitConfig,
+		Submit2: defaultSubmitConfig,
+		SubmitSignatures: SubmitSignaturesConfig{
+			SubmitConfig: defaultSubmitConfig,
 		},
 	}
 }

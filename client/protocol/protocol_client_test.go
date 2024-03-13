@@ -76,6 +76,8 @@ func TestSubmitter(t *testing.T) {
 		epoch:            &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
 		subProtocols:     []*SubProtocol{subProtocol},
 		submitRetries:    1,
+		dataFetchRetries: 1,
+		dataFetchTimeout: 1 * time.Second,
 		name:             "test",
 		submitPrivateKey: privKey,
 	}
@@ -118,9 +120,8 @@ func TestSubmitter(t *testing.T) {
 		defer ethClient.reset()
 
 		submitter := SignatureSubmitter{
-			SubmitterBase:    base,
-			maxRounds:        1,
-			dataFetchRetries: 1,
+			SubmitterBase: base,
+			maxRounds:     1,
 		}
 
 		epochID := int64(1)
@@ -139,9 +140,8 @@ func TestSubmitter(t *testing.T) {
 		defer func() { apiEndpoint.errorStatus = nil }()
 
 		submitter := SignatureSubmitter{
-			SubmitterBase:    base,
-			maxRounds:        1,
-			dataFetchRetries: 1,
+			SubmitterBase: base,
+			maxRounds:     1,
 		}
 
 		epochID := int64(1)

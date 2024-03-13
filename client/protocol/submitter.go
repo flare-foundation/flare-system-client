@@ -20,11 +20,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	submitterGetDataTimeout       = 5 * time.Second
-	signatureSubmitterDataTimeout = 1 * time.Second
-)
-
 type SubmitterBase struct {
 	ethClient submitterEthClient
 	gasConfig *config.GasConfig
@@ -39,6 +34,9 @@ type SubmitterBase struct {
 	submitRetries    int    // number of retries for submitting tx
 	name             string // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
 	submitPrivateKey *ecdsa.PrivateKey
+
+	dataFetchRetries int           // number of retries for fetching data of each provider
+	dataFetchTimeout time.Duration // timeout for fetching data of each provider
 }
 
 type submitterEthClient interface {
@@ -62,8 +60,7 @@ type Submitter struct {
 type SignatureSubmitter struct {
 	SubmitterBase
 
-	maxRounds        int // number of rounds for sending submitSignatures tx
-	dataFetchRetries int // number of retries for fetching data of each provider
+	maxRounds int // number of rounds for sending submitSignatures tx
 }
 
 func (s *SubmitterBase) submit(payload []byte) bool {
@@ -107,6 +104,8 @@ func newSubmitter(
 			submitRetries:    max(1, submitCfg.TxSubmitRetries),
 			name:             name,
 			submitPrivateKey: pc.submitPrivateKey,
+			dataFetchRetries: submitCfg.DataFetchRetries,
+			dataFetchTimeout: submitCfg.DataFetchTimeout,
 		},
 		epochOffset: epochOffset,
 	}
@@ -119,8 +118,8 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 			currentEpoch+s.epochOffset,
 			s.name,
 			s.protocolContext.submitAddress.Hex(),
-			1,
-			submitterGetDataTimeout,
+			s.dataFetchRetries,
+			s.dataFetchTimeout,
 			IdentityDataVerifier,
 		)
 	}
@@ -169,9 +168,10 @@ func newSignatureSubmitter(
 			submitRetries:    max(1, submitCfg.TxSubmitRetries),
 			name:             "submitSignatures",
 			submitPrivateKey: pc.submitSignaturesPrivateKey,
+			dataFetchTimeout: submitCfg.DataFetchTimeout,
+			dataFetchRetries: submitCfg.DataFetchRetries,
 		},
-		maxRounds:        submitCfg.MaxRounds,
-		dataFetchRetries: submitCfg.DataFetchRetries,
+		maxRounds: submitCfg.MaxRounds,
 	}
 }
 
@@ -223,7 +223,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 				"submitSignatures",
 				s.protocolContext.submitSignaturesAddress.Hex(),
 				s.dataFetchRetries,
-				signatureSubmitterDataTimeout,
+				s.dataFetchTimeout,
 				SignatureSubmitterDataVerifier,
 			)
 		}
