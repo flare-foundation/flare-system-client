@@ -126,14 +126,22 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(s.selector)
+
+	dataReceived := false
 	for _, channel := range channels {
 		data := <-channel
 		if !data.Success || data.Value.Status != "OK" {
 			logger.Error("error getting data for submitter %s: %s", s.name, data.Message)
 			continue
 		}
+		dataReceived = true
 		buffer.Write(data.Value.Data)
 	}
+
+	if !dataReceived {
+		return nil, nil
+	}
+
 	return buffer.Bytes(), nil
 }
 
@@ -142,8 +150,15 @@ func (s *Submitter) RunEpoch(currentEpoch int64) {
 	logger.Debug("  epoch is [%v, %v], now is %v", s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch), time.Now())
 
 	payload, err := s.GetPayload(currentEpoch)
-	if err == nil {
+
+	if err != nil {
+		logger.Error("error getting payload for submitter %s: %v", s.name, err)
+		return
+	}
+	if payload != nil {
 		s.submit(payload)
+	} else {
+		logger.Info("submitter %s did not get any data, skipping submission", s.name)
 	}
 }
 

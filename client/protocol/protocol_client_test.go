@@ -112,8 +112,7 @@ func TestSubmitter(t *testing.T) {
 		submitter.RunEpoch(epochID)
 
 		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Len(t, ethClient.sentTxs, 1)
-		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+		require.Empty(t, ethClient.sentTxs)
 	})
 
 	t.Run("SignatureSubmitter", func(t *testing.T) {
