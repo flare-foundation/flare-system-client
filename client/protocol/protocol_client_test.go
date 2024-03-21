@@ -264,3 +264,70 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("test: response sent")
 }
+
+func TestWaitUntilRegistered(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	submitterAddress := common.HexToAddress("0x26B40970948D74d60f37911d1276fF940D8648a4")
+
+	registry := testRegistry{
+		submitterAddress: submitterAddress,
+		registeredEpoch:  3,
+	}
+	client := ProtocolClient{
+		protocolContext: &protocolContext{submitAddress: submitterAddress},
+		registry:        &registry,
+		rewardEpoch:     utils.NewEpoch(time.Now(), 100*time.Millisecond),
+	}
+
+	err := client.waitUntilRegistered(ctx)
+	require.NoError(t, err)
+
+	currentEpoch := client.rewardEpoch.EpochIndex(time.Now())
+	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
+}
+
+func TestWaitUntilRegisteredTransientError(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	submitterAddress := common.HexToAddress("0x26B40970948D74d60f37911d1276fF940D8648a4")
+
+	registry := testRegistry{
+		submitterAddress:    submitterAddress,
+		registeredEpoch:     0,
+		transientErrorCount: 3,
+	}
+	client := ProtocolClient{
+		protocolContext: &protocolContext{submitAddress: submitterAddress},
+		registry:        &registry,
+		rewardEpoch:     utils.NewEpoch(time.Now(), time.Minute),
+	}
+
+	err := client.waitUntilRegistered(ctx)
+	require.NoError(t, err)
+
+	currentEpoch := client.rewardEpoch.EpochIndex(time.Now())
+	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
+}
+
+type testRegistry struct {
+	submitterAddress    common.Address
+	registeredEpoch     int64
+	transientErrorCount int
+}
+
+func (r *testRegistry) IsVoterRegistered(ctx context.Context, address common.Address, epoch int64) (bool, error) {
+	if address != r.submitterAddress {
+		return false, errors.New("unknown address")
+	}
+
+	if r.transientErrorCount > 0 {
+		r.transientErrorCount--
+		return false, errors.New("transient error")
+	}
+
+	return epoch >= r.registeredEpoch, nil
+
+}
