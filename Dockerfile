@@ -23,6 +23,5 @@ RUN apt-get -y update && apt-get -y install curl
 WORKDIR /app
 COPY --from=builder /app/flare_tcp .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY ./docker/client/config.toml ./config.toml
 
 CMD ["./flare_tcp", "--config", "config.toml" ]

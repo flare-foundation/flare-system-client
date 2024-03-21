@@ -104,13 +104,24 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 
 	selectors := newContractSelectors()
 
-	pc.submitter1 = newSubmitter(cl, protocolContext, votingEpoch,
-		&cfg.Submit1, &cfg.SubmitGas, selectors.submit1, subProtocols, 0, "submit1")
-	pc.submitter2 = newSubmitter(cl, protocolContext, votingEpoch,
-		&cfg.Submit2, &cfg.SubmitGas, selectors.submit2, subProtocols, -1, "submit2")
-	pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingEpoch,
-		&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols)
-
+	if cfg.Submit1.Enabled {
+		pc.submitter1 = newSubmitter(cl, protocolContext, votingEpoch,
+			&cfg.Submit1, &cfg.SubmitGas, selectors.submit1, subProtocols, 0, "submit1")
+	} else {
+		logger.Warn("submit1 is disabled")
+	}
+	if cfg.Submit2.Enabled {
+		pc.submitter2 = newSubmitter(cl, protocolContext, votingEpoch,
+			&cfg.Submit2, &cfg.SubmitGas, selectors.submit2, subProtocols, -1, "submit2")
+	} else {
+		logger.Warn("submit2 is disabled")
+	}
+	if cfg.SubmitSignatures.Enabled {
+		pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingEpoch,
+			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols)
+	} else {
+		logger.Warn("submitSignatures is disabled")
+	}
 	return pc, nil
 }
 
@@ -119,9 +130,15 @@ func (c *ProtocolClient) Run() error {
 		return err
 	}
 
-	go Run(c.submitter1)
-	go Run(c.submitter2)
-	go Run(c.signatureSubmitter)
+	if c.submitter1 != nil {
+		go Run(c.submitter1)
+	}
+	if c.submitter2 != nil {
+		go Run(c.submitter2)
+	}
+	if c.signatureSubmitter != nil {
+		go Run(c.signatureSubmitter)
+	}
 
 	return nil
 }

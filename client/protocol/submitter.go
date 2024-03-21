@@ -20,11 +20,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	submitterGetDataTimeout       = 5 * time.Second
-	signatureSubmitterDataTimeout = 1 * time.Second
-)
-
 type SubmitterBase struct {
 	ethClient submitterEthClient
 	gasConfig *config.GasConfig
@@ -35,9 +30,13 @@ type SubmitterBase struct {
 	selector     []byte
 	subProtocols []*SubProtocol
 
-	startOffset   time.Duration
-	submitRetries int    // number of retries for submitting tx
-	name          string // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
+	startOffset      time.Duration
+	submitRetries    int    // number of retries for submitting tx
+	name             string // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
+	submitPrivateKey *ecdsa.PrivateKey
+
+	dataFetchRetries int           // number of retries for fetching data of each provider
+	dataFetchTimeout time.Duration // timeout for fetching data of each provider
 }
 
 type submitterEthClient interface {
@@ -61,13 +60,12 @@ type Submitter struct {
 type SignatureSubmitter struct {
 	SubmitterBase
 
-	maxRounds        int // number of rounds for sending submitSignatures tx
-	dataFetchRetries int // number of retries for fetching data of each provider
+	maxRounds int // number of rounds for sending submitSignatures tx
 }
 
 func (s *SubmitterBase) submit(payload []byte) bool {
 	sendResult := <-shared.ExecuteWithRetry(func() (any, error) {
-		err := s.ethClient.SendRawTx(s.protocolContext.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
+		err := s.ethClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
@@ -96,15 +94,18 @@ func newSubmitter(
 ) *Submitter {
 	return &Submitter{
 		SubmitterBase: SubmitterBase{
-			ethClient:       submitterEthClientImpl{ethClient: ethClient},
-			gasConfig:       gasCfg,
-			protocolContext: pc,
-			epoch:           epoch,
-			selector:        selector,
-			subProtocols:    subProtocols,
-			startOffset:     submitCfg.StartOffset,
-			submitRetries:   max(1, submitCfg.TxSubmitRetries),
-			name:            name,
+			ethClient:        submitterEthClientImpl{ethClient: ethClient},
+			gasConfig:        gasCfg,
+			protocolContext:  pc,
+			epoch:            epoch,
+			selector:         selector,
+			subProtocols:     subProtocols,
+			startOffset:      submitCfg.StartOffset,
+			submitRetries:    max(1, submitCfg.TxSubmitRetries),
+			name:             name,
+			submitPrivateKey: pc.submitPrivateKey,
+			dataFetchRetries: submitCfg.DataFetchRetries,
+			dataFetchTimeout: submitCfg.DataFetchTimeout,
 		},
 		epochOffset: epochOffset,
 	}
@@ -117,22 +118,30 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 			currentEpoch+s.epochOffset,
 			s.name,
 			s.protocolContext.submitAddress.Hex(),
-			1,
-			submitterGetDataTimeout,
+			s.dataFetchRetries,
+			s.dataFetchTimeout,
 			IdentityDataVerifier,
 		)
 	}
 
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(s.selector)
+
+	dataReceived := false
 	for _, channel := range channels {
 		data := <-channel
 		if !data.Success || data.Value.Status != "OK" {
 			logger.Error("error getting data for submitter %s: %s", s.name, data.Message)
 			continue
 		}
+		dataReceived = true
 		buffer.Write(data.Value.Data)
 	}
+
+	if !dataReceived {
+		return nil, nil
+	}
+
 	return buffer.Bytes(), nil
 }
 
@@ -141,8 +150,15 @@ func (s *Submitter) RunEpoch(currentEpoch int64) {
 	logger.Debug("  epoch is [%v, %v], now is %v", s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch), time.Now())
 
 	payload, err := s.GetPayload(currentEpoch)
-	if err == nil {
+
+	if err != nil {
+		logger.Error("error getting payload for submitter %s: %v", s.name, err)
+		return
+	}
+	if payload != nil {
 		s.submit(payload)
+	} else {
+		logger.Info("submitter %s did not get any data, skipping submission", s.name)
 	}
 }
 
@@ -157,18 +173,20 @@ func newSignatureSubmitter(
 ) *SignatureSubmitter {
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
-			ethClient:       submitterEthClientImpl{ethClient: ethClient},
-			gasConfig:       gasCfg,
-			protocolContext: pc,
-			epoch:           epoch,
-			startOffset:     submitCfg.StartOffset,
-			selector:        selector,
-			subProtocols:    subProtocols,
-			submitRetries:   max(1, submitCfg.TxSubmitRetries),
-			name:            "submitSignatures",
+			ethClient:        submitterEthClientImpl{ethClient: ethClient},
+			gasConfig:        gasCfg,
+			protocolContext:  pc,
+			epoch:            epoch,
+			startOffset:      submitCfg.StartOffset,
+			selector:         selector,
+			subProtocols:     subProtocols,
+			submitRetries:    max(1, submitCfg.TxSubmitRetries),
+			name:             "submitSignatures",
+			submitPrivateKey: pc.submitSignaturesPrivateKey,
+			dataFetchTimeout: submitCfg.DataFetchTimeout,
+			dataFetchRetries: submitCfg.DataFetchRetries,
 		},
-		maxRounds:        submitCfg.MaxRounds,
-		dataFetchRetries: submitCfg.DataFetchRetries,
+		maxRounds: submitCfg.MaxRounds,
 	}
 }
 
@@ -218,9 +236,9 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 			channels[i] = protocol.getDataWithRetry(
 				currentEpoch-1,
 				"submitSignatures",
-				s.protocolContext.submitSignaturesTxOpts.From.Hex(),
+				s.protocolContext.submitSignaturesAddress.Hex(),
 				s.dataFetchRetries,
-				signatureSubmitterDataTimeout,
+				s.dataFetchTimeout,
 				SignatureSubmitterDataVerifier,
 			)
 		}
