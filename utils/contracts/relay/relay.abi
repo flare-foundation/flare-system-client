@@ -50,6 +50,11 @@
         "internalType": "uint16",
         "name": "_thresholdIncreaseBIPS",
         "type": "uint16"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_messageFinalizationWindowInRewardEpochs",
+        "type": "uint32"
       }
     ],
     "stateMutability": "nonpayable",
@@ -405,6 +410,11 @@
         "internalType": "bool",
         "name": "noSigningPolicyRelay",
         "type": "bool"
+      },
+      {
+        "internalType": "uint32",
+        "name": "messageFinalizationWindowInRewardEpochs",
+        "type": "uint32"
       }
     ],
     "stateMutability": "view",
