@@ -264,3 +264,68 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("test: response sent")
 }
+
+var identityAddress = common.HexToAddress("0x26B40970948D74d60f37911d1276fF940D8648a4")
+
+func TestWaitUntilRegistered(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	registry := testRegistry{
+		expectedAddress: identityAddress,
+		registeredEpoch: 3,
+	}
+	client := ProtocolClient{
+		registry:        &registry,
+		rewardEpoch:     utils.NewEpoch(time.Now(), 100*time.Millisecond),
+		identityAddress: identityAddress,
+	}
+
+	err := client.waitUntilRegistered(ctx)
+	require.NoError(t, err)
+
+	currentEpoch := client.rewardEpoch.EpochIndex(time.Now())
+	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
+}
+
+func TestWaitUntilRegisteredTransientError(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	registry := testRegistry{
+		expectedAddress:     identityAddress,
+		registeredEpoch:     0,
+		transientErrorCount: 3,
+	}
+	client := ProtocolClient{
+		registry:        &registry,
+		rewardEpoch:     utils.NewEpoch(time.Now(), time.Minute),
+		identityAddress: identityAddress,
+	}
+
+	err := client.waitUntilRegistered(ctx)
+	require.NoError(t, err)
+
+	currentEpoch := client.rewardEpoch.EpochIndex(time.Now())
+	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
+}
+
+type testRegistry struct {
+	expectedAddress     common.Address
+	registeredEpoch     int64
+	transientErrorCount int
+}
+
+func (r *testRegistry) IsVoterRegistered(ctx context.Context, address common.Address, epoch int64) (bool, error) {
+	if address != r.expectedAddress {
+		return false, errors.New("unknown address")
+	}
+
+	if r.transientErrorCount > 0 {
+		r.transientErrorCount--
+		return false, errors.New("transient error")
+	}
+
+	return epoch >= r.registeredEpoch, nil
+
+}

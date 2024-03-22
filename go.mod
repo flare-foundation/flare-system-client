@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/BurntSushi/toml v1.2.1
 	github.com/bradleyjkemp/cupaloy v2.3.0+incompatible
+	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/deckarep/golang-set/v2 v2.1.0
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/go-sql-driver/mysql v1.7.0
