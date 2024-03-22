@@ -31,8 +31,9 @@ type ProtocolClient struct {
 	votingEpoch    *utils.Epoch
 	systemsManager *system.FlareSystemsManager
 
-	rewardEpoch *utils.Epoch
-	registry    voterRegistry
+	rewardEpoch     *utils.Epoch
+	registry        voterRegistry
+	identityAddress common.Address
 }
 
 type voterRegistry interface {
@@ -100,6 +101,7 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 		systemsManager:  systemsManager,
 		rewardEpoch:     rewardEpoch,
 		registry:        voterRegistryImpl{registryClient},
+		identityAddress: cfg.Identity.Address,
 	}
 
 	selectors := newContractSelectors()
@@ -175,11 +177,7 @@ func (c *ProtocolClient) isRegistered(ctx context.Context, epoch int64) (bool, e
 			ctx, cancel := context.WithTimeout(ctx, registerCheckTimeout)
 			defer cancel()
 
-			registered, err = c.registry.IsVoterRegistered(
-				ctx,
-				c.protocolContext.submitAddress,
-				epoch,
-			)
+			registered, err = c.registry.IsVoterRegistered(ctx, c.identityAddress, epoch)
 
 			return err
 		},
