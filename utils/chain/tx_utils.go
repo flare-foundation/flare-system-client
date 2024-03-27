@@ -99,6 +99,11 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 
 	value := big.NewInt(0) // in wei (1 eth)
 
+	err = dryRunTx(client, fromAddress, toAddress, value, data)
+	if err != nil {
+		return errors.Wrap(err, "dry run failed")
+	}
+
 	gasLimit := getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
 	gasPrice, err := GetGasPrice(gasConfig, client)
 	if err != nil {
@@ -138,6 +143,16 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	}
 	logger.Debug("Receipt status: %v", rec.Status)
 	return nil
+}
+
+func dryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) error {
+	_, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+		From:  fromAddress,
+		To:    &toAddress,
+		Value: value,
+		Data:  data,
+	})
+	return err
 }
 
 func getGasLimit(gasConfig *config.GasConfig, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) uint64 {
