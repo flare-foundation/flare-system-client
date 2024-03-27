@@ -42,15 +42,15 @@ type relayContractClient struct {
 }
 
 type relayEthClient interface {
-	SendRawTx(*ecdsa.PrivateKey, common.Address, []byte) error
+	SendRawTx(*ecdsa.PrivateKey, common.Address, []byte, bool) error
 }
 
 type relayEthClientImpl struct {
 	client *ethclient.Client
 }
 
-func (eth relayEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte) error {
-	return chain.SendRawTx(eth.client, privateKey, to, data, &config.GasConfig{GasPriceFixed: common.Big0})
+func (eth relayEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, dryRun bool) error {
+	return chain.SendRawTx(eth.client, privateKey, to, data, dryRun, &config.GasConfig{GasPriceFixed: common.Big0})
 }
 
 type signingPolicyListenerResponse struct {
@@ -145,7 +145,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 	return out
 }
 
-func (r *relayContractClient) SubmitPayloads(ctx context.Context, payloads []*signedPayload, signingPolicy *signingPolicy) {
+func (r *relayContractClient) SubmitPayloads(ctx context.Context, payloads []*signedPayload, signingPolicy *signingPolicy, dryRun bool) {
 	if len(payloads) == 0 || signingPolicy == nil {
 		return
 	}
@@ -163,7 +163,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, payloads []*si
 	payload := buffer.Bytes()
 
 	execStatusChan := shared.ExecuteWithRetry(func() (any, error) {
-		err := r.ethClient.SendRawTx(r.privateKey, r.address, payload)
+		err := r.ethClient.SendRawTx(r.privateKey, r.address, payload, dryRun)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Info("Non fatal error sending relay tx: %v", err)

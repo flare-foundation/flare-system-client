@@ -120,7 +120,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		if p.isVoterForCurrentEpoch(item) {
 			logger.Debug("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
 
-			p.processItem(ctx, item)
+			p.processItem(ctx, item, false)
 		} else {
 			logger.Debug("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
 
@@ -155,7 +155,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	return voters.Contains(p.relayClient.senderAddress)
 }
 
-func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueItem) {
+func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueItem, isDelayed bool) {
 	if item == nil {
 		return
 	}
@@ -171,7 +171,7 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		}
 	}
 
-	// (sort descreasing by weight)
+	// (sort decreasing by weight)
 	slices.SortFunc(payloads, func(p, q *signedPayload) bool {
 		return data.signingPolicy.voters.VoterWeight(p.index) > data.signingPolicy.voters.VoterWeight(q.index)
 	})
@@ -192,7 +192,7 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		return p.index < q.index
 	})
 
-	p.relayClient.SubmitPayloads(ctx, selected, data.signingPolicy)
+	p.relayClient.SubmitPayloads(ctx, selected, data.signingPolicy, isDelayed)
 }
 
 func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
@@ -210,7 +210,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error 
 			continue
 		}
 		logger.Debug("Finalizer processes delayed queue item %v", item)
-		p.processItem(context.TODO(), item)
+		p.processItem(context.TODO(), item, true)
 	}
 	return nil
 }

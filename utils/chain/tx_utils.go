@@ -84,7 +84,7 @@ func unpackError(result []byte) (string, error) {
 	return vs[0].(string), nil
 }
 
-func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, gasConfig *config.GasConfig) error {
+func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.GasConfig) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -99,9 +99,11 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 
 	value := big.NewInt(0) // in wei (1 eth)
 
-	err = dryRunTx(client, fromAddress, toAddress, value, data)
-	if err != nil {
-		return errors.Wrap(err, "dry run failed")
+	if dryRun {
+		err = dryRunTx(client, fromAddress, toAddress, value, data)
+		if err != nil {
+			return errors.Wrap(err, "dry run failed")
+		}
 	}
 
 	gasLimit := getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
