@@ -177,7 +177,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, payloads []*si
 	select {
 	case execStatus := <-execStatusChan:
 		if execStatus.Success {
-			logger.Info("Relay tx sent")
+			logger.Info("Relaying finished")
 		}
 
 	case <-ctx.Done():
