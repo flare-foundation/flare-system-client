@@ -72,7 +72,7 @@ func (s *SubmitterBase) submit(payload []byte) bool {
 		return nil, nil
 	}, s.submitRetries, shared.TxRetryInterval)
 	if sendResult.Success {
-		logger.Info("submitter %s submitted tx", s.name)
+		logger.Info("Submitter %s successfully sent tx", s.name)
 	}
 	return sendResult.Success
 }
@@ -131,7 +131,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 	for _, channel := range channels {
 		data := <-channel
 		if !data.Success || data.Value.Status != "OK" {
-			logger.Error("error getting data for submitter %s: %s", s.name, data.Message)
+			logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
 			continue
 		}
 		dataReceived = true
@@ -146,19 +146,18 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 }
 
 func (s *Submitter) RunEpoch(currentEpoch int64) {
-	logger.Debug("submitter %s running epoch %d", s.name, currentEpoch)
-	logger.Debug("  epoch is [%v, %v], now is %v", s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch), time.Now())
+	logger.Info("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
 
 	payload, err := s.GetPayload(currentEpoch)
 
 	if err != nil {
-		logger.Error("error getting payload for submitter %s: %v", s.name, err)
+		logger.Error("Error getting payload for submitter %s: %v", s.name, err)
 		return
 	}
 	if payload != nil {
 		s.submit(payload)
 	} else {
-		logger.Info("submitter %s did not get any data, skipping submission", s.name)
+		logger.Info("Submitter %s did not get any data, skipping submission", s.name)
 	}
 }
 
@@ -220,8 +219,7 @@ func (s *SignatureSubmitter) WritePayload(buffer *bytes.Buffer, currentEpoch int
 // 2. repeat 1 for each sub-protocol provider not giving valid answer
 // Repeat 1 and 2 until all sub-protocol providers give valid answer or we did 10 rounds
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
-	logger.Debug("signatureSubmitter %s running epoch %d", s.name, currentEpoch)
-	logger.Debug("  epoch is [%v, %v], now is %v", s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch), time.Now())
+	logger.Info("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
 
 	protocolsToSend := mapset.NewSet[int]()
 	for i := range s.subProtocols {
@@ -254,12 +252,12 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 
 			data := <-channels[i]
 			if !data.Success {
-				logger.Error("error getting data for submitter %s: %s", s.name, data.Message)
+				logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
 			err := s.WritePayload(buffer, currentEpoch, data.Value)
 			if err != nil {
-				logger.Error("error writing payload for submitter %s: %v", s.name, err)
+				logger.Error("Error writing payload for submitter %s: %v", s.name, err)
 				continue
 			}
 			protocolsToSend.Remove(i)
@@ -269,7 +267,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 				protocolsToSend = protocolsToSendCopy
 			}
 		} else {
-			logger.Info("signatureSubmitter %s did not get any new data", s.name)
+			logger.Info("Submitter %s did not get any new data", s.name)
 		}
 	}
 }

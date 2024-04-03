@@ -189,7 +189,7 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
 	for _, payloadItem := range slr.payload {
 		if payloadItem.votingRoundId < c.finalizerContext.startingVotingRound {
-			logger.Debug("Skipping submission for voting round %d - before startingVotingRound", payloadItem.votingRoundId)
+			logger.Debug("Ignoring submitted signature for voting round %d - before startingVotingRound", payloadItem.votingRoundId)
 			continue
 		}
 
@@ -202,7 +202,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			first := c.signingPolicyStorage.First()
 			if first != nil && payloadItem.votingRoundId < first.startVotingRoundId {
 				// This is a submission for an old voting round, skip it
-				logger.Debug("Skipping submission for voting round %d - before policy startVotingRoundId", payloadItem.votingRoundId)
+				logger.Debug("Ignoring submitted signature for voting round %d - before policy startVotingRoundId", payloadItem.votingRoundId)
 				continue
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)
@@ -210,7 +210,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 		addResult, err := c.submissionStorage.Add(payloadItem.payload, sp, threshold)
 		if err != nil {
 			// Error is non-fatal, skip this submission
-			logger.Warn("Skipping submission %v", err)
+			logger.Debug("Ignoring submitted signature: %v", err)
 			continue
 		}
 		if addResult.thresholdReached {

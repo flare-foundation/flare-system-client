@@ -118,18 +118,18 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		}
 
 		if p.isVoterForCurrentEpoch(item) {
-			logger.Debug("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
+			logger.Info("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
 
 			p.processItem(ctx, item, false)
 		} else {
-			logger.Debug("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
+			logger.Info("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
 
 			data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
 			if data != nil {
 				// Finalization for a votingRoundId should happen in the following voting round votingRoundId + 1
 				votingRoundStartTime := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundId + 1))
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
-				logger.Debug("Finalizer will send item %v at %v", item, st)
+				logger.Info("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
 			}
 		}
@@ -209,7 +209,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error 
 		if relayedItems.Contains(*item) {
 			continue
 		}
-		logger.Debug("Finalizer processes delayed queue item %v", item)
+		logger.Info("Finalizer processes delayed queue item %v", item)
 		p.processItem(context.TODO(), item, true)
 	}
 	return nil
