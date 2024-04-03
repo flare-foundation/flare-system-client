@@ -136,7 +136,7 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 
 	for {
 		// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
-		logger.Debug("Waiting for VotePowerBlockSelected event")
+		logger.Info("Waiting for VotePowerBlockSelected event to start registration")
 
 		var powerBlockData *system.FlareSystemsManagerVotePowerBlockSelected
 

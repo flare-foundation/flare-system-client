@@ -52,7 +52,7 @@ func (sp *SubProtocol) getData(votingRound int64, submitName string, submitAddre
 		return nil, errors.Wrap(err, "error getting url")
 	}
 
-	logger.Debug("Calling protocol client API: %s", url.String())
+	logger.Info("Calling protocol client API: %s", url.String())
 	client := http.Client{
 		Timeout: timeout,
 	}
