@@ -64,12 +64,12 @@ enabled_finalizer = false
 [protocol.ftso1]
 id = 1
 api_endpoint = "http://localhost:3000/ftso1"
-x_api_key = "your_api_key" # optional
+# To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_1 env var
 
 [protocol.ftso2]
 id = 2
 api_endpoint = "http://localhost:3000/ftso2"
-x_api_key = "your_api_key" # optional
+# To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_2 env var
 
 [submit1]
 enabled = true            # (optional) set to false to disable a specific submitter, default: enabled
@@ -89,7 +89,7 @@ data_fetch_timeout = "5s"
 enabled = true
 start_offset = "10s"
 tx_submit_retries = 3
-data_fetch_retries = 5  
+data_fetch_retries = 5
 data_fetch_timeout = "5s"
 max_rounds = 3          # max number of rounds to fetch data and submit signatures
 
