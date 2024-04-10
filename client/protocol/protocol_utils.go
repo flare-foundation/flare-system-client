@@ -42,7 +42,7 @@ func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 	return &SubProtocol{
 		Id:          config.Id,
 		ApiEndpoint: config.ApiEndpoint,
-		XApiKey:     config.XApiKey,
+		XApiKey:     config.XApiKey(),
 	}
 }
 
