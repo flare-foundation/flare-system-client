@@ -65,12 +65,12 @@ func (s *submissionContractClient) SubmissionTxListener(
 		for _, tx := range txs {
 			inputBytes, err := hex.DecodeString(tx.Input)
 			if err != nil {
-				logger.Info("Error decoding signature submission input: %v, skipping", err)
+				logger.Info("Invalid submitSignatures tx sent by %s: %v, skipping", tx.FromAddress, err)
 			}
 			payload, err := DecodeSubmitterPayload(inputBytes)
 			if err != nil {
 				// if input cannot be decoded, it is not a valid submission and should be skipped
-				logger.Info("Error parsing signature submission payload: %v, skipping", err)
+				logger.Info("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
 			}
 			if len(payload) > 0 {
 				err = processor.ProcessSubmissionData(submissionListenerResponse{
@@ -80,7 +80,7 @@ func (s *submissionContractClient) SubmissionTxListener(
 				if err != nil {
 					// retry the full range, error occurs when the corresponding signing policy
 					// is not yet available
-					logger.Warn("Error processing signature submission payload: %v, retrying", err)
+					logger.Warn("Error processing submitSignatures payload sent by %s: %v, retrying", tx.FromAddress, err)
 					break
 				}
 			}
