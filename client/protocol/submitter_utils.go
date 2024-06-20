@@ -18,13 +18,14 @@ func Run(r EpochRunner, stopAt <-chan int64, lastEpoch chan<- int64) {
 
 	for {
 		if epoch >= stopAfterEpoch {
+			lastEpoch <- epoch
 			break
 		}
 		select {
 		case stopAfterEpoch = <-stopAt:
+			lastEpoch <- epoch
 			logger.Info("Stopping submitter after epoch %d", stopAfterEpoch)
 		case epoch = <-ticker.C:
-			lastEpoch <- epoch
 			r.RunEpoch(epoch)
 		}
 	}

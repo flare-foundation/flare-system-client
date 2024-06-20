@@ -137,7 +137,6 @@ func (c *ProtocolClient) Run(ctx context.Context) error {
 	if c.submitter1 != nil {
 		stop1 = make(chan int64, 1)
 		processedEpoch1 = make(chan int64, 1)
-
 		go Run(c.submitter1, stop1, processedEpoch1)
 	}
 
@@ -154,25 +153,20 @@ func (c *ProtocolClient) Run(ctx context.Context) error {
 
 	done := make(chan bool, 1)
 	go func() {
-		var lastSubmit2Epoch int64 = 0
-	LOOP:
-		for {
-			select {
-			case lastSubmit2Epoch = <-processedEpoch2:
-			case <-ctx.Done():
-				break LOOP
-			}
-		}
+		<-ctx.Done()
 		// If only one of the submitters is enabled, there's nothing we can do
 		// to ensure both are executed for the same reward epoch.
 		if stop1 != nil && stop2 != nil {
 			stop1 <- 0 // Stop immediately
 			lastSubmit1Epoch := <-processedEpoch1
 			// Make sure submit2 is stopped only after running for last submit1 epoch
-			if lastSubmit1Epoch != 0 && (lastSubmit2Epoch <= lastSubmit1Epoch+1) {
+			if lastSubmit1Epoch != 0 {
 				stop2 <- lastSubmit1Epoch + 1
-				logger.Warn("Shutdown initiated, waiting for pending submit2 to run for epoch %d. If terminated now, there might be reward penalties depending on the sub-protocol.", lastSubmit1Epoch)
-				<-processedEpoch2
+				lastSubmit2Epoch := <-processedEpoch2
+				if lastSubmit2Epoch < lastSubmit1Epoch+1 {
+					logger.Warn("Shutdown initiated, waiting for pending submit2 to run for epoch %d. If terminated now, there might be reward penalties depending on the sub-protocol.", lastSubmit1Epoch)
+					<-processedEpoch2
+				}
 			}
 		}
 		logger.Info("Submitters stopped.")
