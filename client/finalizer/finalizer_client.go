@@ -109,8 +109,8 @@ func NewFinalizerClient(ctx clientContext.ClientContext) (*finalizerClient, erro
 	}, nil
 }
 
-func (c *finalizerClient) Run() error {
-	return c.RunContext(context.Background())
+func (c *finalizerClient) Run(ctx context.Context) error {
+	return c.RunContext(ctx)
 }
 
 func (c *finalizerClient) RunContext(ctx context.Context) error {
