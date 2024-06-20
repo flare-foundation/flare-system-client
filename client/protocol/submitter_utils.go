@@ -29,5 +29,4 @@ func Run(r EpochRunner, stopAt <-chan int64, lastEpoch chan<- int64) {
 		}
 	}
 	logger.Info("Submitter stopped")
-	return
 }

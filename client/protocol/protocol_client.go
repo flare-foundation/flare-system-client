@@ -128,7 +128,7 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 }
 
 func (c *ProtocolClient) Run(ctx context.Context) error {
-	if err := c.waitUntilRegistered(context.Background()); err != nil {
+	if err := c.waitUntilRegistered(ctx); err != nil {
 		return err
 	}
 
