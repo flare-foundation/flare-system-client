@@ -77,10 +77,6 @@ func (s *SubmitterBase) submit(payload []byte) bool {
 	return sendResult.Success
 }
 
-func (s *SubmitterBase) GetEpochTicker() *utils.EpochTicker {
-	return utils.NewEpochTicker(s.startOffset, s.epoch)
-}
-
 func newSubmitter(
 	ethClient *ethclient.Client,
 	pc *protocolContext,

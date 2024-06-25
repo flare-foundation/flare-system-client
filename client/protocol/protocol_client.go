@@ -9,6 +9,7 @@ import (
 	"flare-tlc/utils/contracts/registry"
 	"flare-tlc/utils/contracts/system"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -132,46 +133,52 @@ func (c *ProtocolClient) Run(ctx context.Context) error {
 		return err
 	}
 
-	var stop1 chan int64
-	var processedEpoch1 chan int64
-	if c.submitter1 != nil {
-		stop1 = make(chan int64, 1)
-		processedEpoch1 = make(chan int64, 1)
-		go Run(c.submitter1, stop1, processedEpoch1)
-	}
-
-	var stop2 chan int64
-	var processedEpoch2 chan int64
-	if c.submitter2 != nil {
-		stop2 = make(chan int64, 1)
-		processedEpoch2 = make(chan int64, 1)
-		go Run(c.submitter2, stop2, processedEpoch2)
-	}
-	if c.signatureSubmitter != nil {
-		go Run(c.signatureSubmitter, nil, nil)
-	}
-
 	done := make(chan bool, 1)
-	go func() {
-		<-ctx.Done()
-		// If only one of the submitters is enabled, there's nothing we can do
-		// to ensure both are executed for the same reward epoch.
-		if stop1 != nil && stop2 != nil {
-			stop1 <- 0 // Stop immediately
-			lastSubmit1Epoch := <-processedEpoch1
-			// Make sure submit2 is stopped only after running for last submit1 epoch
-			if lastSubmit1Epoch != 0 {
-				stop2 <- lastSubmit1Epoch + 1
-				lastSubmit2Epoch := <-processedEpoch2
-				if lastSubmit2Epoch < lastSubmit1Epoch+1 {
-					logger.Warn("Shutdown initiated, waiting for pending submit2 to run for epoch %d. If terminated now, there might be reward penalties depending on the sub-protocol.", lastSubmit1Epoch)
-					<-processedEpoch2
-				}
+	var wg sync.WaitGroup
+
+	logger.Info("Starting submitters, waiting for next voting round start.")
+	ticker := utils.NewEpochTicker(c.votingEpoch)
+L:
+	for {
+		select {
+		case currentEpoch := <-ticker.C:
+			if c.submitter1 != nil {
+				go func() {
+					time.Sleep(c.submitter1.startOffset)
+					wg.Add(1)
+					c.submitter1.RunEpoch(currentEpoch)
+					wg.Done()
+				}()
 			}
+
+			if c.submitter2 != nil {
+				go func() {
+					// Submit2 processes the current epoch data in the following epoch
+					// so we wait a full epoch duration + offset before invoking.
+					// TODO: this assumes c.submitter2.epochOffset is always -1
+					time.Sleep(ticker.Epoch.Period + c.submitter2.startOffset)
+					wg.Add(1)
+					c.submitter2.RunEpoch(currentEpoch + 1)
+					wg.Done()
+				}()
+			}
+			if c.signatureSubmitter != nil {
+				// signatureSubmitter is independent of submit1 and submit2
+				go func() {
+					time.Sleep(c.signatureSubmitter.startOffset)
+					c.signatureSubmitter.RunEpoch(currentEpoch)
+				}()
+			}
+		case <-ctx.Done():
+			if c.submitter1 != nil && c.submitter2 != nil {
+				logger.Warn("Stopping submitters. Making sure both submit1 & submit2 have completed for the voting round. Not running submit2 might result in reward penalties.")
+				wg.Wait()
+			}
+
+			done <- true
+			break L
 		}
-		logger.Info("Submitters stopped.")
-		done <- true
-	}()
+	}
 
 	<-done
 	return nil

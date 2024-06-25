@@ -29,7 +29,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		sig := <-signalChan
-		logger.Info("Received signal, stopping: %v", sig)
+		logger.Info("Received %v signal, attempting graceful shutdown", sig)
 		cancel()
 	}()
 
