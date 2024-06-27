@@ -9,6 +9,7 @@ import (
 	"flare-tlc/utils/contracts/registry"
 	"flare-tlc/utils/contracts/system"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -127,21 +128,59 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 	return pc, nil
 }
 
-func (c *ProtocolClient) Run() error {
-	if err := c.waitUntilRegistered(context.Background()); err != nil {
+func (c *ProtocolClient) Run(ctx context.Context) error {
+	if err := c.waitUntilRegistered(ctx); err != nil {
 		return err
 	}
 
-	if c.submitter1 != nil {
-		go Run(c.submitter1)
-	}
-	if c.submitter2 != nil {
-		go Run(c.submitter2)
-	}
-	if c.signatureSubmitter != nil {
-		go Run(c.signatureSubmitter)
+	done := make(chan bool, 1)
+	var wg sync.WaitGroup
+
+	logger.Info("Starting submitters, waiting for next voting round start.")
+	ticker := utils.NewEpochTicker(c.votingEpoch)
+L:
+	for {
+		select {
+		case currentEpoch := <-ticker.C:
+			if c.submitter1 != nil {
+				go func() {
+					time.Sleep(c.submitter1.startOffset)
+					wg.Add(1)
+					c.submitter1.RunEpoch(currentEpoch)
+					wg.Done()
+				}()
+			}
+
+			if c.submitter2 != nil {
+				go func() {
+					// Submit2 processes the current epoch data in the following epoch
+					// so we wait a full epoch duration + offset before invoking.
+					// TODO: this assumes c.submitter2.epochOffset is always -1
+					time.Sleep(ticker.Epoch.Period + c.submitter2.startOffset)
+					wg.Add(1)
+					c.submitter2.RunEpoch(currentEpoch + 1)
+					wg.Done()
+				}()
+			}
+			if c.signatureSubmitter != nil {
+				// signatureSubmitter is independent of submit1 and submit2
+				go func() {
+					time.Sleep(c.signatureSubmitter.startOffset)
+					c.signatureSubmitter.RunEpoch(currentEpoch)
+				}()
+			}
+		case <-ctx.Done():
+			if c.submitter1 != nil && c.submitter2 != nil {
+				logger.Warn("Stopping submitters. Making sure both submit1 & submit2 have completed for the voting round. Not running submit2 might result in reward penalties.")
+				wg.Wait()
+			}
+
+			done <- true
+			break L
+		}
 	}
 
+	<-done
 	return nil
 }
 

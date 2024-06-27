@@ -123,8 +123,8 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 }
 
 // Run runs the registration client, should be called in a goroutine
-func (c *registrationClient) Run() error {
-	return c.RunContext(context.Background())
+func (c *registrationClient) Run(ctx context.Context) error {
+	return c.RunContext(ctx)
 }
 
 func (c *registrationClient) RunContext(ctx context.Context) error {

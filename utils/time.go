@@ -23,15 +23,6 @@ func (f FixedTimeProvider) Now() time.Time {
 	return f.Time
 }
 
-// Use when s is the correct RFC3339 time (e.g. in tests, error results in panic)
-func ParseTime(s string) time.Time {
-	time, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		panic(err)
-	}
-	return time
-}
-
 func NewRandomizedTicker(interval time.Duration, randomDelta time.Duration) <-chan time.Time {
 	deltaIntervalMs := int(randomDelta.Milliseconds())
 	ch := make(chan time.Time)
@@ -54,7 +45,7 @@ func randomDuration(deltaMs int) time.Duration {
 }
 
 type EpochTicker struct {
-	epoch        *Epoch
+	Epoch        *Epoch
 	timeProvider TimeProvider
 
 	// C is the channel on which the epoch index is sent
@@ -62,76 +53,32 @@ type EpochTicker struct {
 }
 
 // NewEpochTicker creates a ticker that sends the epoch index on the channel C
-// at the start of the epoch + offset
-func NewEpochTicker(offset time.Duration, epoch *Epoch) *EpochTicker {
+// at the start of the epoch
+func NewEpochTicker(epoch *Epoch) *EpochTicker {
 	c := make(chan int64)
 	ticker := &EpochTicker{
-		epoch:        epoch,
+		Epoch:        epoch,
 		timeProvider: RealTimeProvider{},
 		C:            c,
 	}
-	ticker.start(c, offset)
+	ticker.start(c)
 	return ticker
 }
 
-func (t *EpochTicker) start(c chan int64, offset time.Duration) {
+func (t *EpochTicker) start(c chan int64) {
 	go func() {
 		now := t.timeProvider.Now()
-		epoch := t.epoch.EpochIndex(now)
-		epochStart := t.epoch.StartTime(epoch)
-		delayToStart := epochStart.Add(offset).Sub(now)
+		currentEpoch := t.Epoch.EpochIndex(now)
+
+		epoch := currentEpoch + 1
+		epochStart := t.Epoch.StartTime(epoch)
 
 		for {
-			if delayToStart < 0 {
-				delayToStart = 0
-			}
-			<-time.NewTimer(delayToStart).C
+			<-time.NewTimer(epochStart.Sub(now)).C
 			c <- epoch
 			epoch += 1
-			epochStart = t.epoch.StartTime(epoch)
-			delayToStart = epochStart.Add(offset).Sub(t.timeProvider.Now())
-		}
-	}()
-}
-
-type RetriableEpochTicker struct {
-	epoch *Epoch
-
-	C <-chan int64
-}
-
-// RetriableEpochTicker is an EpochTicker that sends the epoch index on the channel C
-// at the start of the epoch + offset, and then retries every retryPeriod until the end of the epoch
-func NewRetriableEpochTicker(offset time.Duration, retryPeriod time.Duration, epoch *Epoch) *RetriableEpochTicker {
-	c := make(chan int64)
-	ticker := &RetriableEpochTicker{
-		epoch: epoch,
-		C:     c,
-	}
-	ticker.start(c, offset, retryPeriod)
-	return ticker
-}
-
-func (ret *RetriableEpochTicker) start(c chan int64, offset time.Duration, retryPeriod time.Duration) {
-	go func() {
-		epochTicker := NewEpochTicker(offset, ret.epoch)
-		for {
-			epoch := <-epochTicker.C
-			c <- epoch
-
-			go func() {
-				currentEpoch := epoch
-				retryTicker := time.NewTicker(retryPeriod)
-				for {
-					t := <-retryTicker.C
-					if !t.Before(ret.epoch.EndTime(currentEpoch)) {
-						retryTicker.Stop()
-						break
-					} else {
-						c <- currentEpoch
-					}
-				}
-			}()
+			epochStart = t.Epoch.StartTime(epoch)
+			now = t.timeProvider.Now()
 		}
 	}()
 }
