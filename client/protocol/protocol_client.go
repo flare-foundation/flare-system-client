@@ -145,9 +145,12 @@ L:
 			if c.submitter1 != nil {
 				go func() {
 					time.Sleep(c.submitter1.startOffset)
-					wg.Add(1)
+					if c.submitter2 != nil {
+						// if running submitter1, and submitter2 is enabled,
+						// we need to wait for it to complete before shutdown.
+						wg.Add(1)
+					}
 					c.submitter1.RunEpoch(currentEpoch)
-					wg.Done()
 				}()
 			}
 
@@ -157,9 +160,10 @@ L:
 					// so we wait a full epoch duration + offset before invoking.
 					// TODO: this assumes c.submitter2.epochOffset is always -1
 					time.Sleep(ticker.Epoch.Period + c.submitter2.startOffset)
-					wg.Add(1)
 					c.submitter2.RunEpoch(currentEpoch + 1)
-					wg.Done()
+					if c.submitter1 != nil {
+						wg.Done()
+					}
 				}()
 			}
 			if c.signatureSubmitter != nil {
