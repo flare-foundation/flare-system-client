@@ -119,7 +119,7 @@ func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int6
 func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, startTime time.Time) <-chan signingPolicyListenerResponse {
 	out := make(chan signingPolicyListenerResponse, listenerBufferSize)
 	go func() {
-		ticker := time.NewTicker(shared.ListenerInterval)
+		ticker := time.NewTicker(shared.EventListenerInterval)
 		eventRangeStart := startTime.Unix()
 		for {
 			<-ticker.C

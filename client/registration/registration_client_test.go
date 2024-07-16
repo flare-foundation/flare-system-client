@@ -270,6 +270,16 @@ type testSystemsManagerClient struct {
 	signingErr     error
 }
 
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
+}
+
+func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetry(func() (any, error) {
+		return nil, nil
+	}, 1, 0)
+}
+
 func newTestSystemsManagerClient() testSystemsManagerClient {
 	return testSystemsManagerClient{
 		rewardEpoch: &utils.Epoch{
@@ -340,7 +350,7 @@ func (c testRelayClient) sendTestPolicy(policy *relay.RelaySigningPolicyInitiali
 }
 
 func (c testRelayClient) SigningPolicyInitializedListener(
-	db registrationClientDB, timestamp uint64,
+	db registrationClientDB, epoch *utils.Epoch,
 ) <-chan *relay.RelaySigningPolicyInitialized {
 	return c.policyChan
 }
