@@ -4,6 +4,7 @@ import (
 	"flare-tlc/client/shared"
 	"flare-tlc/database"
 	"flare-tlc/logger"
+	"flare-tlc/utils"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/relay"
 	"time"
@@ -13,7 +14,7 @@ import (
 )
 
 type relayContractClient interface {
-	SigningPolicyInitializedListener(registrationClientDB, uint64) <-chan *relay.RelaySigningPolicyInitialized
+	SigningPolicyInitializedListener(registrationClientDB, *utils.Epoch) <-chan *relay.RelaySigningPolicyInitialized
 }
 
 type relayContractClientImpl struct {
@@ -37,19 +38,22 @@ func NewRelayContractClient(
 	}, nil
 }
 
-func (r *relayContractClientImpl) SigningPolicyInitializedListener(db registrationClientDB, startTimestamp uint64) <-chan *relay.RelaySigningPolicyInitialized {
+func (r *relayContractClientImpl) SigningPolicyInitializedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *relay.RelaySigningPolicyInitialized {
 	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal
 		panic(err)
 	}
 	out := make(chan *relay.RelaySigningPolicyInitialized)
+
 	go func() {
-		ticker := time.NewTicker(shared.ListenerInterval)
+		randomDelay()
+		ticker := time.NewTicker(shared.EventListenerInterval)
+		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 1).Unix()
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0(r.address, topic0, int64(startTimestamp), now)
+			logs, err := db.FetchLogsByAddressAndTopic0(r.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Error("Error fetching logs %v", err)
 				continue
@@ -61,7 +65,7 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db registrati
 					continue
 				}
 				out <- policyData
-				break
+				eventRangeStart = int64(policyData.Timestamp)
 			}
 		}
 	}()

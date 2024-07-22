@@ -7,7 +7,6 @@ import (
 	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/system"
 	"flare-tlc/utils/credentials"
 	"math/big"
 
@@ -133,52 +132,72 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 		return err
 	}
 	vpbsListener := c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
+	policyListener := c.relayClient.SigningPolicyInitializedListener(c.db, epoch)
+	uptimeListener := c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch)
+
+	// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
+	logger.Info("Waiting for VotePowerBlockSelected event to start registration")
 
 	for {
-		// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
-		logger.Info("Waiting for VotePowerBlockSelected event to start registration")
-
-		var powerBlockData *system.FlareSystemsManagerVotePowerBlockSelected
-
 		select {
-		case powerBlockData = <-vpbsListener:
-			logger.Info("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
-
+		case powerBlockData := <-vpbsListener:
+			logger.Debug("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
+			c.registerVoter(powerBlockData.RewardEpochId)
+		case signingPolicy := <-policyListener:
+			logger.Debug("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
+			c.signPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)
+		case uptimeVoteEnabled := <-uptimeListener:
+			logger.Debug("SignUptimeVoteEnabled event emitted for epoch %v", uptimeVoteEnabled.RewardEpochId)
+			c.signUptimeVote(uptimeVoteEnabled.RewardEpochId)
 		case <-ctx.Done():
 			return ctx.Err()
-		}
-
-		if !c.verifyEpoch(powerBlockData.RewardEpochId) {
-			logger.Info("Skipping registration process for epoch %v", powerBlockData.RewardEpochId)
-			continue
-		}
-
-		// Call RegisterVoter function on VoterRegistry
-		registerResult := <-c.registryClient.RegisterVoter(powerBlockData.RewardEpochId, c.identityAddress)
-		if !registerResult.Success {
-			logger.Error("RegisterVoter failed %s", registerResult.Message)
-			continue
-		}
-
-		logger.Info("RegisterVoter success")
-
-		// Wait until we get voter registered event
-		// Already in RegisterVoter
-
-		// Wait until SigningPolicyInitialized event is emitted
-		signingPolicy := <-c.relayClient.SigningPolicyInitializedListener(c.db, powerBlockData.Timestamp)
-		logger.Info("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
-
-		// Call signNewSigningPolicy
-		signingResult := <-c.systemsManagerClient.SignNewSigningPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)
-		if !signingResult.Success {
-			logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
-			continue
 		}
 	}
 }
 
-func (c *registrationClient) verifyEpoch(epochId *big.Int) bool {
+func (c *registrationClient) registerVoter(epochId *big.Int) {
+	if !c.isFutureEpoch(epochId) {
+		logger.Debug("Skipping registration process for old epoch %v", epochId)
+		return
+	}
+
+	logger.Info("VotePowerBlockSelected event emitted for next epoch %v, starting registration", epochId)
+	registerResult := <-c.registryClient.RegisterVoter(epochId, c.identityAddress)
+	if registerResult.Success {
+		logger.Info("RegisterVoter success")
+	} else {
+		logger.Error("RegisterVoter failed %s", registerResult.Message)
+	}
+}
+
+func (c *registrationClient) signPolicy(epochId *big.Int, policy []byte) {
+	if !c.isFutureEpoch(epochId) {
+		logger.Debug("Skipping policy signing for old epoch %v", epochId)
+		return
+	}
+
+	logger.Info("SigningPolicyInitialized event emitted for next epoch %v, signing new policy", epochId)
+	signingResult := <-c.systemsManagerClient.SignNewSigningPolicy(epochId, policy)
+	if signingResult.Success {
+		logger.Info("SignNewSigningPolicy success")
+	} else {
+		logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
+		return
+	}
+}
+
+func (c *registrationClient) signUptimeVote(epochId *big.Int) {
+	logger.Info("SignUptimeVoteEnabled event emitted for epoch %v, signing uptime vote", epochId)
+	signUptimeVoteResult := <-c.systemsManagerClient.SignUptimeVote(epochId)
+	if signUptimeVoteResult.Success {
+		logger.Info("SignUptimeVote completed")
+	} else {
+		logger.Error("SignUptimeVote failed %s", signUptimeVoteResult.Message)
+		return
+	}
+}
+
+func (c *registrationClient) isFutureEpoch(epochId *big.Int) bool {
 	epochIdResult := <-c.systemsManagerClient.GetCurrentRewardEpochId()
 	if !epochIdResult.Success {
 		logger.Error("GetCurrentRewardEpochId failed %s", epochIdResult.Message)
@@ -186,7 +205,7 @@ func (c *registrationClient) verifyEpoch(epochId *big.Int) bool {
 	}
 	currentEpochId := epochIdResult.Value
 	if epochId.Cmp(currentEpochId) <= 0 {
-		logger.Warn("Epoch mismatch: current %v >= next %v", currentEpochId, epochId)
+		logger.Debug("Epoch in the past: current %v >= next %v", currentEpochId, epochId)
 		return false
 	}
 	return true
