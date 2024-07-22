@@ -26,7 +26,7 @@ var (
 		"new signing policy already signed",
 	}
 	nonFatalSignUptimeVoteErrors = []string{
-		"submit uptime vote already ended",
+		"submit uptime vote already ended", "voter already signed",
 	}
 	int64Ty, _          = abi.NewType("int64", "int64", nil)
 	bytes32Ty, _        = abi.NewType("bytes32", "bytes32", nil)
@@ -258,7 +258,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, [32]byte(zeroHash), signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
-			logger.Debug("Non fatal error sending sign uptime vote: %v", err)
+			logger.Info("Non fatal error sending sign uptime vote: %v", err)
 			return nil
 		}
 		return err
