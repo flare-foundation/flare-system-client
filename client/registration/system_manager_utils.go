@@ -238,7 +238,8 @@ func (s *systemsManagerContractClientImpl) SignUptimeVote(rewardEpochId *big.Int
 }
 
 func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big.Int) error {
-	zeroHash := crypto.Keccak256([]byte{0})
+	zero := [32]byte{}
+	zeroHash := crypto.Keccak256(zero[:])
 	toSign, err := uptimeVoteArguments.Pack(rewardEpochId.Int64(), [32]byte(zeroHash))
 	if err != nil {
 		return errors.Wrapf(err, "error packing uptime vote arguments: %v, %v", rewardEpochId, zeroHash)
