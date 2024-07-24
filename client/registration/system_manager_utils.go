@@ -8,17 +8,17 @@ import (
 	"flare-tlc/utils"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/system"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"math/big"
-	"math/rand"
-	"time"
-
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+	"log"
+	"math/big"
+	"math/rand"
+	"time"
 )
 
 var (
@@ -26,7 +26,10 @@ var (
 		"new signing policy already signed",
 	}
 	nonFatalSignUptimeVoteErrors = []string{
-		"submit uptime vote already ended", "voter already signed",
+		"submit uptime vote already ended", "voter already signed", "uptime vote hash already signed",
+	}
+	nonFatalSignRewardsErrors = []string{
+		"rewards hash already signed",
 	}
 	int64Ty, _          = abi.NewType("int64", "int64", nil)
 	bytes32Ty, _        = abi.NewType("bytes32", "bytes32", nil)
@@ -37,6 +40,24 @@ var (
 		{ // hash
 			Type: bytes32Ty,
 		},
+	}
+	signRewardsArguments = abi.Arguments{
+		{
+			Type: int64Ty,
+		},
+		{
+			Type: bytes32Ty,
+		},
+		{
+			Type: bytes32Ty,
+		},
+	}
+	weightClaimsType, _ = abi.NewType("tuple[]", "", []abi.ArgumentMarshaling{
+		{Name: "RewardManagerId", Type: "uint256"},
+		{Name: "NoOfWeightBasedClaims", Type: "uint265"},
+	})
+	weightClaimsArguments = abi.Arguments{
+		{Type: weightClaimsType},
 	}
 )
 
@@ -50,6 +71,10 @@ type systemsManagerContractClient interface {
 		registrationClientDB, *utils.Epoch,
 	) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
 	SignUptimeVote(*big.Int) <-chan shared.ExecuteStatus[any]
+	UptimeVoteSignedListener(
+		registrationClientDB, *utils.Epoch,
+	) <-chan *system.FlareSystemsManagerUptimeVoteSigned
+	SignRewards(*big.Int, *common.Hash, int) <-chan shared.ExecuteStatus[any]
 	GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int]
 }
 
@@ -59,14 +84,10 @@ type systemsManagerContractClientImpl struct {
 	senderTxOpts        *bind.TransactOpts
 	txVerifier          *chain.TxVerifier
 	signerPrivateKey    *ecdsa.PrivateKey
+	chainId             int
 }
 
-func NewSystemsManagerClient(
-	ethClient *ethclient.Client,
-	address common.Address,
-	senderTxOpts *bind.TransactOpts,
-	signerPrivateKey *ecdsa.PrivateKey,
-) (*systemsManagerContractClientImpl, error) {
+func NewSystemsManagerClient(ethClient *ethclient.Client, address common.Address, senderTxOpts *bind.TransactOpts, signerPrivateKey *ecdsa.PrivateKey, chainId int) (*systemsManagerContractClientImpl, error) {
 	flareSystemsManager, err := system.NewFlareSystemsManager(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -78,6 +99,7 @@ func NewSystemsManagerClient(
 		senderTxOpts:        senderTxOpts,
 		txVerifier:          chain.NewTxVerifier(ethClient),
 		signerPrivateKey:    signerPrivateKey,
+		chainId:             chainId,
 	}, nil
 }
 
@@ -270,6 +292,109 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	}
 	logger.Info("Uptime vote sent for epoch %v", rewardEpochId)
 	return nil
+}
+
+func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+	out := make(chan *system.FlareSystemsManagerUptimeVoteSigned)
+	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "UptimeVoteSigned")
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+	go func() {
+		randomDelay()
+		ticker := time.NewTicker(shared.EventListenerInterval)
+		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 2).Unix()
+		for {
+			<-ticker.C
+			now := time.Now().Unix()
+			logs, err := db.FetchLogsByAddressAndTopic0(s.address, topic0, eventRangeStart, now)
+			if err != nil {
+				logger.Error("Error fetching logs %v", err)
+				continue
+			}
+			if len(logs) > 0 {
+				dbLog := logs[len(logs)-1]
+				contractLog, err := shared.ConvertDatabaseLogToChainLog(dbLog)
+				if err != nil {
+					logger.Error("Error parsing UptimeVoteSigned database log %v", err)
+					continue
+				}
+				uptimeVoteSigned, err := s.flareSystemsManager.FlareSystemsManagerFilterer.ParseUptimeVoteSigned(*contractLog)
+				if err != nil {
+					logger.Error("Error parsing UptimeVoteSigned event %v", err)
+					continue
+				}
+				out <- uptimeVoteSigned
+				eventRangeStart = int64(uptimeVoteSigned.Timestamp)
+			}
+		}
+	}()
+	return out
+}
+
+func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetry(func() (any, error) {
+		err := s.sendSignRewards(epochId, rewardHash, weightClaims)
+		if err != nil {
+			return nil, errors.Wrap(err, "error sending sign rewards")
+		}
+		return nil, nil
+	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+}
+
+func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
+	packed := abiEncode(epochId, s.chainId, rewardHash, weightClaims)
+
+	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(packed)), s.signerPrivateKey)
+	if err != nil {
+		return err
+	}
+
+	signature := system.IFlareSystemsManagerSignature{
+		R: [32]byte(hashSignature[0:32]),
+		S: [32]byte(hashSignature[32:64]),
+		V: hashSignature[64] + 27,
+	}
+
+	tx, err := s.flareSystemsManager.SignRewards(s.senderTxOpts, epochId, []system.IFlareSystemsManagerNumberOfWeightBasedClaims{
+		{
+			RewardManagerId:       big.NewInt(int64(s.chainId)),
+			NoOfWeightBasedClaims: big.NewInt(int64(weightClaims)),
+		},
+	}, *rewardHash, signature)
+	if err != nil {
+		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
+			logger.Info("Non fatal error sending reward signature: %v", err)
+			return nil
+		}
+		return err
+	}
+	err = s.txVerifier.WaitUntilMined(s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	if err != nil {
+		return err
+	}
+	logger.Info("Rewards signed for epoch %v, hash: %s", epochId, rewardHash.Hex())
+
+	return nil
+}
+
+func abiEncode(epochId *big.Int, chainId int, rewardHash *common.Hash, weightClaims int) []byte {
+	weightClaimsWithId, err := weightClaimsArguments.Pack(
+		[]system.IFlareSystemsManagerNumberOfWeightBasedClaims{{
+			RewardManagerId: big.NewInt(int64(chainId)), NoOfWeightBasedClaims: big.NewInt(int64(weightClaims))},
+		},
+	)
+	if err != nil {
+		log.Fatalf("Failed to pack weight based claims arguments: %v", err)
+	}
+
+	weightClaimsWithIdHash := crypto.Keccak256Hash(weightClaimsWithId)
+	packed, err := signRewardsArguments.Pack(epochId.Int64(), [32]byte(weightClaimsWithIdHash), [32]byte(*rewardHash))
+	if err != nil {
+		log.Fatalf("Failed to packed reward hash arguments: %v", err)
+	}
+	return packed
 }
 
 // sleep for a random duration between 0 and 1 second

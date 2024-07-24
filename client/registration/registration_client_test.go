@@ -270,16 +270,6 @@ type testSystemsManagerClient struct {
 	signingErr     error
 }
 
-func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
-	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
-}
-
-func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
-		return nil, nil
-	}, 1, 0)
-}
-
 func newTestSystemsManagerClient() testSystemsManagerClient {
 	return testSystemsManagerClient{
 		rewardEpoch: &utils.Epoch{
@@ -386,6 +376,26 @@ func (c testRegistryClient) RegisterVoter(
 
 		c.registeredVoters[key][address] = true
 
+		return nil, nil
+	}, 1, 0)
+}
+
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
+}
+
+func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetry(func() (any, error) {
+		return nil, nil
+	}, 1, 0)
+}
+
+func (c testSystemsManagerClient) UptimeVoteSignedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
+}
+
+func (c testSystemsManagerClient) SignRewards(b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetry(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }

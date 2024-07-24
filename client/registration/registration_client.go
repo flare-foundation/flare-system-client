@@ -2,13 +2,16 @@ package registration
 
 import (
 	"context"
+	"encoding/json"
 	flarectx "flare-tlc/client/context"
 	"flare-tlc/config"
 	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/credentials"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -81,6 +84,7 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 		cfg.ContractAddresses.SystemsManager,
 		senderTxOpts,
 		signerPk,
+		chainCfg.ChainID,
 	)
 	if err != nil {
 		return nil, err
@@ -133,7 +137,8 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 	}
 	vpbsListener := c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
 	policyListener := c.relayClient.SigningPolicyInitializedListener(c.db, epoch)
-	uptimeListener := c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch)
+	uptimeEnabledListener := c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch)
+	uptimeSignedListener := c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch)
 
 	// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
 	logger.Info("Waiting for VotePowerBlockSelected event to start registration")
@@ -146,9 +151,15 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 		case signingPolicy := <-policyListener:
 			logger.Debug("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
 			c.signPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)
-		case uptimeVoteEnabled := <-uptimeListener:
+		case uptimeVoteEnabled := <-uptimeEnabledListener:
 			logger.Debug("SignUptimeVoteEnabled event emitted for epoch %v", uptimeVoteEnabled.RewardEpochId)
 			c.signUptimeVote(uptimeVoteEnabled.RewardEpochId)
+		case uptimeVoteSigned := <-uptimeSignedListener:
+			logger.Debug("UptimeVoteSigned event emitted for epoch %v, signer %s", uptimeVoteSigned.RewardEpochId, uptimeVoteSigned.SigningPolicyAddress.Hex())
+			if uptimeVoteSigned.ThresholdReached {
+				logger.Info("Uptime vote threshold reached for epoch %v, signing rewards", uptimeVoteSigned.RewardEpochId)
+				c.signRewards(uptimeVoteSigned.RewardEpochId)
+			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -209,4 +220,51 @@ func (c *registrationClient) isFutureEpoch(epochId *big.Int) bool {
 		return false
 	}
 	return true
+}
+
+type rewardHash struct {
+	RewardEpochId         int    `json:"rewardEpochId"`
+	NoOfWeightBasedClaims int    `json:"noOfWeightBasedClaims"`
+	MerkleRoot            string `json:"merkleRoot"`
+}
+
+func (c *registrationClient) signRewards(epochId *big.Int) {
+	logger.Info("Signing rewards for epoch %v", epochId)
+	hash, weightClaims, err := parseRewardHash("reward-hash.json")
+	if err != nil {
+		logger.Error("error obtaining reward hash details for epoch %v, restart client to retry: %s", epochId, err)
+		return
+	}
+	signingResult := <-c.systemsManagerClient.SignRewards(epochId, hash, weightClaims)
+	if signingResult.Success {
+		logger.Info("SignRewards success")
+	} else {
+		logger.Error("SignRewards failed %s", signingResult.Message)
+	}
+}
+
+func parseRewardHash(filePath string) (*common.Hash, int, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "error opening reward hash file")
+	}
+	defer file.Close()
+
+	var rewardHash rewardHash
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&rewardHash)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "error decoding reward hash file")
+	}
+
+	hashBytes, err := hexutil.Decode(rewardHash.MerkleRoot)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "invalid merkle root")
+	}
+	if len(hashBytes) != common.HashLength {
+		return nil, 0, errors.Errorf("invalid merkle root length: %v", len(hashBytes))
+	}
+
+	hash := common.BytesToHash(hashBytes)
+	return &hash, rewardHash.NoOfWeightBasedClaims, nil
 }
