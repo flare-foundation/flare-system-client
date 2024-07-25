@@ -2,6 +2,7 @@ package registration
 
 import (
 	"context"
+	config2 "flare-tlc/client/config"
 	"flare-tlc/client/shared"
 	"flare-tlc/config"
 	"flare-tlc/database"
@@ -41,6 +42,7 @@ func TestRegistrationClientMainline(t *testing.T) {
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		rewardsConfig:        &config2.RewardsConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -94,6 +96,7 @@ func TestRegistrationClientInvalidEpoch(t *testing.T) {
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		rewardsConfig:        &config2.RewardsConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -136,6 +139,7 @@ func TestRegistrationClientSigningErr(t *testing.T) {
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		rewardsConfig:        &config2.RewardsConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -186,6 +190,7 @@ func TestRegistrationClientRewardEpochErr(t *testing.T) {
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		rewardsConfig:        &config2.RewardsConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -226,6 +231,7 @@ func TestRegistrationClientRegisterErr(t *testing.T) {
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		rewardsConfig:        &config2.RewardsConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
