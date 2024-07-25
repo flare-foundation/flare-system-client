@@ -139,6 +139,7 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 	} else {
 		uptimeSignedListener = make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 	}
+	rewardsSigned := map[int64]bool{}
 
 	// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
 	logger.Info("Waiting for VotePowerBlockSelected event to start registration")
@@ -157,7 +158,15 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 		case uptimeVoteSigned := <-uptimeSignedListener:
 			logger.Debug("UptimeVoteSigned event emitted for epoch %v, signer %s", uptimeVoteSigned.RewardEpochId, uptimeVoteSigned.SigningPolicyAddress.Hex())
 			if uptimeVoteSigned.ThresholdReached {
-				logger.Info("Uptime vote threshold reached for epoch %v, signing rewards", uptimeVoteSigned.RewardEpochId)
+				epochIdInt := uptimeVoteSigned.RewardEpochId.Int64()
+				// There might be multiple events fired for the same epoch, only attempt to sign once
+				if rewardsSigned[epochIdInt] {
+					logger.Debug("Already attempted reward signing for epoch %d", epochIdInt)
+					continue
+				}
+
+				logger.Info("Uptime vote threshold reached for epoch %v, signing rewards", epochIdInt)
+				rewardsSigned[epochIdInt] = true
 				c.signRewards(uptimeVoteSigned.RewardEpochId)
 			}
 		case <-ctx.Done():
