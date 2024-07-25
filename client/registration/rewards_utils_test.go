@@ -9,10 +9,10 @@ import (
 	"testing"
 )
 
-func Test_abiEncode(t *testing.T) {
-	t.Run("abiEncode packs arguments correctly", func(t *testing.T) {
+func Test_encodeRewardsData(t *testing.T) {
+	t.Run("encodeRewardsData packs arguments correctly", func(t *testing.T) {
 		rewardHash := common.HexToHash("0x9d91c7d9595969e7d21783b904f8707316d6267c656b60fad0e070e9c698a672")
-		encoded := abiEncode(
+		encoded := encodeRewardsData(
 			big.NewInt(3),
 			31337,
 			&rewardHash,

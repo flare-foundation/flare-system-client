@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
-	"log"
 	"math/big"
 	"math/rand"
 	"time"
@@ -40,24 +39,6 @@ var (
 		{ // hash
 			Type: bytes32Ty,
 		},
-	}
-	signRewardsArguments = abi.Arguments{
-		{
-			Type: int64Ty,
-		},
-		{
-			Type: bytes32Ty,
-		},
-		{
-			Type: bytes32Ty,
-		},
-	}
-	weightClaimsType, _ = abi.NewType("tuple[]", "", []abi.ArgumentMarshaling{
-		{Name: "RewardManagerId", Type: "uint256"},
-		{Name: "NoOfWeightBasedClaims", Type: "uint265"},
-	})
-	weightClaimsArguments = abi.Arguments{
-		{Type: weightClaimsType},
 	}
 )
 
@@ -344,7 +325,7 @@ func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardH
 }
 
 func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
-	packed := abiEncode(epochId, s.chainId, rewardHash, weightClaims)
+	packed := encodeRewardsData(epochId, s.chainId, rewardHash, weightClaims)
 
 	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(packed)), s.signerPrivateKey)
 	if err != nil {
@@ -377,24 +358,6 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 	logger.Info("Rewards signed for epoch %v, hash: %s", epochId, rewardHash.Hex())
 
 	return nil
-}
-
-func abiEncode(epochId *big.Int, chainId int, rewardHash *common.Hash, weightClaims int) []byte {
-	weightClaimsWithId, err := weightClaimsArguments.Pack(
-		[]system.IFlareSystemsManagerNumberOfWeightBasedClaims{{
-			RewardManagerId: big.NewInt(int64(chainId)), NoOfWeightBasedClaims: big.NewInt(int64(weightClaims))},
-		},
-	)
-	if err != nil {
-		log.Fatalf("Failed to pack weight based claims arguments: %v", err)
-	}
-
-	weightClaimsWithIdHash := crypto.Keccak256Hash(weightClaimsWithId)
-	packed, err := signRewardsArguments.Pack(epochId.Int64(), [32]byte(weightClaimsWithIdHash), [32]byte(*rewardHash))
-	if err != nil {
-		log.Fatalf("Failed to packed reward hash arguments: %v", err)
-	}
-	return packed
 }
 
 // sleep for a random duration between 0 and 1 second

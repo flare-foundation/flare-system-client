@@ -2,20 +2,17 @@ package registration
 
 import (
 	"context"
-	"encoding/json"
+	clientConfig "flare-tlc/client/config"
 	flarectx "flare-tlc/client/context"
 	"flare-tlc/config"
 	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/credentials"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"math/big"
-	"os"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"math/big"
 )
 
 // Start tic voter registration & signing policy voter client 2 hours
@@ -35,6 +32,7 @@ type registrationClient struct {
 	registryClient       registryContractClient
 
 	identityAddress common.Address
+	rewardsConfig   *clientConfig.RewardsConfig
 }
 
 type registrationClientDB interface {
@@ -79,13 +77,7 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 		return nil, errors.Wrap(err, "error creating signer private key")
 	}
 
-	systemsManagerClient, err := NewSystemsManagerClient(
-		ethClient,
-		cfg.ContractAddresses.SystemsManager,
-		senderTxOpts,
-		signerPk,
-		chainCfg.ChainID,
-	)
+	systemsManagerClient, err := NewSystemsManagerClient(ethClient, cfg.ContractAddresses.SystemsManager, senderTxOpts, signerPk, chainCfg.ChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -122,6 +114,7 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      identityAddress,
+		rewardsConfig:        &cfg.Rewards,
 	}, nil
 }
 
@@ -222,17 +215,11 @@ func (c *registrationClient) isFutureEpoch(epochId *big.Int) bool {
 	return true
 }
 
-type rewardHash struct {
-	RewardEpochId         int    `json:"rewardEpochId"`
-	NoOfWeightBasedClaims int    `json:"noOfWeightBasedClaims"`
-	MerkleRoot            string `json:"merkleRoot"`
-}
-
 func (c *registrationClient) signRewards(epochId *big.Int) {
 	logger.Info("Signing rewards for epoch %v", epochId)
-	hash, weightClaims, err := parseRewardHash("reward-hash.json")
+	hash, weightClaims, err := getRewardsHash(epochId, c.rewardsConfig)
 	if err != nil {
-		logger.Error("error obtaining reward hash details for epoch %v, restart client to retry: %s", epochId, err)
+		logger.Error("error obtaining reward hash data for epoch %v, restart client to retry: %s", epochId, err)
 		return
 	}
 	signingResult := <-c.systemsManagerClient.SignRewards(epochId, hash, weightClaims)
@@ -241,30 +228,4 @@ func (c *registrationClient) signRewards(epochId *big.Int) {
 	} else {
 		logger.Error("SignRewards failed %s", signingResult.Message)
 	}
-}
-
-func parseRewardHash(filePath string) (*common.Hash, int, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "error opening reward hash file")
-	}
-	defer file.Close()
-
-	var rewardHash rewardHash
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&rewardHash)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "error decoding reward hash file")
-	}
-
-	hashBytes, err := hexutil.Decode(rewardHash.MerkleRoot)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "invalid merkle root")
-	}
-	if len(hashBytes) != common.HashLength {
-		return nil, 0, errors.Errorf("invalid merkle root length: %v", len(hashBytes))
-	}
-
-	hash := common.BytesToHash(hashBytes)
-	return &hash, rewardHash.NoOfWeightBasedClaims, nil
 }

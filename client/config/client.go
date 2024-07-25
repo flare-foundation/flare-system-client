@@ -31,6 +31,8 @@ type ClientConfig struct {
 
 	SubmitGas   GasConfig `toml:"gas_submit"`
 	RegisterGas GasConfig `toml:"gas_register"`
+
+	Rewards RewardsConfig `toml:"rewards"`
 }
 
 type MetricsConfig struct {
@@ -103,6 +105,10 @@ type GasConfig struct {
 	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
 	GasLimit           int      `toml:"gas_limit"`
+}
+
+type RewardsConfig struct {
+	RewardsHashPathPrefix string `toml:"rewards_hash_path_prefix"`
 }
 
 func newConfig() *ClientConfig {
