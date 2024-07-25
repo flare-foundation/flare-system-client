@@ -349,7 +349,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 		},
 	}, *rewardHash, signature)
 	if err != nil {
-		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
+		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
 			logger.Info("Non fatal error sending reward signature: %v", err)
 			return nil
 		}
