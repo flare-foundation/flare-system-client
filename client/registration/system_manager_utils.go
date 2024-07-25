@@ -29,7 +29,7 @@ var (
 		"submit uptime vote already ended", "voter already signed", "uptime vote hash already signed",
 	}
 	nonFatalSignRewardsErrors = []string{
-		"rewards hash already signed",
+		"rewards hash already signed", "voter already signed",
 	}
 	int64Ty, _          = abi.NewType("int64", "int64", nil)
 	bytes32Ty, _        = abi.NewType("bytes32", "bytes32", nil)
