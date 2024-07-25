@@ -2,6 +2,7 @@ package registration
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"flare-tlc/client/shared"
 	"flare-tlc/database"
 	"flare-tlc/logger"
@@ -243,6 +244,8 @@ func (s *systemsManagerContractClientImpl) SignUptimeVote(rewardEpochId *big.Int
 func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big.Int) error {
 	zero := [32]byte{}
 	zeroHash := crypto.Keccak256(zero[:])
+	logger.Info("Signing uptime vote for epoch %v: %s", rewardEpochId, hex.EncodeToString(zeroHash[:]))
+
 	toSign, err := uptimeVoteArguments.Pack(rewardEpochId.Int64(), [32]byte(zeroHash))
 	if err != nil {
 		return errors.Wrapf(err, "error packing uptime vote arguments: %v, %v", rewardEpochId, zeroHash)
@@ -285,7 +288,7 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db registrat
 	go func() {
 		randomDelay()
 		ticker := time.NewTicker(shared.EventListenerInterval)
-		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 2).Unix()
+		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 1).Unix()
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
@@ -325,6 +328,7 @@ func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardH
 }
 
 func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
+	logger.Info("Signing rewards for epoch %v, hash: %s", epochId, rewardHash.Hex())
 	packed := encodeRewardsData(epochId, s.chainId, rewardHash, weightClaims)
 
 	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(packed)), s.signerPrivateKey)

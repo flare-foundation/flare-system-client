@@ -8,6 +8,7 @@ import (
 	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
+	"flare-tlc/utils/contracts/system"
 	"flare-tlc/utils/credentials"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -131,7 +132,13 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 	vpbsListener := c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
 	policyListener := c.relayClient.SigningPolicyInitializedListener(c.db, epoch)
 	uptimeEnabledListener := c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch)
-	uptimeSignedListener := c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch)
+
+	var uptimeSignedListener <-chan *system.FlareSystemsManagerUptimeVoteSigned
+	if c.rewardsConfig.SigningEnabled {
+		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch)
+	} else {
+		uptimeSignedListener = make(chan *system.FlareSystemsManagerUptimeVoteSigned)
+	}
 
 	// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
 	logger.Info("Waiting for VotePowerBlockSelected event to start registration")
@@ -224,7 +231,7 @@ func (c *registrationClient) signRewards(epochId *big.Int) {
 	}
 	signingResult := <-c.systemsManagerClient.SignRewards(epochId, hash, weightClaims)
 	if signingResult.Success {
-		logger.Info("SignRewards success")
+		logger.Info("SignRewards completed")
 	} else {
 		logger.Error("SignRewards failed %s", signingResult.Message)
 	}

@@ -67,13 +67,12 @@ func encodeRewardsData(epochId *big.Int, chainId int, rewardHash *common.Hash, w
 }
 
 func getRewardsHash(epochId *big.Int, rewardsConfig *config.RewardsConfig) (*common.Hash, int, error) {
-	prefix := rewardsConfig.RewardsHashPathPrefix
+	prefix := rewardsConfig.PathPrefix
 	if prefix == "" {
 		return nil, 0, errors.New("rewards hash path prefix not set")
 	}
-	path := fmt.Sprintf("%s/%d/rewards-hash.json", prefix, epochId)
-	logger.Info("Obtaining reward hash for epoch %d from %s", epochId, path)
 
+	path := fmt.Sprintf("%s/%d/rewards-hash.json", prefix, epochId)
 	bytes, err := fetchRewardsHashBytes(path)
 	if err != nil {
 		return nil, 0, err

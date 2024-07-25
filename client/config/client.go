@@ -108,7 +108,8 @@ type GasConfig struct {
 }
 
 type RewardsConfig struct {
-	RewardsHashPathPrefix string `toml:"rewards_hash_path_prefix"`
+	SigningEnabled bool   `toml:"signing_enabled"`
+	PathPrefix     string `toml:"hash_path_prefix"`
 }
 
 func newConfig() *ClientConfig {

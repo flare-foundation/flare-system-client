@@ -108,4 +108,21 @@ gas_limit = 0             # (optional) gas limit for transaction. Defaults to 0,
 gas_price_multiplier = 0
 gas_price_fixed = 50000000000 # 50 * 1e9
 gas_limit = 0
+
+[rewards]
+# Local folder or URL prefix for retrieving rewards hash files. 
+# A full path will be constructed by appending the epoch id and expected file name: <path>/<epochId>/rewards-hash.json
+# 
+# Example: 
+# - URL prefix: "https://example.com/rewards" -> https://example.com/rewards/2939/rewards-hash.json
+# - Folder: "./rewards" -> ./rewards/2939/rewards-hash.json
+#
+# The rewards hash file is expected to have the following structure:
+# {
+#    "rewardEpochId": <epoch id>,
+#    "noOfWeightBasedClaims": <number of claims>,
+#    "merkleRoot": "<total reward claim markle root>"
+# }
+signing_enabled = true
+hash_path_prefix = ""
 ```
