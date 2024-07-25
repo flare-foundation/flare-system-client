@@ -120,8 +120,8 @@ gas_limit = 0
 # The rewards hash file is expected to have the following structure:
 # {
 #    "rewardEpochId": <epoch id>,
-#    "noOfWeightBasedClaims": <number of claims>,
-#    "merkleRoot": "<total reward claim markle root>"
+#    "noOfWeightBasedClaims": <number of weight-based claims>,
+#    "merkleRoot": "<markle root of all claims for the epoch>"
 # }
 signing_enabled = true
 hash_path_prefix = ""
