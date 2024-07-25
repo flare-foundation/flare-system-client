@@ -84,6 +84,10 @@ func getRewardsHash(epochId *big.Int, rewardsConfig *config.RewardsConfig) (*com
 		return nil, 0, errors.Wrap(err, "error decoding reward hash file")
 	}
 
+	if rewardHash.RewardEpochId != int(epochId.Int64()) {
+		return nil, 0, errors.Errorf("invalid rewards hash epoch id: %d, expected: %d", rewardHash.RewardEpochId, epochId)
+	}
+
 	hashBytes, err := hexutil.Decode(rewardHash.MerkleRoot)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "invalid rewards merkle root")

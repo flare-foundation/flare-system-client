@@ -359,7 +359,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 	if err != nil {
 		return err
 	}
-	logger.Info("Rewards signed for epoch %v, hash: %s", epochId, rewardHash.Hex())
+	logger.Info("Rewards signed for epoch %v", epochId)
 
 	return nil
 }
