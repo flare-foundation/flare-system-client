@@ -297,9 +297,9 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db registrat
 				logger.Error("Error fetching logs %v", err)
 				continue
 			}
-			if len(logs) > 0 {
-				dbLog := logs[len(logs)-1]
-				contractLog, err := shared.ConvertDatabaseLogToChainLog(dbLog)
+
+			for _, log := range logs {
+				contractLog, err := shared.ConvertDatabaseLogToChainLog(log)
 				if err != nil {
 					logger.Error("Error parsing UptimeVoteSigned database log %v", err)
 					continue
@@ -309,7 +309,10 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db registrat
 					logger.Error("Error parsing UptimeVoteSigned event %v", err)
 					continue
 				}
-				out <- uptimeVoteSigned
+
+				if uptimeVoteSigned.ThresholdReached {
+					out <- uptimeVoteSigned
+				}
 				eventRangeStart = int64(uptimeVoteSigned.Timestamp)
 			}
 		}
