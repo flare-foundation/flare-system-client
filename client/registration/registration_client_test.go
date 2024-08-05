@@ -386,7 +386,7 @@ func (c testRegistryClient) RegisterVoter(
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db registrationClientDB, epoch *utils.Epoch, i int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 }
 
@@ -396,7 +396,7 @@ func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.Execu
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) UptimeVoteSignedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (c testSystemsManagerClient) UptimeVoteSignedListener(db registrationClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 }
 

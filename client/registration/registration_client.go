@@ -34,6 +34,7 @@ type registrationClient struct {
 
 	identityAddress common.Address
 	rewardsConfig   *clientConfig.RewardsConfig
+	uptimeConfig    *clientConfig.UptimeConfig
 }
 
 type registrationClientDB interface {
@@ -116,6 +117,7 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 		registryClient:       registryClient,
 		identityAddress:      identityAddress,
 		rewardsConfig:        &cfg.Rewards,
+		uptimeConfig:         &cfg.Uptime,
 	}, nil
 }
 
@@ -131,11 +133,17 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 	}
 	vpbsListener := c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
 	policyListener := c.relayClient.SigningPolicyInitializedListener(c.db, epoch)
-	uptimeEnabledListener := c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch)
+
+	var uptimeEnabledListener <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
+	if c.uptimeConfig.SigningEnabled {
+		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch, c.uptimeConfig.SigningWindow)
+	} else {
+		uptimeEnabledListener = make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
+	}
 
 	var uptimeSignedListener <-chan *system.FlareSystemsManagerUptimeVoteSigned
 	if c.rewardsConfig.SigningEnabled {
-		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch)
+		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch, c.rewardsConfig.SigningWindow)
 	} else {
 		uptimeSignedListener = make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 	}

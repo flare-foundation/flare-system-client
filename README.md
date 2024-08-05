@@ -109,7 +109,12 @@ gas_price_multiplier = 0
 gas_price_fixed = 50000000000 # 50 * 1e9
 gas_limit = 0
 
+[uptime]
+signing_enabled = true # (optional) enable/disable uptime vote signing, default: true
+signing_window = 2 # (optional) how many epochs in the past we attempt to sign uptime vote for, default: 2.
+
 [rewards]
+signing_enabled = true # (optional) enable/disable reward signing, default: false
 # Local folder or URL prefix for retrieving rewards hash files. 
 # A full path will be constructed by appending the epoch id and expected file name: <path>/<epochId>/rewards-hash.json
 # 
@@ -123,6 +128,6 @@ gas_limit = 0
 #    "noOfWeightBasedClaims": <number of weight-based claims>,
 #    "merkleRoot": "<markle root of all claims for the epoch>"
 # }
-signing_enabled = true
 hash_path_prefix = ""
+signing_window = 2 # (optional) how many epochs in the past we attempt to sign rewards for, default: 2.
 ```

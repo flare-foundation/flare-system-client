@@ -32,6 +32,7 @@ type ClientConfig struct {
 	SubmitGas   GasConfig `toml:"gas_submit"`
 	RegisterGas GasConfig `toml:"gas_register"`
 
+	Uptime  UptimeConfig  `toml:"uptime"`
 	Rewards RewardsConfig `toml:"rewards"`
 }
 
@@ -107,9 +108,15 @@ type GasConfig struct {
 	GasLimit           int      `toml:"gas_limit"`
 }
 
+type UptimeConfig struct {
+	SigningEnabled bool  `toml:"signing_enabled"`
+	SigningWindow  int64 `toml:"signing_window"`
+}
+
 type RewardsConfig struct {
 	SigningEnabled bool   `toml:"signing_enabled"`
 	PathPrefix     string `toml:"hash_path_prefix"`
+	SigningWindow  int64  `toml:"signing_window"`
 }
 
 func newConfig() *ClientConfig {
@@ -125,6 +132,13 @@ func newConfig() *ClientConfig {
 		Submit2: defaultSubmitConfig,
 		SubmitSignatures: SubmitSignaturesConfig{
 			SubmitConfig: defaultSubmitConfig,
+		},
+		Uptime: UptimeConfig{
+			SigningEnabled: true,
+			SigningWindow:  2,
+		},
+		Rewards: RewardsConfig{
+			SigningWindow: 2,
 		},
 	}
 }
