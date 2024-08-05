@@ -43,6 +43,7 @@ func TestRegistrationClientMainline(t *testing.T) {
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
 		rewardsConfig:        &config2.RewardsConfig{},
+		uptimeConfig:         &config2.UptimeConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -97,6 +98,7 @@ func TestRegistrationClientInvalidEpoch(t *testing.T) {
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
 		rewardsConfig:        &config2.RewardsConfig{},
+		uptimeConfig:         &config2.UptimeConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -140,6 +142,7 @@ func TestRegistrationClientSigningErr(t *testing.T) {
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
 		rewardsConfig:        &config2.RewardsConfig{},
+		uptimeConfig:         &config2.UptimeConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -191,6 +194,7 @@ func TestRegistrationClientRewardEpochErr(t *testing.T) {
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
 		rewardsConfig:        &config2.RewardsConfig{},
+		uptimeConfig:         &config2.UptimeConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -232,6 +236,7 @@ func TestRegistrationClientRegisterErr(t *testing.T) {
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
 		rewardsConfig:        &config2.RewardsConfig{},
+		uptimeConfig:         &config2.UptimeConfig{},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
