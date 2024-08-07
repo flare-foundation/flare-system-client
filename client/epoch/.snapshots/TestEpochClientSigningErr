@@ -1,0 +1,5 @@
+(map[string]map[common.Address]bool) (len=1) {
+  (string) (len=1) "2": (map[common.Address]bool) (len=1) {
+    (common.Address) (len=20) 0x0000000000000000000000000000000000123456: (bool) true
+  }
+}

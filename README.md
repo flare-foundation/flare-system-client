@@ -1,4 +1,4 @@
-# Flare Top level protocol client
+# Flare Systems Protocol Client
 
 ...
 
@@ -57,9 +57,11 @@ protocol_manager_submit_private_key_file = "../credentials/submit-private-key.tx
 protocol_manager_submit_signatures_private_key_file = "../credentials/signatures-private-key.txt"
 
 [clients]
-enabled_registration = true       # enable/disable registration - send RegisterVoter and SignNewSigningPolicy txs
-enabled_protocol_voting = false
-enabled_finalizer = false
+enabled_registration = true     # enable/disable voter registration AND new signing policy signing
+enabled_uptime_voting = true    # enable/disable uptime vote signing
+enabled_reward_signing = false  # enable/disable reward signing
+enabled_protocol_voting = true  # enable/disable protocol data submission
+enabled_finalizer = true        # enable/disable finalizer client    
 
 [protocol.ftso1]
 id = 1
@@ -72,7 +74,7 @@ api_endpoint = "http://localhost:3000/ftso2"
 # To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_2 env var
 
 [submit1]
-enabled = true            # (optional) set to false to disable a specific submitter, default: enabled
+enabled = true            # (optional) set to false to disable a specific submitter, default: true
 start_offset = "5s"       # start fetching data and submitting txs after this offset from the start of the epoch
 tx_submit_retries = 1     # (optional) number of retries for submitting txs, default: 1
 data_fetch_retries = 1    # (optional) number of retries for fetching data from the API, default: 1
@@ -109,12 +111,10 @@ gas_price_multiplier = 0
 gas_price_fixed = 50000000000 # 50 * 1e9
 gas_limit = 0
 
-[uptime]
-signing_enabled = true # (optional) enable/disable uptime vote signing, default: true
-signing_window = 2 # (optional) how many epochs in the past we attempt to sign uptime vote for, default: 2.
+[uptime] # uptime vote configuration - clients.enabled_uptime_voting must be set to true
+signing_window = 2 # (optional) how many epochs in the past wße attempt to sign uptime vote for, default: 2.
 
-[rewards]
-signing_enabled = true # (optional) enable/disable reward signing, default: false
+[rewards] # reward signing configuration - clients.enabled_reward_signing must be set to true
 # Local folder or URL prefix for retrieving rewards hash files. 
 # A full path will be constructed by appending the epoch id and expected file name: <path>/<epochId>/rewards-hash.json
 # 

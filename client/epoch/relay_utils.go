@@ -1,4 +1,4 @@
-package registration
+package epoch
 
 import (
 	"flare-tlc/client/shared"
@@ -14,7 +14,7 @@ import (
 )
 
 type relayContractClient interface {
-	SigningPolicyInitializedListener(registrationClientDB, *utils.Epoch) <-chan *relay.RelaySigningPolicyInitialized
+	SigningPolicyInitializedListener(epochClientDB, *utils.Epoch) <-chan *relay.RelaySigningPolicyInitialized
 }
 
 type relayContractClientImpl struct {
@@ -38,7 +38,7 @@ func NewRelayContractClient(
 	}, nil
 }
 
-func (r *relayContractClientImpl) SigningPolicyInitializedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *relay.RelaySigningPolicyInitialized {
+func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClientDB, epoch *utils.Epoch) <-chan *relay.RelaySigningPolicyInitialized {
 	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal

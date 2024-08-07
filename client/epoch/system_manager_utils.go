@@ -1,8 +1,7 @@
-package registration
+package epoch
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"flare-tlc/client/shared"
 	"flare-tlc/database"
 	"flare-tlc/logger"
@@ -10,7 +9,6 @@ import (
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/system"
 	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,28 +29,20 @@ var (
 	nonFatalSignRewardsErrors = []string{
 		"rewards hash already signed", "voter already signed",
 	}
-	int64Ty, _          = abi.NewType("int64", "int64", nil)
-	bytes32Ty, _        = abi.NewType("bytes32", "bytes32", nil)
-	uptimeVoteArguments = abi.Arguments{
-		{ // reward epoch id
-			Type: int64Ty,
-		},
-		{ // hash
-			Type: bytes32Ty,
-		},
-	}
 )
 
 type systemsManagerContractClient interface {
 	RewardEpochFromChain() (*utils.Epoch, error)
-	VotePowerBlockSelectedListener(
-		registrationClientDB, *utils.Epoch,
-	) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
+
+	VotePowerBlockSelectedListener(epochClientDB, *utils.Epoch) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
 	SignNewSigningPolicy(*big.Int, []byte) <-chan shared.ExecuteStatus[any]
-	SignUptimeVoteEnabledListener(registrationClientDB, *utils.Epoch, int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
+
+	SignUptimeVoteEnabledListener(epochClientDB, *utils.Epoch, int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
 	SignUptimeVote(*big.Int) <-chan shared.ExecuteStatus[any]
-	UptimeVoteSignedListener(registrationClientDB, *utils.Epoch, int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned
+
+	UptimeVoteSignedListener(epochClientDB, *utils.Epoch, int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned
 	SignRewards(*big.Int, *common.Hash, int) <-chan shared.ExecuteStatus[any]
+
 	GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int]
 }
 
@@ -141,7 +131,7 @@ func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochId() <-chan shar
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
+func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epochClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
 	out := make(chan *system.FlareSystemsManagerVotePowerBlockSelected)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "VotePowerBlockSelected")
 	if err != nil {
@@ -186,7 +176,7 @@ func (s *systemsManagerContractClientImpl) RewardEpochFromChain() (*utils.Epoch,
 	return shared.RewardEpochFromChain(s.flareSystemsManager)
 }
 
-func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db registrationClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	out := make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "SignUptimeVoteEnabled")
 	if err != nil {
@@ -242,27 +232,12 @@ func (s *systemsManagerContractClientImpl) SignUptimeVote(rewardEpochId *big.Int
 }
 
 func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big.Int) error {
-	zero := [32]byte{}
-	zeroHash := crypto.Keccak256(zero[:])
-	logger.Info("Signing uptime vote for epoch %v: %s", rewardEpochId, hex.EncodeToString(zeroHash[:]))
-
-	toSign, err := uptimeVoteArguments.Pack(rewardEpochId.Int64(), [32]byte(zeroHash))
-	if err != nil {
-		return errors.Wrapf(err, "error packing uptime vote arguments: %v, %v", rewardEpochId, zeroHash)
-	}
-
-	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(toSign)), s.signerPrivateKey)
+	hash, signature, err := getUptimeSignature(rewardEpochId, s.signerPrivateKey)
 	if err != nil {
 		return err
 	}
 
-	signature := system.IFlareSystemsManagerSignature{
-		R: [32]byte(hashSignature[0:32]),
-		S: [32]byte(hashSignature[32:64]),
-		V: hashSignature[64] + 27,
-	}
-
-	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, [32]byte(zeroHash), signature)
+	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, hash, *signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
 			logger.Info("Non fatal error sending sign uptime vote: %v", err)
@@ -278,7 +253,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	return nil
 }
 
-func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db registrationClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	out := make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "UptimeVoteSigned")
 	if err != nil {
