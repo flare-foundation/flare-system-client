@@ -1,59 +1,45 @@
-package registration
+package epoch
 
 import (
 	"context"
 	clientConfig "flare-tlc/client/config"
 	flarectx "flare-tlc/client/context"
 	"flare-tlc/config"
-	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
+	"flare-tlc/utils/contracts/relay"
 	"flare-tlc/utils/contracts/system"
 	"flare-tlc/utils/credentials"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
 	"math/big"
 )
 
-// Start tic voter registration & signing policy voter client 2 hours
-// before end of epoch (reward epoch 3.5 days)
-//  1. Listen until VotePowerBlockSelected (enabled voter registration) event is emitted
-//  2. Call RegisterVoter function on VoterRegistry
-//  3. Wait until we get voter registered event
-//  4. Wait until SigningPolicyInitialized is emitted
-//  5. Call signNewSigningPolicy
-//  6. Wait until SigningPolicySigned is emitted (for the voter)
-
-type registrationClient struct {
-	db registrationClientDB
+// EpochClient performs reward epoch registration and signing actions, triggered on SystemsManager contract events:
+// - Voter registration (on VoterPowerBlockSelected)
+// - Signing new signing policy (on SigningPolicyInitialized)
+// - Signing uptime vote (on SignUptimeVoteEnabled)
+// - Signing rewards (on UptimeVoteSigned with threshold reached)
+type EpochClient struct {
+	db epochClientDB
 
 	systemsManagerClient systemsManagerContractClient
 	relayClient          relayContractClient
 	registryClient       registryContractClient
 
 	identityAddress common.Address
-	rewardsConfig   *clientConfig.RewardsConfig
-	uptimeConfig    *clientConfig.UptimeConfig
+
+	registrationEnabled   bool
+	uptimeVotingEnabled   bool
+	rewardsSigningEnabled bool
+
+	rewardsConfig *clientConfig.RewardsConfig
+	uptimeConfig  *clientConfig.UptimeConfig
 }
 
-type registrationClientDB interface {
-	FetchLogsByAddressAndTopic0(common.Address, string, int64, int64) ([]database.Log, error)
-}
-
-type registrationClientDBGorm struct {
-	db *gorm.DB
-}
-
-func (g registrationClientDBGorm) FetchLogsByAddressAndTopic0(
-	address common.Address, topic0 string, fromBlock int64, toBlock int64,
-) ([]database.Log, error) {
-	return database.FetchLogsByAddressAndTopic0(g.db, address.Hex(), topic0, fromBlock, toBlock)
-}
-
-func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, error) {
+func NewEpochClient(ctx flarectx.ClientContext) (*EpochClient, error) {
 	cfg := ctx.Config()
-	if !cfg.Clients.EnabledRegistration {
+	if !cfg.Clients.EpochClientEnabled() {
 		return nil, nil
 	}
 
@@ -109,47 +95,52 @@ func NewRegistrationClient(ctx flarectx.ClientContext) (*registrationClient, err
 	}
 	logger.Debug("Identity addr %v", identityAddress)
 
-	db := registrationClientDBGorm{db: ctx.DB()}
-	return &registrationClient{
-		db:                   db,
-		systemsManagerClient: systemsManagerClient,
-		relayClient:          relayClient,
-		registryClient:       registryClient,
-		identityAddress:      identityAddress,
-		rewardsConfig:        &cfg.Rewards,
-		uptimeConfig:         &cfg.Uptime,
+	db := epochClientDBGorm{db: ctx.DB()}
+	return &EpochClient{
+		db:                    db,
+		systemsManagerClient:  systemsManagerClient,
+		relayClient:           relayClient,
+		registryClient:        registryClient,
+		identityAddress:       identityAddress,
+		registrationEnabled:   cfg.Clients.EnabledRegistration,
+		uptimeVotingEnabled:   cfg.Clients.EnabledUptimeVoting,
+		rewardsSigningEnabled: cfg.Clients.EnabledRewardSigning,
+		rewardsConfig:         &cfg.Rewards,
+		uptimeConfig:          &cfg.Uptime,
 	}, nil
 }
 
-// Run runs the registration client, should be called in a goroutine
-func (c *registrationClient) Run(ctx context.Context) error {
+// Run runs the  client, should be called in a goroutine
+func (c *EpochClient) Run(ctx context.Context) error {
 	return c.RunContext(ctx)
 }
 
-func (c *registrationClient) RunContext(ctx context.Context) error {
+func (c *EpochClient) RunContext(ctx context.Context) error {
+	logger.Info("Starting reward epoch client")
+
 	epoch, err := c.systemsManagerClient.RewardEpochFromChain()
 	if err != nil {
 		return err
 	}
-	vpbsListener := c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
-	policyListener := c.relayClient.SigningPolicyInitializedListener(c.db, epoch)
 
+	var vpbsListener <-chan *system.FlareSystemsManagerVotePowerBlockSelected
+	var policyListener <-chan *relay.RelaySigningPolicyInitialized
 	var uptimeEnabledListener <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
-	if c.uptimeConfig.SigningEnabled {
-		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch, c.uptimeConfig.SigningWindow)
-	} else {
-		uptimeEnabledListener = make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
-	}
-
 	var uptimeSignedListener <-chan *system.FlareSystemsManagerUptimeVoteSigned
-	if c.rewardsConfig.SigningEnabled {
-		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch, c.rewardsConfig.SigningWindow)
-	} else {
-		uptimeSignedListener = make(chan *system.FlareSystemsManagerUptimeVoteSigned)
-	}
 
-	// Wait until VotePowerBlockSelected (enabled voter registration) event is emitted
-	logger.Info("Waiting for VotePowerBlockSelected event to start registration")
+	if c.registrationEnabled {
+		logger.Info("Waiting for VotePowerBlockSelected event to start registration")
+		vpbsListener = c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
+		policyListener = c.relayClient.SigningPolicyInitializedListener(c.db, epoch)
+	}
+	if c.uptimeVotingEnabled {
+		logger.Info("Waiting for SignUptimeVoteEnabled event to start uptime vote signing")
+		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch, c.uptimeConfig.SigningWindow)
+	}
+	if c.rewardsSigningEnabled {
+		logger.Info("Waiting for UptimeVoteSigned event to start rewards signing")
+		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch, c.rewardsConfig.SigningWindow)
+	}
 
 	for {
 		select {
@@ -172,7 +163,7 @@ func (c *registrationClient) RunContext(ctx context.Context) error {
 	}
 }
 
-func (c *registrationClient) registerVoter(epochId *big.Int) {
+func (c *EpochClient) registerVoter(epochId *big.Int) {
 	if !c.isFutureEpoch(epochId) {
 		logger.Debug("Skipping registration process for old epoch %v", epochId)
 		return
@@ -187,7 +178,7 @@ func (c *registrationClient) registerVoter(epochId *big.Int) {
 	}
 }
 
-func (c *registrationClient) signPolicy(epochId *big.Int, policy []byte) {
+func (c *EpochClient) signPolicy(epochId *big.Int, policy []byte) {
 	if !c.isFutureEpoch(epochId) {
 		logger.Debug("Skipping policy signing for old epoch %v", epochId)
 		return
@@ -203,7 +194,7 @@ func (c *registrationClient) signPolicy(epochId *big.Int, policy []byte) {
 	}
 }
 
-func (c *registrationClient) signUptimeVote(epochId *big.Int) {
+func (c *EpochClient) signUptimeVote(epochId *big.Int) {
 	logger.Info("SignUptimeVoteEnabled event emitted for epoch %v, signing uptime vote", epochId)
 	signUptimeVoteResult := <-c.systemsManagerClient.SignUptimeVote(epochId)
 	if signUptimeVoteResult.Success {
@@ -214,7 +205,7 @@ func (c *registrationClient) signUptimeVote(epochId *big.Int) {
 	}
 }
 
-func (c *registrationClient) isFutureEpoch(epochId *big.Int) bool {
+func (c *EpochClient) isFutureEpoch(epochId *big.Int) bool {
 	epochIdResult := <-c.systemsManagerClient.GetCurrentRewardEpochId()
 	if !epochIdResult.Success {
 		logger.Error("GetCurrentRewardEpochId failed %s", epochIdResult.Message)
@@ -228,7 +219,7 @@ func (c *registrationClient) isFutureEpoch(epochId *big.Int) bool {
 	return true
 }
 
-func (c *registrationClient) signRewards(epochId *big.Int) {
+func (c *EpochClient) signRewards(epochId *big.Int) {
 	logger.Info("Signing rewards for epoch %v", epochId)
 	hash, weightClaims, err := getRewardsHash(epochId, c.rewardsConfig)
 	if err != nil {
