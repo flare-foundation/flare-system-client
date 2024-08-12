@@ -54,7 +54,7 @@ func TestSubmitter(t *testing.T) {
 
 	ethClient := testEthClient{}
 
-	subProtocol := &SubProtocol{Id: 0, ApiEndpoint: apiEndpointURL}
+	subProtocol := &SubProtocol{Id: 100, ApiEndpoint: apiEndpointURL}
 
 	privKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)
@@ -121,7 +121,6 @@ func TestSubmitter(t *testing.T) {
 		submitter := SignatureSubmitter{
 			SubmitterBase: base,
 			maxRounds:     1,
-			protocolID:    100,
 		}
 
 		epochID := int64(1)
@@ -142,7 +141,6 @@ func TestSubmitter(t *testing.T) {
 		submitter := SignatureSubmitter{
 			SubmitterBase: base,
 			maxRounds:     1,
-			protocolID:    100,
 		}
 
 		epochID := int64(1)
