@@ -60,7 +60,8 @@ type Submitter struct {
 type SignatureSubmitter struct {
 	SubmitterBase
 
-	maxRounds int // number of rounds for sending submitSignatures tx
+	protocolID byte // protocol ID for submitSignatures
+	maxRounds  int  // number of rounds for sending submitSignatures tx
 }
 
 func (s *SubmitterBase) submit(payload []byte) bool {
@@ -196,9 +197,9 @@ func (s *SignatureSubmitter) WritePayload(buffer *bytes.Buffer, currentEpoch int
 	epochBytes := shared.Uint32toBytes(uint32(currentEpoch - 1))
 	lengthBytes := shared.Uint16toBytes(uint16(104 + len(data.AdditionalData)))
 
-	buffer.WriteByte(100)        // Protocol ID (1 byte)
-	buffer.Write(epochBytes[:])  // Epoch (4 bytes)
-	buffer.Write(lengthBytes[:]) // Length (2 bytes)
+	buffer.WriteByte(s.protocolID) // Protocol ID (1 byte)
+	buffer.Write(epochBytes[:])    // Epoch (4 bytes)
+	buffer.Write(lengthBytes[:])   // Length (2 bytes)
 
 	buffer.WriteByte(0)     // Type (1 byte)
 	buffer.Write(data.Data) // Message (38 bytes)

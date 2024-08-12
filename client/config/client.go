@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+const defaultProtocolID = 100
+
 type ClientConfig struct {
 	DB      config.DBConfig     `toml:"db"`
 	Logger  config.LoggerConfig `toml:"logger"`
@@ -79,7 +81,8 @@ type SubmitConfig struct {
 type SubmitSignaturesConfig struct {
 	SubmitConfig
 
-	MaxRounds int `toml:"max_rounds"`
+	MaxRounds  int  `toml:"max_rounds"`
+	ProtocolID byte `toml:"protocol_id"`
 }
 
 type ClientsConfig struct {
@@ -136,6 +139,7 @@ func newConfig() *ClientConfig {
 		Submit2: defaultSubmitConfig,
 		SubmitSignatures: SubmitSignaturesConfig{
 			SubmitConfig: defaultSubmitConfig,
+			ProtocolID:   defaultProtocolID,
 		},
 		Uptime: UptimeConfig{
 			SigningWindow: 2,
