@@ -121,6 +121,7 @@ func TestSubmitter(t *testing.T) {
 		submitter := SignatureSubmitter{
 			SubmitterBase: base,
 			maxRounds:     1,
+			protocolID:    100,
 		}
 
 		epochID := int64(1)
@@ -141,6 +142,7 @@ func TestSubmitter(t *testing.T) {
 		submitter := SignatureSubmitter{
 			SubmitterBase: base,
 			maxRounds:     1,
+			protocolID:    100,
 		}
 
 		epochID := int64(1)

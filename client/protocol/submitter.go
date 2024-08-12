@@ -182,7 +182,8 @@ func newSignatureSubmitter(
 			dataFetchTimeout: submitCfg.DataFetchTimeout,
 			dataFetchRetries: submitCfg.DataFetchRetries,
 		},
-		maxRounds: submitCfg.MaxRounds,
+		maxRounds:  submitCfg.MaxRounds,
+		protocolID: submitCfg.ProtocolID,
 	}
 }
 
