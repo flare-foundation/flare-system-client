@@ -1,4 +1,4 @@
-package registration
+package epoch
 
 import (
 	"context"
@@ -30,17 +30,18 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestRegistrationClientMainline(t *testing.T) {
+func TestEpochClientMainline(t *testing.T) {
 	systemsManagerClient := newTestSystemsManagerClient()
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &registrationClient{
+	c := &EpochClient{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		registrationEnabled:  true,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -83,17 +84,18 @@ func TestRegistrationClientMainline(t *testing.T) {
 	})
 }
 
-func TestRegistrationClientInvalidEpoch(t *testing.T) {
+func TestEpochClientInvalidEpoch(t *testing.T) {
 	systemsManagerClient := newTestSystemsManagerClient()
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &registrationClient{
+	c := &EpochClient{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		registrationEnabled:  true,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -123,19 +125,20 @@ func TestRegistrationClientInvalidEpoch(t *testing.T) {
 	require.Empty(t, systemsManagerClient.signedPolicies)
 }
 
-func TestRegistrationClientSigningErr(t *testing.T) {
+func TestEpochClientSigningErr(t *testing.T) {
 	systemsManagerClient := newTestSystemsManagerClient()
 	systemsManagerClient.signingErr = errors.New("signing error")
 
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &registrationClient{
+	c := &EpochClient{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		registrationEnabled:  true,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -173,19 +176,20 @@ func TestRegistrationClientSigningErr(t *testing.T) {
 	require.Empty(t, systemsManagerClient.signedPolicies)
 }
 
-func TestRegistrationClientRewardEpochErr(t *testing.T) {
+func TestEpochClientRewardEpochErr(t *testing.T) {
 	systemsManagerClient := newTestSystemsManagerClient()
 	systemsManagerClient.rewardEpochErr = errors.New("reward epoch error")
 
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &registrationClient{
+	c := &EpochClient{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		registrationEnabled:  true,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -214,18 +218,19 @@ func TestRegistrationClientRewardEpochErr(t *testing.T) {
 	require.Empty(t, systemsManagerClient.signedPolicies)
 }
 
-func TestRegistrationClientRegisterErr(t *testing.T) {
+func TestEpochClientRegisterErr(t *testing.T) {
 	systemsManagerClient := newTestSystemsManagerClient()
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 	registryClient.registerErr = errors.New("register error")
 
-	c := &registrationClient{
+	c := &EpochClient{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
 		registryClient:       registryClient,
 		identityAddress:      common.HexToAddress("0x123456"),
+		registrationEnabled:  true,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -270,16 +275,6 @@ type testSystemsManagerClient struct {
 	signingErr     error
 }
 
-func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db registrationClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
-	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
-}
-
-func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
-		return nil, nil
-	}, 1, 0)
-}
-
 func newTestSystemsManagerClient() testSystemsManagerClient {
 	return testSystemsManagerClient{
 		rewardEpoch: &utils.Epoch{
@@ -300,7 +295,7 @@ func (c testSystemsManagerClient) RewardEpochFromChain() (*utils.Epoch, error) {
 }
 
 func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
-	db registrationClientDB, epoch *utils.Epoch,
+	db epochClientDB, epoch *utils.Epoch,
 ) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
 	return c.vpbsChan
 }
@@ -350,7 +345,7 @@ func (c testRelayClient) sendTestPolicy(policy *relay.RelaySigningPolicyInitiali
 }
 
 func (c testRelayClient) SigningPolicyInitializedListener(
-	db registrationClientDB, epoch *utils.Epoch,
+	db epochClientDB, epoch *utils.Epoch,
 ) <-chan *relay.RelaySigningPolicyInitialized {
 	return c.policyChan
 }
@@ -386,6 +381,26 @@ func (c testRegistryClient) RegisterVoter(
 
 		c.registeredVoters[key][address] = true
 
+		return nil, nil
+	}, 1, 0)
+}
+
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.Epoch, i int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
+}
+
+func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetry(func() (any, error) {
+		return nil, nil
+	}, 1, 0)
+}
+
+func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
+}
+
+func (c testSystemsManagerClient) SignRewards(b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetry(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }

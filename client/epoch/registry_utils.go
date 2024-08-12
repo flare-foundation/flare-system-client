@@ -1,4 +1,4 @@
-package registration
+package epoch
 
 import (
 	"crypto/ecdsa"

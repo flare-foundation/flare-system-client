@@ -308,10 +308,22 @@
         "type": "bytes32"
       },
       {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "rewardManagerId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "noOfWeightBasedClaims",
+            "type": "uint256"
+          }
+        ],
         "indexed": false,
-        "internalType": "uint256",
+        "internalType": "struct IFlareSystemsManager.NumberOfWeightBasedClaims[]",
         "name": "noOfWeightBasedClaims",
-        "type": "uint256"
+        "type": "tuple[]"
       },
       {
         "indexed": false,
@@ -568,24 +580,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint24",
-        "name": "_signingPolicyThresholdPPM",
-        "type": "uint24"
-      },
-      {
-        "internalType": "uint16",
-        "name": "_signingPolicyMinNumberOfVoters",
-        "type": "uint16"
-      }
-    ],
-    "name": "changeSigningPolicySettings",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "cleanupBlockNumberManager",
     "outputs": [
@@ -704,12 +698,38 @@
   },
   {
     "inputs": [],
+    "name": "getCurrentRewardEpoch",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getCurrentRewardEpochId",
     "outputs": [
       {
         "internalType": "uint24",
         "name": "",
         "type": "uint24"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getCurrentVotingEpochId",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
       }
     ],
     "stateMutability": "view",
@@ -1228,6 +1248,11 @@
         "internalType": "uint256",
         "name": "rewardEpochId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "rewardManagerId",
+        "type": "uint256"
       }
     ],
     "name": "noOfWeightBasedClaims",
@@ -1236,6 +1261,25 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "rewardEpochId",
+        "type": "uint256"
+      }
+    ],
+    "name": "noOfWeightBasedClaimsHash",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -1385,9 +1429,21 @@
         "type": "uint24"
       },
       {
-        "internalType": "uint64",
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "rewardManagerId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "noOfWeightBasedClaims",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IFlareSystemsManager.NumberOfWeightBasedClaims[]",
         "name": "_noOfWeightBasedClaims",
-        "type": "uint64"
+        "type": "tuple[]"
       },
       {
         "internalType": "bytes32",
@@ -1487,9 +1543,21 @@
         "type": "uint24"
       },
       {
-        "internalType": "uint64",
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "rewardManagerId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "noOfWeightBasedClaims",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IFlareSystemsManager.NumberOfWeightBasedClaims[]",
         "name": "_noOfWeightBasedClaims",
-        "type": "uint64"
+        "type": "tuple[]"
       },
       {
         "internalType": "bytes32",

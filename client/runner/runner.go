@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	clientContext "flare-tlc/client/context"
+	"flare-tlc/client/epoch"
 	"flare-tlc/client/finalizer"
 	"flare-tlc/client/protocol"
-	"flare-tlc/client/registration"
 	"flare-tlc/logger"
 	"reflect"
 	"sync"
@@ -33,7 +33,7 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 }
 
 func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientContext.ClientContext) *sync.WaitGroup {
-	registrationClient, err := registration.NewRegistrationClient(clientCtx)
+	registrationClient, err := epoch.NewEpochClient(clientCtx)
 	if err != nil {
 		logger.Fatal("Error creating registration client: %v", err)
 	}

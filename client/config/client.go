@@ -15,7 +15,7 @@ type ClientConfig struct {
 	Chain   config.ChainConfig  `toml:"chain"`
 	Metrics MetricsConfig       `toml:"metrics"`
 
-	Clients VotingClientsConfig `toml:"clients"`
+	Clients ClientsConfig `toml:"clients"`
 
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
 	Identity          IdentityConfig           `toml:"identity"`
@@ -31,6 +31,9 @@ type ClientConfig struct {
 
 	SubmitGas   GasConfig `toml:"gas_submit"`
 	RegisterGas GasConfig `toml:"gas_register"`
+
+	Uptime  UptimeConfig  `toml:"uptime"`
+	Rewards RewardsConfig `toml:"rewards"`
 }
 
 type MetricsConfig struct {
@@ -79,10 +82,16 @@ type SubmitSignaturesConfig struct {
 	MaxRounds int `toml:"max_rounds"`
 }
 
-type VotingClientsConfig struct {
+type ClientsConfig struct {
 	EnabledRegistration   bool `toml:"enabled_registration"`
+	EnabledUptimeVoting   bool `toml:"enabled_uptime_voting"`
+	EnabledRewardSigning  bool `toml:"enabled_reward_signing"`
 	EnabledProtocolVoting bool `toml:"enabled_protocol_voting"`
 	EnabledFinalizer      bool `toml:"enabled_finalizer"`
+}
+
+func (c *ClientsConfig) EpochClientEnabled() bool {
+	return c.EnabledRegistration || c.EnabledUptimeVoting || c.EnabledRewardSigning
 }
 
 type FinalizerConfig struct {
@@ -105,6 +114,15 @@ type GasConfig struct {
 	GasLimit           int      `toml:"gas_limit"`
 }
 
+type UptimeConfig struct {
+	SigningWindow int64 `toml:"signing_window"`
+}
+
+type RewardsConfig struct {
+	PathPrefix    string `toml:"hash_path_prefix"`
+	SigningWindow int64  `toml:"signing_window"`
+}
+
 func newConfig() *ClientConfig {
 	return &ClientConfig{
 		Chain: config.ChainConfig{
@@ -118,6 +136,12 @@ func newConfig() *ClientConfig {
 		Submit2: defaultSubmitConfig,
 		SubmitSignatures: SubmitSignaturesConfig{
 			SubmitConfig: defaultSubmitConfig,
+		},
+		Uptime: UptimeConfig{
+			SigningWindow: 2,
+		},
+		Rewards: RewardsConfig{
+			SigningWindow: 2,
 		},
 	}
 }
