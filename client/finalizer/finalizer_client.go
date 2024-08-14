@@ -214,7 +214,7 @@ func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) 
 			continue
 		}
 		if addResult.thresholdReached {
-			logger.Info("Threshold reached for voting round %d and hash %v", payloadItem.votingRoundId, payloadItem.payload.messageHash)
+			logger.Info("Threshold reached for protocol %d in voting round %d with hash %v", payloadItem.protocolId, payloadItem.votingRoundId, payloadItem.payload.messageHash)
 			c.queueProcessor.Add(payloadItem, sp.seed)
 		}
 	}

@@ -61,7 +61,7 @@ enabled_registration = true     # enable/disable voter registration AND new sign
 enabled_uptime_voting = true    # enable/disable uptime vote signing
 enabled_reward_signing = false  # enable/disable reward signing
 enabled_protocol_voting = true  # enable/disable protocol data submission
-enabled_finalizer = true        # enable/disable finalizer client    
+enabled_finalizer = true        # enable/disable finalizer client
 
 [protocol.ftso1]
 id = 1
@@ -82,18 +82,18 @@ data_fetch_timeout = "5s" # (optional) timeout for fetching data from the API, d
 
 [submit2]
 enabled = true
-start_offset = "15s"
+start_offset = "15s"      # start fetching data and submitting txs after this offset from the start of the NEXT epoch
 tx_submit_retries = 1
 data_fetch_retries = 1
 data_fetch_timeout = "5s"
 
 [submit_signatures]
 enabled = true
-start_offset = "10s"
+start_offset = "10s"       # start fetching data and submitting txs after this offset from the start of the NEXT epoch
 tx_submit_retries = 3
 data_fetch_retries = 5
 data_fetch_timeout = "5s"
-max_rounds = 3          # max number of rounds to fetch data and submit signatures
+max_rounds = 3             # max number of rounds to fetch data and submit signatures
 
 [finalizer]
 starting_reward_epoch = 0
@@ -115,10 +115,10 @@ gas_limit = 0
 signing_window = 2 # (optional) how many epochs in the past wße attempt to sign uptime vote for, default: 2.
 
 [rewards] # reward signing configuration - clients.enabled_reward_signing must be set to true
-# Local folder or URL prefix for retrieving rewards hash files. 
+# Local folder or URL prefix for retrieving rewards hash files.
 # A full path will be constructed by appending the epoch id and expected file name: <path>/<epochId>/rewards-hash.json
-# 
-# Example: 
+#
+# Example:
 # - URL prefix: "https://example.com/rewards" -> https://example.com/rewards/2939/rewards-hash.json
 # - Folder: "./rewards" -> ./rewards/2939/rewards-hash.json
 #
