@@ -186,7 +186,9 @@ func newSignatureSubmitter(
 }
 
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 104)
-func (s *SignatureSubmitter) WritePayload(buffer *bytes.Buffer, currentEpoch int64, data *SubProtocolResponse) error {
+func (s *SignatureSubmitter) WritePayload(
+	buffer *bytes.Buffer, currentEpoch int64, data *SubProtocolResponse, protocolID uint8,
+) error {
 	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
 	signature, err := crypto.Sign(dataHash, s.protocolContext.signerPrivateKey)
 	if err != nil {
@@ -196,7 +198,7 @@ func (s *SignatureSubmitter) WritePayload(buffer *bytes.Buffer, currentEpoch int
 	epochBytes := shared.Uint32toBytes(uint32(currentEpoch - 1))
 	lengthBytes := shared.Uint16toBytes(uint16(104 + len(data.AdditionalData)))
 
-	buffer.WriteByte(100)        // Protocol ID (1 byte)
+	buffer.WriteByte(protocolID) // Protocol ID (1 byte)
 	buffer.Write(epochBytes[:])  // Epoch (4 bytes)
 	buffer.Write(lengthBytes[:]) // Length (2 bytes)
 
@@ -251,7 +253,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 				logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
-			err := s.WritePayload(buffer, currentEpoch, data.Value)
+			err := s.WritePayload(buffer, currentEpoch, data.Value, s.subProtocols[i].Id)
 			if err != nil {
 				logger.Error("Error writing payload for submitter %s: %v", s.name, err)
 				continue
