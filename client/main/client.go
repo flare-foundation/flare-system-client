@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	clientContext "flare-tlc/client/context"
-	"flare-tlc/client/runner"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
+	clientContext "flare-fsc/client/context"
+	"flare-fsc/client/runner"
+	"flare-fsc/client/shared"
+	"flare-fsc/logger"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	logger.Info("Starting flare top level client")
+	logger.Info("Starting Flare System client")
 
 	clientCtx, err := clientContext.BuildContext()
 	if err != nil {
@@ -35,5 +35,5 @@ func main() {
 
 	wg := runner.Start(ctx, cancel, clientCtx)
 	wg.Wait()
-	logger.Info("Stopped flare top level client")
+	logger.Info("Stopped Flare System client")
 }

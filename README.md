@@ -7,7 +7,7 @@
 The configuration is read from `toml` file. Some configuration
 parameters can also be configured using environment variables. See the list below.
 
-Config file can be specified using the command line parameter `--config`, e.g., `./tlc-client --config config.local.toml`. The default config file name is `config.toml`.
+Config file can be specified using the command line parameter `--config`, e.g., `./fsc-client --config config.local.toml`. The default config file name is `config.toml`.
 
 Below is the list of configuration parameters for all clients. Clients that are not enabled can be omitted from the config file.
 
@@ -15,14 +15,14 @@ Below is the list of configuration parameters for all clients. Clients that are 
 [db]
 host = "localhost"  # MySql db address, or env variable DB_HOST
 port = 3306         # MySql db port, env DB_PORT
-database = "flare_tlc"        # database name, env DB_DATABASE
-username = "flaretlcuser"     # db username, env DB_USERNAME
+database = "flare_fsc"        # database name, env DB_DATABASE
+username = "flarefscuser"     # db username, env DB_USERNAME
 password = "P.a.s.s.W.O.R.D"  # db password, env DB_PASSWORD
 log_queries = false  # Log db queries (for debugging)
 
 [logger]
 level = "INFO"      # valid values are: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL (as in zap logger)
-file = "./logs/flare-tlc.log"  # logger file
+file = "./logs/flare-fsc.log"  # logger file
 max_file_size = 10  # max file size before rotating, in MB
 console = true      # also log to console
 

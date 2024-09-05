@@ -1,7 +1,8 @@
 package epoch
 
 import (
-	"flare-tlc/database"
+	"flare-fsc/database"
+
 	"github.com/ethereum/go-ethereum/common"
 	"gorm.io/gorm"
 )

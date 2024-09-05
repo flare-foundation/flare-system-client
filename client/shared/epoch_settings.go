@@ -1,9 +1,9 @@
 package shared
 
 import (
-	"flare-tlc/utils"
-	"flare-tlc/utils/contracts/relay"
-	"flare-tlc/utils/contracts/system"
+	"flare-fsc/utils"
+	"flare-fsc/utils/contracts/relay"
+	"flare-fsc/utils/contracts/system"
 	"time"
 )
 

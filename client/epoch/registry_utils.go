@@ -2,11 +2,11 @@ package epoch
 
 import (
 	"crypto/ecdsa"
-	"flare-tlc/client/config"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
-	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/registry"
+	"flare-fsc/client/config"
+	"flare-fsc/client/shared"
+	"flare-fsc/logger"
+	"flare-fsc/utils/chain"
+	"flare-fsc/utils/contracts/registry"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts"

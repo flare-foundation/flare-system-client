@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"flare-tlc/config"
+	"flare-fsc/config"
 	"log"
 	"os"
 

@@ -2,8 +2,8 @@ package finalizer
 
 import (
 	"context"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
+	"flare-fsc/logger"
+	"flare-fsc/utils"
 	"fmt"
 	"math/big"
 	"sync"

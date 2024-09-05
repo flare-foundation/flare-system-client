@@ -3,11 +3,11 @@ package protocol
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"flare-tlc/client/config"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
-	"flare-tlc/utils/chain"
+	"flare-fsc/client/config"
+	"flare-fsc/client/shared"
+	"flare-fsc/logger"
+	"flare-fsc/utils"
+	"flare-fsc/utils/chain"
 	"fmt"
 	"time"
 

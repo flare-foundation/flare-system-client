@@ -2,17 +2,18 @@ package epoch
 
 import (
 	"context"
-	clientConfig "flare-tlc/client/config"
-	flarectx "flare-tlc/client/context"
-	"flare-tlc/config"
-	"flare-tlc/logger"
-	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/relay"
-	"flare-tlc/utils/contracts/system"
-	"flare-tlc/utils/credentials"
+	clientConfig "flare-fsc/client/config"
+	flarectx "flare-fsc/client/context"
+	"flare-fsc/config"
+	"flare-fsc/logger"
+	"flare-fsc/utils/chain"
+	"flare-fsc/utils/contracts/relay"
+	"flare-fsc/utils/contracts/system"
+	"flare-fsc/utils/credentials"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"math/big"
 )
 
 // EpochClient performs reward epoch registration and signing actions, triggered on SystemsManager contract events:

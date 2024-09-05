@@ -3,9 +3,9 @@ package finalizer
 import (
 	"context"
 	"encoding/hex"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
-	"flare-tlc/utils/contracts/submission"
+	"flare-fsc/client/shared"
+	"flare-fsc/logger"
+	"flare-fsc/utils/contracts/submission"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"

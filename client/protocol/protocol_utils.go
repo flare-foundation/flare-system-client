@@ -3,9 +3,9 @@ package protocol
 import (
 	"encoding/hex"
 	"encoding/json"
-	"flare-tlc/client/config"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
+	"flare-fsc/client/config"
+	"flare-fsc/client/shared"
+	"flare-fsc/logger"
 	"fmt"
 	"io"
 	"math"

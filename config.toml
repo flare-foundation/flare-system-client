@@ -12,7 +12,7 @@ password = "P.a.s.s.W.O.R.D"
 
 [logger]
 level = "DEBUG"
-file = "./logs/flare-tlc.log"
+file = "./logs/flare-fsc.log"
 console = true
 
 [metrics]
@@ -32,8 +32,8 @@ relay = "0x5a0773ff307bf7c71a832dbb5312237fd3437f9f"
 address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity account not private key
 
 [credentials]
-system_client_sender_private_key_file = "../credentials/sender-private-key.txt" # any account
-signing_policy_private_key_file = "../credentials/policy-private-key.txt" # for signing and submitting votes
+system_client_sender_private_key_file = "../credentials/sender-private-key.txt"                   # any account
+signing_policy_private_key_file = "../credentials/policy-private-key.txt"                         # for signing and submitting votes
 protocol_manager_submit_private_key_file = "../credentials/submit-private-key.txt"
 protocol_manager_submit_signatures_private_key_file = "../credentials/signatures-private-key.txt"
 [clients]

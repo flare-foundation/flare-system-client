@@ -1,7 +1,7 @@
 package database
 
 import (
-	"flare-tlc/config"
+	"flare-fsc/config"
 	"fmt"
 
 	"github.com/go-sql-driver/mysql"

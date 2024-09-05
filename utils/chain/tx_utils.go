@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"flare-tlc/client/config"
-	"flare-tlc/logger"
+	"flare-fsc/client/config"
+	"flare-fsc/logger"
 	"math/big"
 	"time"
 

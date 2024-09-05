@@ -2,16 +2,11 @@ package epoch
 
 import (
 	"encoding/json"
-	"flare-tlc/client/config"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
-	"flare-tlc/utils/contracts/system"
+	"flare-fsc/client/config"
+	"flare-fsc/client/shared"
+	"flare-fsc/logger"
+	"flare-fsc/utils/contracts/system"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 	"io"
 	"log"
 	"math/big"
@@ -19,6 +14,12 @@ import (
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
 )
 
 type rewardsHash struct {

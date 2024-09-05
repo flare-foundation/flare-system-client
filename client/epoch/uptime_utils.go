@@ -3,14 +3,15 @@ package epoch
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"flare-tlc/logger"
-	"flare-tlc/utils/contracts/system"
+	"flare-fsc/logger"
+	"flare-fsc/utils/contracts/system"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
-	"math/big"
 )
 
 var (

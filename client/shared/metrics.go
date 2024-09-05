@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"flare-tlc/client/config"
+	"flare-fsc/client/config"
 	"log"
 	"net/http"
 	"strings"

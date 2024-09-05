@@ -1,9 +1,9 @@
 package cronjob
 
 import (
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
+	"flare-fsc/client/shared"
+	"flare-fsc/logger"
+	"flare-fsc/utils"
 	"time"
 )
 

@@ -3,11 +3,11 @@ package runner
 import (
 	"context"
 	"errors"
-	clientContext "flare-tlc/client/context"
-	"flare-tlc/client/epoch"
-	"flare-tlc/client/finalizer"
-	"flare-tlc/client/protocol"
-	"flare-tlc/logger"
+	clientContext "flare-fsc/client/context"
+	"flare-fsc/client/epoch"
+	"flare-fsc/client/finalizer"
+	"flare-fsc/client/protocol"
+	"flare-fsc/logger"
 	"reflect"
 	"sync"
 )

@@ -3,7 +3,7 @@ package finalizer
 import (
 	"bytes"
 	"encoding/binary"
-	"flare-tlc/client/shared"
+	"flare-fsc/client/shared"
 	"fmt"
 	"math"
 

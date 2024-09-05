@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"flare-tlc/logger"
+	"flare-fsc/logger"
 	"sync"
 	"time"
 )

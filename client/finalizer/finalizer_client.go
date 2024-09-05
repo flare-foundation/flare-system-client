@@ -3,12 +3,12 @@ package finalizer
 import (
 	"context"
 	"encoding/hex"
-	clientContext "flare-tlc/client/context"
-	"flare-tlc/config"
-	"flare-tlc/database"
-	"flare-tlc/logger"
-	"flare-tlc/utils/contracts/relay"
-	"flare-tlc/utils/credentials"
+	clientContext "flare-fsc/client/context"
+	"flare-fsc/config"
+	"flare-fsc/database"
+	"flare-fsc/logger"
+	"flare-fsc/utils/contracts/relay"
+	"flare-fsc/utils/credentials"
 	"fmt"
 	"time"
 

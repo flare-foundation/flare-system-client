@@ -2,12 +2,12 @@ package protocol
 
 import (
 	"context"
-	clientContext "flare-tlc/client/context"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
-	"flare-tlc/utils/contracts/registry"
-	"flare-tlc/utils/contracts/system"
+	clientContext "flare-fsc/client/context"
+	"flare-fsc/client/shared"
+	"flare-fsc/logger"
+	"flare-fsc/utils"
+	"flare-fsc/utils/contracts/registry"
+	"flare-fsc/utils/contracts/system"
 	"math/big"
 	"sync"
 	"time"

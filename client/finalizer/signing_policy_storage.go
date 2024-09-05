@@ -3,9 +3,9 @@ package finalizer
 import (
 	"bytes"
 	"cmp"
-	"flare-tlc/client/shared"
-	"flare-tlc/client/shared/voters"
-	"flare-tlc/utils/contracts/relay"
+	"flare-fsc/client/shared"
+	"flare-fsc/client/shared/voters"
+	"flare-fsc/utils/contracts/relay"
 	"fmt"
 	"math/big"
 	"sort"

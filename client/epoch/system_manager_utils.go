@@ -2,21 +2,22 @@ package epoch
 
 import (
 	"crypto/ecdsa"
-	"flare-tlc/client/shared"
-	"flare-tlc/database"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
-	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/system"
+	"flare-fsc/client/shared"
+	"flare-fsc/database"
+	"flare-fsc/logger"
+	"flare-fsc/utils"
+	"flare-fsc/utils/chain"
+	"flare-fsc/utils/contracts/system"
+	"math/big"
+	"math/rand"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
-	"math/big"
-	"math/rand"
-	"time"
 )
 
 var (

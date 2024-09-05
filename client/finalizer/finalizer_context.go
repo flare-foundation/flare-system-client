@@ -1,10 +1,10 @@
 package finalizer
 
 import (
-	"flare-tlc/client/config"
-	"flare-tlc/client/shared"
-	"flare-tlc/utils"
-	"flare-tlc/utils/contracts/relay"
+	"flare-fsc/client/config"
+	"flare-fsc/client/shared"
+	"flare-fsc/utils"
+	"flare-fsc/utils/contracts/relay"
 	"time"
 )
 

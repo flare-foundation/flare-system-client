@@ -2,7 +2,7 @@ package config
 
 import (
 	"errors"
-	"flare-tlc/config"
+	"flare-fsc/config"
 	"math/big"
 	"time"
 

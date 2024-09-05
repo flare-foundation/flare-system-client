@@ -3,7 +3,7 @@ package config
 import (
 	"crypto/ecdsa"
 	"errors"
-	"flare-tlc/utils/credentials"
+	"flare-fsc/utils/credentials"
 	"fmt"
 	"net/url"
 	"os"

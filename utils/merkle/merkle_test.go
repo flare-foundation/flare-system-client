@@ -1,7 +1,7 @@
 package merkle_test
 
 import (
-	"flare-tlc/utils/merkle"
+	"flare-fsc/utils/merkle"
 	"fmt"
 	"testing"
 

@@ -2,8 +2,8 @@ package shared
 
 import (
 	"encoding/hex"
-	"flare-tlc/database"
-	"flare-tlc/utils/contracts/relay"
+	"flare-fsc/database"
+	"flare-fsc/utils/contracts/relay"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

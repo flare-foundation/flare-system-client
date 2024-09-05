@@ -1,8 +1,8 @@
 package voters_test
 
 import (
-	"flare-tlc/client/shared/voters"
-	"flare-tlc/utils"
+	"flare-fsc/client/shared/voters"
+	"flare-fsc/utils"
 	"math/big"
 	"slices"
 	"testing"

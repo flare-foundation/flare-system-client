@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"flare-tlc/client/shared"
+	"flare-fsc/client/shared"
 	"math/big"
 
 	mapset "github.com/deckarep/golang-set/v2"

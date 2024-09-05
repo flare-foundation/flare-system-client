@@ -2,9 +2,9 @@ package context
 
 import (
 	"flag"
-	"flare-tlc/client/config"
-	globalConfig "flare-tlc/config"
-	"flare-tlc/database"
+	"flare-fsc/client/config"
+	globalConfig "flare-fsc/config"
+	"flare-fsc/database"
 
 	"gorm.io/gorm"
 )

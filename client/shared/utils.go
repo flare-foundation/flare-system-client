@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"flare-tlc/logger"
+	"flare-fsc/logger"
 	"strings"
 	"time"
 )

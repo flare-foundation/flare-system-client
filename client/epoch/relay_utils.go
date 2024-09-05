@@ -1,12 +1,12 @@
 package epoch
 
 import (
-	"flare-tlc/client/shared"
-	"flare-tlc/database"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
-	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/relay"
+	"flare-fsc/client/shared"
+	"flare-fsc/database"
+	"flare-fsc/logger"
+	"flare-fsc/utils"
+	"flare-fsc/utils/chain"
+	"flare-fsc/utils/contracts/relay"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"

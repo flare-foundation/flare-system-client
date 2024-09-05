@@ -3,10 +3,10 @@ package protocol
 import (
 	"crypto/ecdsa"
 
-	"flare-tlc/client/config"
-	globalConfig "flare-tlc/config"
-	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/submission"
+	"flare-fsc/client/config"
+	globalConfig "flare-fsc/config"
+	"flare-fsc/utils/chain"
+	"flare-fsc/utils/contracts/submission"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
