@@ -7,8 +7,6 @@ import (
 	"flare-fsc/client/shared"
 	"math/big"
 
-	mapset "github.com/deckarep/golang-set/v2"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -55,16 +53,16 @@ func NewVoterSet(voters []common.Address, weights []uint16) *VoterSet {
 // Initial seed for random voter selection for finalization reward calculation.
 // Initial seed is calculated as a hash of protocol ID and voting round ID.
 // The seed is used for the first random.
-func InitialHashSeed(rewardEpochSeed *big.Int, protocolId byte, votingRoundId uint32) common.Hash {
+func InitialHashSeed(rewardEpochSeed *big.Int, protocolID byte, votingRoundID uint32) common.Hash {
 	seed := make([]byte, 96)
 	// 0-31 bytes are filled with the reward epoch seed
 	if rewardEpochSeed != nil {
 		rewardEpochSeed.FillBytes(seed[0:32])
 	}
 	// 32-63 bytes are filled with the protocol ID
-	seed[63] = protocolId
+	seed[63] = protocolID
 	// 64-95 bytes are filled with the voting round ID
-	binary.BigEndian.PutUint32(seed[92:96], votingRoundId)
+	binary.BigEndian.PutUint32(seed[92:96], votingRoundID)
 	return common.BytesToHash(crypto.Keccak256(seed))
 }
 
@@ -78,34 +76,35 @@ func RandomNumberSequence(initialSeed common.Hash, length int) []common.Hash {
 	return sequence
 }
 
-func (vs *VoterSet) SelectVoters(rewardEpochSeed *big.Int, protocolId byte, votingRoundId uint32, thresholdBIPS uint16) (mapset.Set[common.Address], error) {
-	seed := InitialHashSeed(rewardEpochSeed, protocolId, votingRoundId)
+func (vs *VoterSet) SelectVoters(rewardEpochSeed *big.Int, protocolID byte, votingRoundID uint32, thresholdBIPS uint16) (map[common.Address]bool, error) {
+	seed := InitialHashSeed(rewardEpochSeed, protocolID, votingRoundID)
 	return vs.RandomSelectThresholdWeightVoters(seed, thresholdBIPS)
 }
 
-func (vs *VoterSet) RandomSelectThresholdWeightVoters(randomSeed common.Hash, thresholdBIPS uint16) (mapset.Set[common.Address], error) {
+func (vs *VoterSet) RandomSelectThresholdWeightVoters(randomSeed common.Hash, thresholdBIPS uint16) (map[common.Address]bool, error) {
 	// We limit the threshold to 5000 BIPS to avoid long running loops
 	// In practice it will be used with around 1000 BIPS or lower.
 	if thresholdBIPS > 5000 {
-		return nil, errors.New("Threshold must be between 0 and 5000 BIPS")
+		return nil, errors.New("threshold must be between 0 and 5000 BIPS")
 	}
 
 	selectedWeight := uint16(0)
 	thresholdWeight := uint16(uint64(vs.totalWeight) * uint64(thresholdBIPS) / 10000)
 	currentSeed := randomSeed
-	selectedVoters := mapset.NewSet[common.Address]()
+
+	selected := make(map[common.Address]bool)
 
 	// If threshold weight is not too big, the loop should end quickly
 	for selectedWeight < thresholdWeight {
 		index := vs.selectVoterIndex(currentSeed)
 		selectedAddress := vs.voters[index]
-		if !selectedVoters.Contains(selectedAddress) {
-			selectedVoters.Add(selectedAddress)
+		if !selected[selectedAddress] {
+			selected[selectedAddress] = true
 			selectedWeight += vs.weights[index]
 		}
 		currentSeed = crypto.Keccak256Hash(currentSeed.Bytes())
 	}
-	return selectedVoters, nil
+	return selected, nil
 }
 
 // Selects a random voter based provided random number.

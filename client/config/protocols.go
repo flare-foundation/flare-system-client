@@ -6,11 +6,11 @@ import (
 )
 
 type ProtocolConfig struct {
-	Id          uint8  `toml:"id"`
+	ID          uint8  `toml:"id"`
 	ApiEndpoint string `toml:"api_endpoint"`
 }
 
 func (cfg ProtocolConfig) XApiKey() string {
-	envVar := fmt.Sprintf("PROTOCOL_X_API_KEY_%d", cfg.Id)
+	envVar := fmt.Sprintf("PROTOCOL_X_API_KEY_%d", cfg.ID)
 	return os.Getenv(envVar)
 }

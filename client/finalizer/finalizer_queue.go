@@ -161,7 +161,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 
 	logger.Debug("Finalizer voters for item %v: %v", item, voters)
 
-	return voters.Contains(p.relayClient.senderAddress)
+	return voters[p.relayClient.senderAddress]
 }
 
 func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueItem, isDelayed bool) {

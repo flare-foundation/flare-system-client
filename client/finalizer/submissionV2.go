@@ -110,7 +110,6 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 	}
 
 	err := payload.AddSigner(pc.signatureCollection.message.Hash(), pc.signatureCollection.signingPolicy.voters)
-
 	if err != nil {
 		return false, fmt.Errorf("adding payload, %v", err)
 	}
@@ -122,7 +121,6 @@ func newFinalizationStorage() *finalizationStorage {
 	return &finalizationStorage{
 		stg: make(map[uint32]*roundCollection),
 	}
-
 }
 
 // addPayload add a submitSignature payload to the finalizationStorage.

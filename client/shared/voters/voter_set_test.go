@@ -74,7 +74,7 @@ func TestSelectVoters(t *testing.T) {
 	seed := voters.InitialHashSeed(big.NewInt(1), 1, 1)
 	voterSet, err := vs.RandomSelectThresholdWeightVoters(seed, 3000)
 
-	voterSetHex := utils.Map(voterSet.ToSlice(), func(addr common.Address) string {
+	voterSetHex := utils.Map(utils.Keys(voterSet), func(addr common.Address) string {
 		return addr.Hex()
 	})
 	slices.Sort(voterSetHex)

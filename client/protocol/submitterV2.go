@@ -78,14 +78,14 @@ func (s *SignatureSubmitter) RunEpochV2(currentEpoch int64) {
 				logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
-			err := s.WritePayloadV2(buffer, currentEpoch, data.Value, s.subProtocols[i].Id)
+			err := s.WritePayloadV2(buffer, currentEpoch, data.Value, s.subProtocols[i].ID)
 			if err != nil {
 				logger.Error("Error writing payload for submitter %s: %v", s.name, err)
 				continue
 			}
 
 			// send message to finalizer
-			s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].Id, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
+			s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
 
 			protocolsSent = append(protocolsSent, i)
 		}

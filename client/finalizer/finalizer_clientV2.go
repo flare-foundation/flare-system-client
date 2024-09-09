@@ -176,7 +176,7 @@ func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponse
 			first := c.signingPolicyStorage.First()
 			if first != nil && payloadItem.votingRoundID < first.startVotingRoundID {
 				// This is a submission for an old voting round, skip it
-				logger.Debug("Ignoring submitted signature for voting round %d - before policy startVotingRoundId", payloadItem.votingRoundID)
+				logger.Debug("Ignoring submitted signature for voting round %d - before policy startVotingRoundID", payloadItem.votingRoundID)
 				continue
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundID)
@@ -200,8 +200,8 @@ func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponse
 }
 
 // return signing policy and voting threshold for the given voting round
-func (c *finalizerClientV2) signingPolicyData(votingRoundId uint32) (*signingPolicy, uint16) {
-	sp, last := c.signingPolicyStorage.GetForVotingRound(votingRoundId)
+func (c *finalizerClientV2) signingPolicyData(votingRoundID uint32) (*signingPolicy, uint16) {
+	sp, last := c.signingPolicyStorage.GetForVotingRound(votingRoundID)
 	if sp == nil {
 		return nil, 0
 	}
@@ -219,9 +219,9 @@ func (c *finalizerClientV2) signingPolicyData(votingRoundId uint32) (*signingPol
 }
 
 // Return true if voting round is not in the future, i.e., is <= the current voting round
-func (c *finalizerClientV2) checkVotingRoundTime(votingRoundId uint32) bool {
-	currentEpochId := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
-	return votingRoundId <= uint32(currentEpochId)
+func (c *finalizerClientV2) checkVotingRoundTime(votingRoundID uint32) bool {
+	currentEpochID := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
+	return votingRoundID <= uint32(currentEpochID)
 }
 
 func (c *finalizerClientV2) messagesChannelListener(ctx context.Context) error {

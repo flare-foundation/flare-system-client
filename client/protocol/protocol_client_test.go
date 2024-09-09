@@ -54,7 +54,7 @@ func TestSubmitter(t *testing.T) {
 
 	ethClient := testEthClient{}
 
-	subProtocol := &SubProtocol{Id: 100, ApiEndpoint: apiEndpointURL}
+	subProtocol := &SubProtocol{ID: 100, ApiEndpoint: apiEndpointURL}
 
 	privKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)

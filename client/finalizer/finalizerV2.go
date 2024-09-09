@@ -111,7 +111,6 @@ func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *vote
 	pld.signer = signer
 
 	pld.voterIndex = voterSet.VoterIndex(signer)
-
 	if pld.voterIndex < 0 {
 		return fmt.Errorf("signer %s is not a registered voter in the current reward epoch", signer.Hex())
 	}

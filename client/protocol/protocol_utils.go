@@ -21,7 +21,7 @@ import (
 type DataVerifier func(*SubProtocolResponse) error
 
 type SubProtocol struct {
-	Id          uint8
+	ID          uint8
 	ApiEndpoint string
 	XApiKey     string
 }
@@ -40,7 +40,7 @@ type dataProviderResponse struct {
 
 func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 	return &SubProtocol{
-		Id:          config.Id,
+		ID:          config.ID,
 		ApiEndpoint: config.ApiEndpoint,
 		XApiKey:     config.XApiKey(),
 	}
@@ -124,7 +124,7 @@ func (sp *SubProtocol) getDataWithRetry(
 		}
 		if err != nil {
 			logger.Error("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
-				sp.Id, sp.ApiEndpoint, votingRound, err)
+				sp.ID, sp.ApiEndpoint, votingRound, err)
 			return nil, err
 		}
 		return data, nil
