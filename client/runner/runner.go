@@ -41,7 +41,7 @@ func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientConte
 		logger.Fatal("Error creating registration client: %v", err)
 	}
 
-	messageChannel := make(chan shared.ProtocolMessage, 3)
+	messageChannel := make(chan shared.ProtocolMessage, 8)
 
 	protocolClient, err := protocol.NewProtocolClient(clientCtx, messageChannel)
 	if err != nil {

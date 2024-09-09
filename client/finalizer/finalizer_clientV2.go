@@ -104,6 +104,9 @@ func (c *finalizerClientV2) Run(ctx context.Context) error {
 	eg.Go(func() error {
 		return c.queueProcessor.Run(ctx)
 	})
+	eg.Go(func() error {
+		return c.messagesChannelListener(ctx)
+	})
 
 	return eg.Wait()
 }
@@ -221,9 +224,16 @@ func (c *finalizerClientV2) checkVotingRoundTime(votingRoundId uint32) bool {
 	return votingRoundId <= uint32(currentEpochId)
 }
 
-func (c *finalizerClientV2) messagesChannelListener() error {
+func (c *finalizerClientV2) messagesChannelListener(ctx context.Context) error {
 	for {
-		protocolMessage := <-c.messages
+		var protocolMessage shared.ProtocolMessage
+
+		select {
+		case protocolMessage = <-c.messages:
+		case <-ctx.Done():
+			logger.Info("Message Channel Listener stopped")
+			return ctx.Err()
+		}
 
 		sp, _ := c.signingPolicyData(protocolMessage.VotingRoundID)
 

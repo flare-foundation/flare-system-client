@@ -107,8 +107,6 @@ func (p *finalizerQueueProcessorV2) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ticker.C:
-			break
-
 		case <-ctx.Done():
 			logger.Info("Finalizer queue processor stopped")
 			return ctx.Err()
