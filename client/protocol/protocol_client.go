@@ -51,7 +51,7 @@ func (r voterRegistryImpl) IsVoterRegistered(
 	return r.registry.IsVoterRegistered(&bind.CallOpts{Context: ctx}, address, big.NewInt(epoch))
 }
 
-func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error) {
+func NewProtocolClient(ctx clientContext.ClientContext, messageChannel chan<- shared.ProtocolMessage) (*ProtocolClient, error) {
 	cfg := ctx.Config()
 
 	if !cfg.Clients.EnabledProtocolVoting {
@@ -121,7 +121,7 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 	}
 	if cfg.SubmitSignatures.Enabled {
 		pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingEpoch,
-			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols)
+			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols, messageChannel)
 	} else {
 		logger.Warn("submitSignatures is disabled")
 	}

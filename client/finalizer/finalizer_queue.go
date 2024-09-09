@@ -98,6 +98,15 @@ func (p *finalizerQueueProcessor) Add(item *submitterPayloadItem, seed *big.Int)
 	})
 }
 
+func (p *finalizerQueueProcessor) AddV2(item *submitterPayloadItem, seed *big.Int) {
+	p.queue.Add(&queueItem{
+		seed:          seed,
+		votingRoundId: item.votingRoundId,
+		protocolId:    item.protocolId,
+		messageHash:   item.payload.messageHash,
+	})
+}
+
 // Infinite loop, should be run in a goroutine
 func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 	ticker := time.NewTicker(finalizerQueueProcessorInterval)
@@ -172,8 +181,8 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 	}
 
 	// (sort decreasing by weight)
-	slices.SortFunc(payloads, func(p, q *signedPayload) bool {
-		return data.signingPolicy.voters.VoterWeight(p.index) > data.signingPolicy.voters.VoterWeight(q.index)
+	slices.SortFunc(payloads, func(p, q *signedPayload) int {
+		return int(data.signingPolicy.voters.VoterWeight(q.index)) - int(data.signingPolicy.voters.VoterWeight(p.index))
 	})
 
 	// greedy select until threshold is reached
@@ -188,8 +197,8 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 	}
 
 	// sort selected payloads by index
-	slices.SortFunc(selected, func(p, q *signedPayload) bool {
-		return p.index < q.index
+	slices.SortFunc(selected, func(p, q *signedPayload) int {
+		return p.index - q.index
 	})
 
 	p.relayClient.SubmitPayloads(ctx, selected, data.signingPolicy, isDelayed)

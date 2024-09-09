@@ -17,10 +17,10 @@ import (
 )
 
 // EpochClient performs reward epoch registration and signing actions, triggered on SystemsManager contract events:
-// - Voter registration (on VoterPowerBlockSelected)
-// - Signing new signing policy (on SigningPolicyInitialized)
-// - Signing uptime vote (on SignUptimeVoteEnabled)
-// - Signing rewards (on UptimeVoteSigned with threshold reached)
+//   - Voter registration (on VoterPowerBlockSelected)
+//   - Signing new signing policy (on SigningPolicyInitialized)
+//   - Signing uptime vote (on SignUptimeVoteEnabled)
+//   - Signing rewards (on UptimeVoteSigned with threshold reached)
 type EpochClient struct {
 	db epochClientDB
 
@@ -111,12 +111,8 @@ func NewEpochClient(ctx flarectx.ClientContext) (*EpochClient, error) {
 	}, nil
 }
 
-// Run runs the  client, should be called in a goroutine
+// Run runs the client. Should be called in a goroutine.
 func (c *EpochClient) Run(ctx context.Context) error {
-	return c.RunContext(ctx)
-}
-
-func (c *EpochClient) RunContext(ctx context.Context) error {
 	logger.Info("Starting reward epoch client")
 
 	epoch, err := c.systemsManagerClient.RewardEpochFromChain()

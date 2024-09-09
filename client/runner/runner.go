@@ -7,10 +7,13 @@ import (
 	"flare-fsc/client/epoch"
 	"flare-fsc/client/finalizer"
 	"flare-fsc/client/protocol"
+	"flare-fsc/client/shared"
 	"flare-fsc/logger"
 	"reflect"
 	"sync"
 )
+
+const storageSize int = 8
 
 type Runner interface {
 	Run(ctx context.Context) error
@@ -37,11 +40,14 @@ func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientConte
 	if err != nil {
 		logger.Fatal("Error creating registration client: %v", err)
 	}
-	protocolClient, err := protocol.NewProtocolClient(clientCtx)
+
+	messageChannel := make(chan shared.ProtocolMessage, 3)
+
+	protocolClient, err := protocol.NewProtocolClient(clientCtx, messageChannel)
 	if err != nil {
 		logger.Fatal("Error creating protocol client: %v", err)
 	}
-	finalizerClient, err := finalizer.NewFinalizerClient(clientCtx)
+	finalizerClient, err := finalizer.NewFinalizerClient(clientCtx, messageChannel)
 	if err != nil {
 		logger.Fatal("Error creating finalizer client: %v", err)
 	}

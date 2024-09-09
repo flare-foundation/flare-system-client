@@ -59,7 +59,7 @@ func TestFinalizerClientMainline(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return clients.finalizer.RunContext(ctx)
+		return clients.finalizer.Run(ctx)
 	})
 
 	require.Eventually(
@@ -86,7 +86,7 @@ func TestFinalizerClientSendTxErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return clients.finalizer.RunContext(ctx)
+		return clients.finalizer.Run(ctx)
 	})
 
 	require.Eventually(
@@ -112,7 +112,7 @@ func TestFinalizerClientFetchTxsErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return clients.finalizer.RunContext(ctx)
+		return clients.finalizer.Run(ctx)
 	})
 
 	require.Eventually(
@@ -139,7 +139,7 @@ func TestFinalizerClientFetchLogssErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return clients.finalizer.RunContext(ctx)
+		return clients.finalizer.Run(ctx)
 	})
 
 	err = eg.Wait()

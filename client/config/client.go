@@ -45,19 +45,19 @@ type IdentityConfig struct {
 }
 
 type CredentialsConfig struct {
-	// Sign all data
+	// Sign all data.
 	SigningPolicyPrivateKeyFile string `toml:"signing_policy_private_key_file"`
 	SigningPolicyPrivateKey     string `toml:"-" envconfig:"SIGNING_POLICY_PRIVATE_KEY"`
 
-	// Send RegisterVoter and SignNewSigningPolicy transactions
+	// Send RegisterVoter and SignNewSigningPolicy transactions.
 	SystemClientSenderPrivateKeyFile string `toml:"system_client_sender_private_key_file"`
 	SystemClientSenderPrivateKey     string `toml:"-" envconfig:"SYSTEM_CLIENT_SENDER_PRIVATE_KEY"`
 
-	// Submit protocol data (submit1, submit2, submit3)
+	// Submit protocol data (submit1, submit2, submit3).
 	ProtocolManagerSubmitPrivateKeyFile string `toml:"protocol_manager_submit_private_key_file"`
 	ProtocolManagerSubmitPrivateKey     string `toml:"-" envconfig:"PROTOCOL_MANAGER_SUBMIT_PRIVATE_KEY"`
 
-	// Submit protocol signatures
+	// Submit protocol signatures.
 	ProtocolManagerSubmitSignaturesPrivateKeyFile string `toml:"protocol_manager_submit_signatures_private_key_file"`
 	ProtocolManagerSubmitSignaturesPrivateKey     string `toml:"-" envconfig:"PROTOCOL_MANAGER_SUBMIT_SIGNATURES_PRIVATE_KEY"`
 }
@@ -98,13 +98,13 @@ type FinalizerConfig struct {
 	StartingRewardEpoch int64  `toml:"starting_reward_epoch"`
 	StartingVotingRound uint32 `toml:"starting_voting_round"`
 
-	// how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client
-	// default is 7 days
+	// How far in the past we start fetching reward epochs from the indexer at the start of the finalizer client.
+	// Default is 7 days.
 	StartOffset time.Duration `toml:"start_offset"`
 
 	VoterThresholdBIPS uint16 `toml:"voter_threshold_bips"`
 
-	// Offset from the start of the voting round
+	// Offset from the start of the voting round.
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 

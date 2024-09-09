@@ -3,6 +3,7 @@ package finalizer
 import (
 	"encoding/binary"
 	"errors"
+	"flare-fsc/client/shared/voters"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -59,6 +60,7 @@ type submitSignaturesPayload struct {
 
 	signer     common.Address
 	voterIndex int
+	weight     uint16
 }
 
 func decodeSignedPayloadV2(payloadMsg payloadMessage) (submitSignaturesPayload, error) {
@@ -96,7 +98,7 @@ func decodeSignedPayloadV2(payloadMsg payloadMessage) (submitSignaturesPayload, 
 	return signedPayload, nil
 }
 
-func (pld *submitSignaturesPayload) AddSigner(messageHash []byte) error {
+func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.VoterSet) error {
 	transformedSignature := transformSignature(pld.signature)
 
 	pk, err := crypto.SigToPub(messageHash, transformedSignature[:])
@@ -108,14 +110,13 @@ func (pld *submitSignaturesPayload) AddSigner(messageHash []byte) error {
 
 	pld.signer = signer
 
+	pld.voterIndex = voterSet.VoterIndex(signer)
+
+	if pld.voterIndex < 0 {
+		return fmt.Errorf("signer %s is not a registered voter in the current reward epoch", signer.Hex())
+	}
+
+	pld.weight = voterSet.VoterWeight(pld.voterIndex)
+
 	return nil
-}
-
-type signatureCollection struct {
-	message          []byte
-	signatures       []*submitSignaturesPayload
-	weight           uint16
-	thresholdReached bool
-
-	signingPolicy *signingPolicy
 }

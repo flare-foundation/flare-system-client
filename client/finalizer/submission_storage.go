@@ -72,7 +72,7 @@ func newSubmissionStorage() *submissionStorage {
 	}
 }
 
-// Add adds a signed payload to the submission storage
+// Add adds a signed payload to the submission storage.
 // The provided signing policy must be the signing policy for the voting round
 // Returns true if the payload was added, false if it was already added
 func (s *submissionStorage) Add(p *signedPayload, sp *signingPolicy, threshold uint16) (addPayloadResult, error) {

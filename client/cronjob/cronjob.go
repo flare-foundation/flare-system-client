@@ -15,7 +15,7 @@ type Cronjob interface {
 	Call() error
 	OnStart() error
 
-	// Set health status of cronjob
+	// Set health status of cronjob.
 	// (can be implemented to ignore the status based on other conditions)
 	UpdateCronjobStatus(status shared.HealthStatus)
 }

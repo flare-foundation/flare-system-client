@@ -2,61 +2,35 @@ package finalizer
 
 import (
 	"context"
-	"encoding/hex"
 	clientContext "flare-fsc/client/context"
 	"flare-fsc/client/shared"
 	"flare-fsc/config"
-	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/relay"
 	"flare-fsc/utils/credentials"
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"gorm.io/gorm"
 )
 
-type finalizerClient struct {
+const minRoundsStored uint32 = 10
+
+type finalizerClientV2 struct {
 	db finalizerDB
 
 	relayClient          *relayContractClient
 	submissionClient     *submissionContractClient
 	signingPolicyStorage *signingPolicyStorage
 	messages             <-chan shared.ProtocolMessage
-	submissionStorage    *submissionStorage
-	queueProcessor       *finalizerQueueProcessor
+	finalizationStorage  *finalizationStorage
+	queueProcessor       *finalizerQueueProcessorV2
 
 	finalizerContext *finalizerContext
 }
 
-type finalizerDB interface {
-	FetchTransactionsByAddressAndSelector(
-		common.Address, []byte, int64, int64,
-	) ([]database.Transaction, error)
-	FetchLogsByAddressAndTopic0(common.Address, string, int64, int64) ([]database.Log, error)
-}
-
-type finalizerDBImpl struct {
-	client *gorm.DB
-}
-
-func (db finalizerDBImpl) FetchTransactionsByAddressAndSelector(
-	address common.Address, selector []byte, from, to int64,
-) ([]database.Transaction, error) {
-	hexSelector := hex.EncodeToString(selector)
-	return database.FetchTransactionsByAddressAndSelector(db.client, address.Hex(), hexSelector, from, to)
-}
-
-func (db finalizerDBImpl) FetchLogsByAddressAndTopic0(
-	address common.Address, topic0 string, from, to int64,
-) ([]database.Log, error) {
-	return database.FetchLogsByAddressAndTopic0(db.client, address.Hex(), topic0, from, to)
-}
-
-func NewFinalizerClient(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage) (*finalizerClient, error) {
+func NewFinalizerClientV2(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage) (*finalizerClientV2, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EnabledFinalizer {
 		return nil, nil
@@ -96,23 +70,23 @@ func NewFinalizerClient(ctx clientContext.ClientContext, messageChannel <-chan s
 		return nil, err
 	}
 	submissionClient := NewSubmissionContractClient(cfg.ContractAddresses.Submission)
-	submissionStorage := newSubmissionStorage()
+	finalizationStorage := newFinalizationStorage()
 
 	db := finalizerDBImpl{client: ctx.DB()}
 
-	return &finalizerClient{
+	return &finalizerClientV2{
 		db:                   db,
 		relayClient:          relayClient,
 		signingPolicyStorage: newSigningPolicyStorage(),
 		messages:             messageChannel,
-		submissionStorage:    submissionStorage,
+		finalizationStorage:  finalizationStorage,
 		submissionClient:     submissionClient,
-		queueProcessor:       newFinalizerQueueProcessor(db, submissionStorage, relayClient, finalizerContext),
+		queueProcessor:       newFinalizerQueueProcessorV2(db, finalizationStorage, relayClient, finalizerContext),
 		finalizerContext:     finalizerContext,
 	}, nil
 }
 
-func (c *finalizerClient) Run(ctx context.Context) error {
+func (c *finalizerClientV2) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	startTime := time.Now().Add(-c.finalizerContext.startTimeOffset)
@@ -125,7 +99,7 @@ func (c *finalizerClient) Run(ctx context.Context) error {
 		return c.runSigningPolicyInitializedListener(ctx, startTime)
 	})
 	eg.Go(func() error {
-		return c.submissionClient.SubmissionTxListener(ctx, c.db, startTime, c)
+		return c.submissionClient.SubmissionTxListenerV2(ctx, c.db, startTime, c)
 	})
 	eg.Go(func() error {
 		return c.queueProcessor.Run(ctx)
@@ -134,7 +108,7 @@ func (c *finalizerClient) Run(ctx context.Context) error {
 	return eg.Wait()
 }
 
-func (c *finalizerClient) fetchExistingSigningPolicies(
+func (c *finalizerClientV2) fetchExistingSigningPolicies(
 	_ context.Context, startTime time.Time,
 ) (time.Time, error) {
 	// Read current signing policies from the database and add them to the storage
@@ -160,14 +134,12 @@ func (c *finalizerClient) fetchExistingSigningPolicies(
 	return startTime, nil
 }
 
-func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
+func (c *finalizerClientV2) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
 	spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
 	for {
 		var dbPolicy signingPolicyListenerResponse
 		select {
 		case dbPolicy = <-spListener:
-			break
-
 		case <-ctx.Done():
 			logger.Info("Signing policy initialized listener stopped")
 			return ctx.Err()
@@ -181,47 +153,51 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 			logger.Warn("Error adding signing policy %v", err)
 		}
 		logger.Info("New signing policy received for epoch %v", policy.rewardEpochID)
-		c.rewardEpochCleanup()
+		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.lowestRoundStored)
 	}
 }
 
-func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
-	for _, payloadItem := range slr.payload {
-		if payloadItem.votingRoundId < c.finalizerContext.startingVotingRound {
-			logger.Debug("Ignoring submitted signature for voting round %d - before startingVotingRound", payloadItem.votingRoundId)
+func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponseV2) error {
+	for _, payloadItem := range slr.payloads {
+		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
+			logger.Debug("Ignoring submitted signature for voting round %d - before startingVotingRound", payloadItem.votingRoundID)
 			continue
 		}
 
 		// Skip if voting round is in the future
-		if !c.checkVotingRoundTime(payloadItem.votingRoundId) {
+		if !c.checkVotingRoundTime(payloadItem.votingRoundID) {
 			continue
 		}
-		sp, threshold := c.signingPolicyData(payloadItem.votingRoundId)
+		sp, _ := c.signingPolicyData(payloadItem.votingRoundID)
 		if sp == nil {
 			first := c.signingPolicyStorage.First()
-			if first != nil && payloadItem.votingRoundId < first.startVotingRoundID {
+			if first != nil && payloadItem.votingRoundID < first.startVotingRoundID {
 				// This is a submission for an old voting round, skip it
-				logger.Debug("Ignoring submitted signature for voting round %d - before policy startVotingRoundId", payloadItem.votingRoundId)
+				logger.Debug("Ignoring submitted signature for voting round %d - before policy startVotingRoundId", payloadItem.votingRoundID)
 				continue
 			}
-			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundId)
+			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundID)
 		}
-		addResult, err := c.submissionStorage.Add(payloadItem.payload, sp, threshold)
+		finalizationReady, err := c.finalizationStorage.addPayload(payloadItem, sp)
 		if err != nil {
 			// Error is non-fatal, skip this submission
 			logger.Debug("Ignoring submitted signature: %v", err)
 			continue
 		}
-		if addResult.thresholdReached {
-			logger.Info("Threshold reached for protocol %d in voting round %d with hash %v", payloadItem.protocolId, payloadItem.votingRoundId, payloadItem.payload.messageHash)
-			c.queueProcessor.Add(payloadItem, sp.seed)
+
+		if finalizationReady.thresholdReached {
+			logger.Info("Threshold reached for protocol %d in voting round %d", finalizationReady.protocolID, finalizationReady.votingRoundID)
+			c.queueProcessor.Add(&finalizationReady, sp.seed)
+
+			//clean old rounds
+			c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored)
 		}
 	}
 	return nil
 }
 
 // return signing policy and voting threshold for the given voting round
-func (c *finalizerClient) signingPolicyData(votingRoundId uint32) (*signingPolicy, uint16) {
+func (c *finalizerClientV2) signingPolicyData(votingRoundId uint32) (*signingPolicy, uint16) {
 	sp, last := c.signingPolicyStorage.GetForVotingRound(votingRoundId)
 	if sp == nil {
 		return nil, 0
@@ -240,20 +216,27 @@ func (c *finalizerClient) signingPolicyData(votingRoundId uint32) (*signingPolic
 }
 
 // Return true if voting round is not in the future, i.e., is <= the current voting round
-func (c *finalizerClient) checkVotingRoundTime(votingRoundId uint32) bool {
+func (c *finalizerClientV2) checkVotingRoundTime(votingRoundId uint32) bool {
 	currentEpochId := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
 	return votingRoundId <= uint32(currentEpochId)
 }
 
-func (c *finalizerClient) rewardEpochCleanup() {
-	cleanupTime := time.Now().Add(-2 * c.finalizerContext.startTimeOffset)
-	cleanupVotingRoundId := c.finalizerContext.votingEpoch.EpochIndex(cleanupTime)
-	if cleanupVotingRoundId < 0 {
-		return
-	}
-	removedEpochIds := c.signingPolicyStorage.RemoveByVotingRound(uint32(cleanupVotingRoundId))
-	c.submissionStorage.RemoveVotingRoundIds(removedEpochIds)
-	if len(removedEpochIds) > 0 {
-		logger.Info("Removed signing policies and submissions with reward epoch <= %d", removedEpochIds[len(removedEpochIds)-1])
+func (c *finalizerClientV2) messagesChannelListener() error {
+	for {
+		protocolMessage := <-c.messages
+
+		sp, _ := c.signingPolicyData(protocolMessage.VotingRoundID)
+
+		finalizationReady, thresholdReached, err := c.finalizationStorage.AddMessage(&protocolMessage, sp)
+
+		if err != nil {
+			logger.Debug("Ignoring submitted signature: %v", err)
+			continue
+		}
+
+		if thresholdReached {
+			logger.Info("Threshold reached for protocol %d in voting round %d with hash %v", finalizationReady.protocolID, finalizationReady.votingRoundID)
+			c.queueProcessor.Add(&finalizationReady, sp.seed)
+		}
 	}
 }

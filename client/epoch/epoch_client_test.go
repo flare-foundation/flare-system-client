@@ -48,7 +48,7 @@ func TestEpochClientMainline(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(2)
@@ -102,7 +102,7 @@ func TestEpochClientInvalidEpoch(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(0)
@@ -145,7 +145,7 @@ func TestEpochClientSigningErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(2)
@@ -196,7 +196,7 @@ func TestEpochClientRewardEpochErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(2)
@@ -237,7 +237,7 @@ func TestEpochClientRegisterErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(2)

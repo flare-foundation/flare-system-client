@@ -15,7 +15,7 @@ import (
 type HealthStatus int
 
 const (
-	HealthStatusInitializing HealthStatus = 0 // Default prometheus Gauge value, thus it indicates that it was not updated yet
+	HealthStatusInitializing HealthStatus = 0 // Default prometheus Gauge value, thus it indicates that it was not updated yet.
 	HealthStatusOk           HealthStatus = 1
 	HealthStatusError        HealthStatus = -1
 	HealthStatusSyncing      HealthStatus = -2

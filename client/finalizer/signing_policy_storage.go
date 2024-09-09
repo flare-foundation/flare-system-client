@@ -15,8 +15,8 @@ import (
 // Duplicates relay.RelaySigningPolicyInitialized but with different fields and
 // different types for some fields
 type signingPolicy struct {
-	rewardEpochId      int64
-	startVotingRoundId uint32
+	rewardEpochID      int64
+	startVotingRoundID uint32
 	threshold          uint16
 	seed               *big.Int
 	rawBytes           []byte
@@ -28,8 +28,8 @@ type signingPolicy struct {
 
 func newSigningPolicy(r *relay.RelaySigningPolicyInitialized) *signingPolicy {
 	return &signingPolicy{
-		rewardEpochId:      r.RewardEpochId.Int64(),
-		startVotingRoundId: r.StartVotingRoundId,
+		rewardEpochID:      r.RewardEpochId.Int64(),
+		startVotingRoundID: r.StartVotingRoundId,
 		threshold:          r.Threshold,
 		seed:               r.Seed,
 		rawBytes:           r.SigningPolicyBytes,
@@ -40,7 +40,6 @@ func newSigningPolicy(r *relay.RelaySigningPolicyInitialized) *signingPolicy {
 }
 
 type signingPolicyStorage struct {
-
 	// sorted list of signing policies, sorted by rewardEpochId (and also by startVotingRoundId)
 	spList []*signingPolicy
 
@@ -58,7 +57,7 @@ func newSigningPolicyStorage() *signingPolicyStorage {
 // We assume that the list is sorted by rewardEpochId and also by startVotingRoundId.
 func (s *signingPolicyStorage) findByVotingRoundId(votingRoundId uint32) *signingPolicy {
 	i, found := sort.Find(len(s.spList), func(i int) int {
-		return cmp.Compare(votingRoundId, s.spList[i].startVotingRoundId)
+		return cmp.Compare(votingRoundId, s.spList[i].startVotingRoundID)
 	})
 	if found {
 		return s.spList[i]
@@ -75,13 +74,13 @@ func (s *signingPolicyStorage) Add(sp *signingPolicy) error {
 
 	if len(s.spList) > 0 {
 		// check consistency, previous epoch should be already added
-		if s.spList[len(s.spList)-1].rewardEpochId != sp.rewardEpochId-1 {
-			return fmt.Errorf("missing signing policy for reward epoch id %d", sp.rewardEpochId-1)
+		if s.spList[len(s.spList)-1].rewardEpochID != sp.rewardEpochID-1 {
+			return fmt.Errorf("missing signing policy for reward epoch id %d", sp.rewardEpochID-1)
 		}
 		// should be sorted by voting round id, should not happen
-		if sp.startVotingRoundId < s.spList[len(s.spList)-1].startVotingRoundId {
+		if sp.startVotingRoundID < s.spList[len(s.spList)-1].startVotingRoundID {
 			return fmt.Errorf("signing policy for reward epoch id %d has larger start voting round id than previous policy",
-				sp.rewardEpochId)
+				sp.rewardEpochID)
 		}
 	}
 
@@ -99,7 +98,7 @@ func (s *signingPolicyStorage) GetForVotingRound(votingRoundId uint32) (*signing
 	if sp == nil {
 		return nil, false
 	}
-	return sp, sp.rewardEpochId == s.spList[len(s.spList)-1].rewardEpochId
+	return sp, sp.rewardEpochID == s.spList[len(s.spList)-1].rewardEpochID
 }
 
 func (s *signingPolicyStorage) First() *signingPolicy {
@@ -119,12 +118,27 @@ func (s *signingPolicyStorage) RemoveByVotingRound(votingRoundId uint32) []uint3
 	defer s.Unlock()
 
 	var removedRewardEpochIds []uint32
-	for len(s.spList) > 0 && s.spList[0].startVotingRoundId <= votingRoundId {
-		removedRewardEpochIds = append(removedRewardEpochIds, uint32(s.spList[0].rewardEpochId))
+	for len(s.spList) > 0 && s.spList[0].startVotingRoundID <= votingRoundId {
+		removedRewardEpochIds = append(removedRewardEpochIds, uint32(s.spList[0].rewardEpochID))
 		s.spList[0] = nil
 		s.spList = s.spList[1:]
 	}
 	return removedRewardEpochIds
+}
+
+// RemoveBefore removes all signing policies that ended strictly before votingRoundID.
+// Returns the list of removed reward epoch ids.
+func (s *signingPolicyStorage) RemoveBefore(votingRoundID uint32) []uint32 {
+	s.Lock()
+	defer s.Unlock()
+
+	var removedRewardEpochIDs []uint32
+	for len(s.spList) > 1 && s.spList[1].startVotingRoundID < votingRoundID {
+		removedRewardEpochIDs = append(removedRewardEpochIDs, uint32(s.spList[0].rewardEpochID))
+		s.spList[0] = nil
+		s.spList = s.spList[1:]
+	}
+	return removedRewardEpochIDs
 }
 
 func (s *signingPolicy) Encode() ([]byte, error) {
@@ -133,8 +147,8 @@ func (s *signingPolicy) Encode() ([]byte, error) {
 	size := s.voters.Count()
 
 	sizeBytes := shared.Uint16toBytes(uint16(size))
-	epochBytes := shared.Uint32toBytes(uint32(s.rewardEpochId))
-	startVotingRoundBytes := shared.Uint32toBytes(s.startVotingRoundId)
+	epochBytes := shared.Uint32toBytes(uint32(s.rewardEpochID))
+	startVotingRoundBytes := shared.Uint32toBytes(s.startVotingRoundID)
 	thresholdBytes := shared.Uint16toBytes(s.threshold)
 
 	buffer.Write(sizeBytes[:])

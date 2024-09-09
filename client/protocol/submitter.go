@@ -60,6 +60,8 @@ type Submitter struct {
 type SignatureSubmitter struct {
 	SubmitterBase
 
+	messageChannel chan<- shared.ProtocolMessage
+
 	maxRounds int // number of rounds for sending submitSignatures tx
 }
 
@@ -165,6 +167,7 @@ func newSignatureSubmitter(
 	gasCfg *config.GasConfig,
 	selector []byte,
 	subProtocols []*SubProtocol,
+	messageChannel chan<- shared.ProtocolMessage,
 ) *SignatureSubmitter {
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
@@ -181,7 +184,8 @@ func newSignatureSubmitter(
 			dataFetchTimeout: submitCfg.DataFetchTimeout,
 			dataFetchRetries: submitCfg.DataFetchRetries,
 		},
-		maxRounds: submitCfg.MaxRounds,
+		maxRounds:      submitCfg.MaxRounds,
+		messageChannel: messageChannel,
 	}
 }
 
@@ -213,9 +217,10 @@ func (s *SignatureSubmitter) WritePayload(
 	return nil
 }
 
-// 1. Run every sub-protocol provider with delay of 1 second at most five times
-// 2. repeat 1 for each sub-protocol provider not giving valid answer
-// Repeat 1 and 2 until all sub-protocol providers give valid answer or we did 10 rounds
+//  1. Run every sub-protocol provider with delay of 1 second at most five times.
+//  2. repeat 1 for each sub-protocol provider not giving valid answer.
+//
+// Repeat 1 and 2 until all sub-protocol providers give valid answer or we did 10 rounds.
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 	logger.Info("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
 
@@ -254,6 +259,9 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 				continue
 			}
 			err := s.WritePayload(buffer, currentEpoch, data.Value, s.subProtocols[i].Id)
+
+			s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].Id, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
+
 			if err != nil {
 				logger.Error("Error writing payload for submitter %s: %v", s.name, err)
 				continue

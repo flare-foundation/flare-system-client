@@ -37,7 +37,7 @@ func VotingEpochFromChain(fsm *system.FlareSystemsManager) (*utils.Epoch, error)
 	), nil
 }
 
-// Returns the voting and reward epochs from the relay contract
+// Returns the voting and reward epochs from the relay contract.
 func EpochsFromChain(relay *relay.Relay) (*utils.Epoch, *utils.IntEpoch, error) {
 	sd, err := relay.StateData(nil)
 	if err != nil {

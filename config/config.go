@@ -62,8 +62,8 @@ func (chain *ChainConfig) DialETH() (*ethclient.Client, error) {
 	return ethclient.Dial(rpcURL)
 }
 
-// Get the full RPC URL which may be passed to ethclient.Dial. Includes API key
-// as query param if it is configured.
+// Get the full RPC URL which may be passed to ethclient.Dial.
+// Includes API key as query param if it is configured.
 func (chain *ChainConfig) getRPCURL() (string, error) {
 	u, err := url.Parse(chain.EthRPCURL)
 	if err != nil {
@@ -122,7 +122,7 @@ func ReadFileToString(fileName string) (string, error) {
 }
 
 // Read private key from env variable or file if insecure private key handling
-// is enabled (INSECURE_PRIVATE_KEYS)
+// is enabled (INSECURE_PRIVATE_KEYS).
 func PrivateKeyFromConfig(fileName string, envString string) (pk *ecdsa.PrivateKey, err error) {
 	envString = strings.TrimSpace(envString)
 	fileName = strings.TrimSpace(fileName)

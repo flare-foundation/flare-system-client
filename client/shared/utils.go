@@ -30,7 +30,7 @@ func ExecuteWithRetry[T any](f func() (T, error), maxRetries int, delay time.Dur
 	return out
 }
 
-// ExistsAsSubstring returns true if any of the strings in the slice is a substring of s
+// ExistsAsSubstring returns true if any of the strings in the slice is a substring of s.
 func ExistsAsSubstring(slice []string, s string) bool {
 	for _, item := range slice {
 		if strings.Contains(s, item) {

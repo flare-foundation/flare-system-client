@@ -185,6 +185,54 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, payloads []*si
 	}
 }
 
+func (r *relayContractClient) SubmitPayloadsV2(ctx context.Context, input []byte, dryRun bool) {
+	if len(input) == 0 {
+		return
+	}
+
+	execStatusChan := shared.ExecuteWithRetry(func() (any, error) {
+		err := r.ethClient.SendRawTx(r.privateKey, r.address, input, dryRun)
+		if err != nil {
+			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
+				logger.Info("Non fatal error sending relay tx: %v", err)
+			} else {
+				return nil, errors.Wrap(err, "Error sending relay tx")
+			}
+		}
+		return nil, nil
+	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+
+	select {
+	case execStatus := <-execStatusChan:
+		if execStatus.Success {
+			logger.Info("Relaying finished")
+		}
+
+	case <-ctx.Done():
+		return
+	}
+}
+
+func (r *relayContractClient) ProtocolMessageRelayedV2(db finalizerDB, from time.Time, to time.Time) (mapset.Set[queueItemV2], error) {
+	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0PMR, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+
+	result := mapset.NewSet[queueItemV2]()
+	for _, log := range logs {
+		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
+		if err != nil {
+			return nil, err
+		}
+		result.Add(queueItemV2{
+			protocolID:    data.ProtocolId,
+			votingRoundID: data.VotingRoundId,
+		})
+	}
+	return result, nil
+}
+
 func (r *relayContractClient) ProtocolMessageRelayed(db finalizerDB, from time.Time, to time.Time) (mapset.Set[queueItem], error) {
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0PMR, from.Unix(), to.Unix())
 	if err != nil {
