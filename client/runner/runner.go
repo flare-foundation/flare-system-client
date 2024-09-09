@@ -13,8 +13,6 @@ import (
 	"sync"
 )
 
-const storageSize int = 8
-
 type Runner interface {
 	Run(ctx context.Context) error
 }
