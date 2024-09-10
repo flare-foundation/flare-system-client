@@ -192,7 +192,7 @@ func (p *finalizerQueueProcessorV2) processDelayedQueue(items []*queueItemV2) er
 	}
 
 	for _, item := range items {
-		if relayedItems.Contains(*item) {
+		if relayedItems[*item] {
 			continue
 		}
 		logger.Info("Finalizer processes delayed queue item %v", item)

@@ -1,4 +1,4 @@
-(*protocol.sentTxInfo)({
+(*finalizer.sentTxInfo)({
   privateKey: (*ecdsa.PrivateKey)({
     PublicKey: (ecdsa.PublicKey) {
       Curve: (*secp256k1.BitCurve)({
@@ -14,13 +14,14 @@
     },
     D: (*big.Int)(35912491679376849959083246065062130724125729947978451967334298588385162616650)
   }),
-  to: (common.Address) (len=20) 0xBB6eae07aD2c5899A081984e31157035b0604106,
-  payload: ([]uint8) (len=75) {
-    00000000  64 00 00 00 00 00 44 00  1b 2b 4e 88 e9 3f d2 d2  |d.....D..+N..?..|
-    00000010  49 90 cd 8e b9 6d bf d8  49 84 d3 4c 3a e4 33 14  |I....m..I..L:.3.|
-    00000020  c6 ee 7e 6a 48 7f b3 d1  ae 2e 08 bb bc cf cf 7d  |..~jH..........}|
-    00000030  d7 a9 a5 e7 f7 ca 75 2b  e4 02 d2 ff ed 49 62 94  |......u+.....Ib.|
-    00000040  d9 55 c8 54 e9 65 a3 20  e8 12 34                 |.U.T.e. ..4|            
+  to: (common.Address) (len=20) 0xb849b93B585eFfb7cE4B522Ff88d9b3B24955f24,
+  data: ([]uint8) (len=112) {
+    00000000  b5 95 89 d1 01 01 00 00  00 01 01 ff ff ff ff ff  |................|
+    00000010  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+    00000020  ff ff ff ff ff ff ff ff  ff ff ff 00 01 1c 45 fe  |..............E.|
+    00000030  85 74 fd 44 d6 8f 6b dc  3e 30 25 16 54 fb c2 7a  |.t.D..k.>0%.T..z|
+    00000040  77 2d 2b 76 e4 88 3a 1f  3d df 39 5e 78 e0 73 a0  |w-+v..:.=.9^x.s.|
+    00000050  ce c5 15 03 26 bb c8 d9  2f 08 69 42 01 c5 90 19  |....&.../.iB....|
+    00000060  4b 5c 49 b7 2c 40 5b 7c  d7 d9 bf 43 ff 76 00 00  |K\I.,@[|...C.v..|
   }
-}
-)
+})

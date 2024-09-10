@@ -213,22 +213,22 @@ func (r *relayContractClient) SubmitPayloadsV2(ctx context.Context, input []byte
 	}
 }
 
-func (r *relayContractClient) ProtocolMessageRelayedV2(db finalizerDB, from time.Time, to time.Time) (mapset.Set[queueItemV2], error) {
+func (r *relayContractClient) ProtocolMessageRelayedV2(db finalizerDB, from time.Time, to time.Time) (map[queueItemV2]bool, error) {
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0PMR, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
 
-	result := mapset.NewSet[queueItemV2]()
+	result := make(map[queueItemV2]bool)
 	for _, log := range logs {
 		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
 		if err != nil {
 			return nil, err
 		}
-		result.Add(queueItemV2{
+		result[queueItemV2{
 			protocolID:    data.ProtocolId,
 			votingRoundID: data.VotingRoundId,
-		})
+		}] = true
 	}
 	return result, nil
 }

@@ -53,7 +53,6 @@ func (r voterRegistryImpl) IsVoterRegistered(
 
 func NewProtocolClient(ctx clientContext.ClientContext, messageChannel chan<- shared.ProtocolMessage) (*ProtocolClient, error) {
 	cfg := ctx.Config()
-
 	if !cfg.Clients.EnabledProtocolVoting {
 		return nil, nil
 	}
@@ -170,7 +169,7 @@ L:
 				// signatureSubmitter is independent of submit1 and submit2
 				go func() {
 					time.Sleep(c.signatureSubmitter.startOffset)
-					c.signatureSubmitter.RunEpoch(currentEpoch)
+					c.signatureSubmitter.RunEpochV2(currentEpoch)
 				}()
 			}
 		case <-ctx.Done():
