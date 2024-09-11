@@ -81,7 +81,7 @@ func decodeSignedPayloadV2(payloadMsg payloadMessage) (submitSignaturesPayload, 
 	}
 
 	if len(payloadMsg.payload) < signatureEnd {
-		return submitSignaturesPayload{}, fmt.Errorf("payload to short got %d, should be at least %d", len(payloadMsg.payload), signatureEnd)
+		return submitSignaturesPayload{}, fmt.Errorf("payload of type %d to short got %d, should be at least %d", typeID, len(payloadMsg.payload), signatureEnd)
 	}
 
 	signature := payloadMsg.payload[signatureStart:signatureEnd]
