@@ -249,7 +249,7 @@ type submissionListenerResponseV2 struct {
 }
 
 func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
-	if fs.lowestRoundStored == 0 {
+	if fs.lowestRoundStored == 0 && votingRoundID > 20 {
 		fs.lowestRoundStored = votingRoundID - 20
 	}
 
