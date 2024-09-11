@@ -2,157 +2,36 @@ package finalizer
 
 import (
 	"bytes"
-	"context"
 	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/hex"
-	"flare-fsc/config"
 	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/relay"
 	"math/big"
-	"os"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
-	"github.com/bradleyjkemp/cupaloy"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 )
-
-const (
-	testPrivateKeyHex            = "4f65bffe3c8ed6c0b812e84d35402e949feea042061cc1635fe6ae83ed84df4a"
-	relayContractAddressHex      = "0xb849b93B585eFfb7cE4B522Ff88d9b3B24955f24"
-	submissionContractAddressHex = "0x2F79Dce2375571207a7976148D4468195F89a73e"
-	topicSPIHex                  = "0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8"
-)
-
-var (
-	relayContractAddress      = common.HexToAddress(relayContractAddressHex)
-	submissionContractAddress = common.HexToAddress(submissionContractAddressHex)
-)
-
-func TestMain(m *testing.M) {
-	logger.Configure(config.LoggerConfig{
-		Level:   "DEBUG",
-		Console: true,
-	})
-
-	os.Exit(m.Run())
-}
-
-func TestFinalizerClientMainline(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	clients, err := setupTest()
-	require.NoError(t, err)
-
-	eg, ctx := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		return clients.finalizer.Run(ctx)
-	})
-
-	require.Eventually(
-		t, clients.eth.hasAnyCalls, 10*time.Second, 100*time.Millisecond,
-	)
-
-	cancel()
-	err = eg.Wait()
-	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
-
-	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
-	require.Len(t, clients.eth.sentTxs, 1)
-	cupaloy.SnapshotT(t, clients.eth.sentTxs[0])
-}
-
-func TestFinalizerClientSendTxErr(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	clients, err := setupTest()
-	require.NoError(t, err)
-
-	clients.eth.sendTxErr = errors.New("sendRawTx error")
-
-	eg, ctx := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		return clients.finalizer.Run(ctx)
-	})
-
-	require.Eventually(
-		t, clients.eth.hasAnyCalls, 10*time.Second, 100*time.Millisecond,
-	)
-
-	cancel()
-	err = eg.Wait()
-	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
-
-	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
-	require.Empty(t, clients.eth.sentTxs)
-}
-
-func TestFinalizerClientFetchTxsErr(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	clients, err := setupTest()
-	require.NoError(t, err)
-
-	clients.db.fetchTxsErr = errors.New("fetchTxs error")
-
-	eg, ctx := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		return clients.finalizer.Run(ctx)
-	})
-
-	require.Eventually(
-		t, clients.db.hasAnyFetchTxsCalls, 10*time.Second, 100*time.Millisecond,
-	)
-
-	cancel()
-	err = eg.Wait()
-	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
-
-	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
-	require.Empty(t, clients.eth.sentTxs)
-}
-
-func TestFinalizerClientFetchLogssErr(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	clients, err := setupTest()
-	require.NoError(t, err)
-
-	clients.db.fetchLogsErr = errors.New("fetchLogs error")
-
-	eg, ctx := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		return clients.finalizer.Run(ctx)
-	})
-
-	err = eg.Wait()
-	require.True(t, errors.Is(err, clients.db.fetchLogsErr), "unexpected error: %v", err)
-
-	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
-	require.Empty(t, clients.eth.sentTxs)
-}
 
 type testClients struct {
 	db        *testDB
 	eth       *testEthClient
 	finalizer *finalizerClient
+}
+
+var msgSubmit = &submittedPayload{
+	protocolId:         0x1,
+	votingRoundId:      1,
+	randomQualityScore: true,
+	merkleRoot:         bytes.Repeat([]byte{0xff}, 32),
 }
 
 func setupTest() (*testClients, error) {
@@ -372,13 +251,8 @@ func encodeSubmitterPayload(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 		protocolId:    0x1,
 		votingRoundId: 1,
 		payload: &signedPayload{
-			typeId: 0x1,
-			message: &submittedPayload{
-				protocolId:         0x1,
-				votingRoundId:      1,
-				randomQualityScore: true,
-				merkleRoot:         bytes.Repeat([]byte{0xff}, 32),
-			},
+			typeId:  0x0,
+			message: msgSubmit,
 		},
 	}
 
@@ -440,6 +314,7 @@ func encodeSignedPayload(privateKey *ecdsa.PrivateKey, payload *signedPayload) (
 
 func signPayload(privateKey *ecdsa.PrivateKey, submittedPayloadBytes []byte) ([]byte, error) {
 	hash := accounts.TextHash(crypto.Keccak256(submittedPayloadBytes))
+
 	signature, err := crypto.Sign(hash, privateKey)
 	if err != nil {
 		return nil, err

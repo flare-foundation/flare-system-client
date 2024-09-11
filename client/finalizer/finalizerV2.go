@@ -103,16 +103,16 @@ func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *vote
 
 	pk, err := crypto.SigToPub(messageHash, transformedSignature[:])
 	if err != nil {
+
+		fmt.Printf("err: %v\n", err)
 		return err
 	}
 
-	signer := crypto.PubkeyToAddress(*pk)
+	pld.signer = crypto.PubkeyToAddress(*pk)
 
-	pld.signer = signer
-
-	pld.voterIndex = voterSet.VoterIndex(signer)
+	pld.voterIndex = voterSet.VoterIndex(pld.signer)
 	if pld.voterIndex < 0 {
-		return fmt.Errorf("signer %s is not a registered voter in the current reward epoch", signer.Hex())
+		return fmt.Errorf("signer %s is not a registered voter in the current reward epoch", pld.signer.Hex())
 	}
 
 	pld.weight = voterSet.VoterWeight(pld.voterIndex)

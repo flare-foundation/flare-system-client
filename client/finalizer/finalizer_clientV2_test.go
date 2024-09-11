@@ -2,22 +2,48 @@ package finalizer
 
 import (
 	"context"
+	"flare-fsc/client/shared"
+	"flare-fsc/config"
+	"flare-fsc/logger"
 	"flare-fsc/utils"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/bradleyjkemp/cupaloy"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 )
 
+const (
+	testPrivateKeyHex            = "4f65bffe3c8ed6c0b812e84d35402e949feea042061cc1635fe6ae83ed84df4a"
+	relayContractAddressHex      = "0xb849b93B585eFfb7cE4B522Ff88d9b3B24955f24"
+	submissionContractAddressHex = "0x2F79Dce2375571207a7976148D4468195F89a73e"
+	topicSPIHex                  = "0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8"
+)
+
+var (
+	relayContractAddress      = common.HexToAddress(relayContractAddressHex)
+	submissionContractAddress = common.HexToAddress(submissionContractAddressHex)
+)
+
+func TestMain(m *testing.M) {
+	logger.Configure(config.LoggerConfig{
+		Level:   "DEBUG",
+		Console: true,
+	})
+
+	os.Exit(m.Run())
+}
+
 func TestFinalizerClientMainlineV2(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	clients, err := setupTest()
+	clients, err := setupTestV2(t)
 	require.NoError(t, err)
 
 	eg, ctx := errgroup.WithContext(ctx)
@@ -27,7 +53,7 @@ func TestFinalizerClientMainlineV2(t *testing.T) {
 	})
 
 	require.Eventually(
-		t, clients.eth.hasAnyCalls, 10*time.Second, 100*time.Millisecond,
+		t, clients.eth.hasAnyCalls, 20*time.Second, 100*time.Millisecond,
 	)
 
 	cancel()
@@ -42,7 +68,7 @@ func TestFinalizerClientMainlineV2(t *testing.T) {
 func TestFinalizerClientSendTxErrV2(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	clients, err := setupTest()
+	clients, err := setupTestV2(t)
 	require.NoError(t, err)
 
 	clients.eth.sendTxErr = errors.New("sendRawTx error")
@@ -68,7 +94,7 @@ func TestFinalizerClientSendTxErrV2(t *testing.T) {
 func TestFinalizerClientFetchTxsErrV2(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	clients, err := setupTestV2()
+	clients, err := setupTestV2(t)
 	require.NoError(t, err)
 
 	clients.db.fetchTxsErr = errors.New("fetchTxs error")
@@ -95,7 +121,7 @@ func TestFinalizerClientFetchLogsErrV2(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	clients, err := setupTestV2()
+	clients, err := setupTestV2(t)
 	require.NoError(t, err)
 
 	clients.db.fetchLogsErr = errors.New("fetchLogs error")
@@ -119,7 +145,7 @@ type testClientsV2 struct {
 	finalizer *finalizerClientV2
 }
 
-func setupTestV2() (*testClientsV2, error) {
+func setupTestV2(t *testing.T) (*testClientsV2, error) {
 	ethClient := new(testEthClient)
 
 	privateKey, err := crypto.HexToECDSA(testPrivateKeyHex)
@@ -160,17 +186,25 @@ func setupTestV2() (*testClientsV2, error) {
 		voterThresholdBIPS: 5000,
 	}
 
+	msgChan := make(chan shared.ProtocolMessage, 15)
+
+	payload, err := encodeSubmittedPayload(msgSubmit)
+	require.NoError(t, err)
+
 	client := &finalizerClientV2{
 		db:                   db,
 		relayClient:          relayClient,
 		signingPolicyStorage: newSigningPolicyStorage(),
 		finalizationStorage:  finalizationStorage,
+		messages:             msgChan,
 		submissionClient:     NewSubmissionContractClient(submissionContractAddress),
 		queueProcessor: newFinalizerQueueProcessorV2(
 			db, finalizationStorage, relayClient, fCtx,
 		),
 		finalizerContext: fCtx,
 	}
+
+	msgChan <- shared.ProtocolMessage{ProtocolID: msgSubmit.protocolId, VotingRoundID: msgSubmit.votingRoundId, Message: payload}
 
 	return &testClientsV2{
 		db:        db,

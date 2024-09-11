@@ -3,18 +3,13 @@ package finalizer
 import (
 	"context"
 	"encoding/hex"
-	clientContext "flare-fsc/client/context"
 	"flare-fsc/client/shared"
-	"flare-fsc/config"
 	"flare-fsc/database"
 	"flare-fsc/logger"
-	"flare-fsc/utils/contracts/relay"
-	"flare-fsc/utils/credentials"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 )
@@ -54,62 +49,6 @@ func (db finalizerDBImpl) FetchLogsByAddressAndTopic0(
 	address common.Address, topic0 string, from, to int64,
 ) ([]database.Log, error) {
 	return database.FetchLogsByAddressAndTopic0(db.client, address.Hex(), topic0, from, to)
-}
-
-func NewFinalizerClient(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage) (*finalizerClient, error) {
-	cfg := ctx.Config()
-	if !cfg.Clients.EnabledFinalizer {
-		return nil, nil
-	}
-
-	chainCfg := cfg.ChainConfig()
-	ethClient, err := chainCfg.DialETH()
-	if err != nil {
-		return nil, err
-	}
-
-	relay, err := relay.NewRelay(cfg.ContractAddresses.Relay, ethClient)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating relay contract")
-	}
-	finalizerContext, err := newFinalizerContext(cfg, relay)
-	if err != nil {
-		return nil, err
-	}
-
-	senderPkString, err := config.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
-		cfg.Credentials.SigningPolicyPrivateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading sender private key")
-	}
-	txOpts, senderPk, err := credentials.CredentialsFromPrivateKey(senderPkString, chainCfg.ChainID)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating sender register tx opts")
-	}
-	relayClient, err := NewRelayContractClient(
-		ethClient,
-		cfg.ContractAddresses.Relay,
-		senderPk,
-		txOpts.From,
-	)
-	if err != nil {
-		return nil, err
-	}
-	submissionClient := NewSubmissionContractClient(cfg.ContractAddresses.Submission)
-	submissionStorage := newSubmissionStorage()
-
-	db := finalizerDBImpl{client: ctx.DB()}
-
-	return &finalizerClient{
-		db:                   db,
-		relayClient:          relayClient,
-		signingPolicyStorage: newSigningPolicyStorage(),
-		messages:             messageChannel,
-		submissionStorage:    submissionStorage,
-		submissionClient:     submissionClient,
-		queueProcessor:       newFinalizerQueueProcessor(db, submissionStorage, relayClient, finalizerContext),
-		finalizerContext:     finalizerContext,
-	}, nil
 }
 
 func (c *finalizerClient) Run(ctx context.Context) error {

@@ -93,7 +93,6 @@ func (pc *protocolCollection) addMessage(message []byte) (bool, error) {
 		if thresholdReached {
 			return true, nil
 		}
-
 	}
 
 	//clear unprocessedPayloads
@@ -169,8 +168,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 
 	rc, exists := s.stg[p.VotingRoundID]
 	if !exists {
-		rc = &roundCollection{}
-
+		rc = &roundCollection{protocolCollections: make(map[uint8]*protocolCollection)}
 		s.stg[p.VotingRoundID] = rc
 	}
 
@@ -228,12 +226,16 @@ func (sc *signaturesCollection) PrepareFinalizationResults() (FinalizationResult
 }
 
 func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8) (*signaturesCollection, bool) {
+	fs.Lock()
+	defer fs.Unlock()
 	round, exists := fs.stg[votingRoundID]
+
 	if !exists {
 		return &signaturesCollection{}, false
 	}
 
 	pc, exists := round.protocolCollections[protocolID]
+
 	if !exists || !pc.messageAdded {
 		return &signaturesCollection{}, false
 	}
@@ -252,6 +254,8 @@ func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
 		defer fs.Unlock()
 
 		for i := fs.lowestRoundStored; i < votingRoundID; i++ {
+
+			logger.Info("deleting round", i)
 			delete(fs.stg, i)
 		}
 
@@ -311,8 +315,8 @@ func (s *submissionContractClient) SubmissionTxListenerV2(
 					// if input cannot be decoded, it is not a valid submission and should be skipped
 					logger.Info("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
 
-					signaturePayloads = append(signaturePayloads, &signaturePayload)
 				}
+				signaturePayloads = append(signaturePayloads, &signaturePayload)
 			}
 
 			if len(signaturePayloads) > 0 {

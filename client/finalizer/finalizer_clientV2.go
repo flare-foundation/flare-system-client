@@ -162,6 +162,7 @@ func (c *finalizerClientV2) runSigningPolicyInitializedListener(ctx context.Cont
 
 func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponseV2) error {
 	for _, payloadItem := range slr.payloads {
+
 		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
 			logger.Debug("Ignoring submitted signature for voting round %d - before startingVotingRound", payloadItem.votingRoundID)
 			continue
@@ -193,7 +194,10 @@ func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponse
 			c.queueProcessor.Add(&finalizationReady, sp.seed)
 
 			//clean old rounds
-			c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored)
+
+			if finalizationReady.votingRoundID > minRoundsStored {
+				c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored)
+			}
 		}
 	}
 	return nil
