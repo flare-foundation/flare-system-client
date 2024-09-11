@@ -133,7 +133,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 	rc, exists := s.stg[p.votingRoundID]
 	if !exists {
-		rc = &roundCollection{}
+		rc = &roundCollection{protocolCollections: make(map[uint8]*protocolCollection)}
 
 		s.stg[p.votingRoundID] = rc
 	}
@@ -249,6 +249,10 @@ type submissionListenerResponseV2 struct {
 }
 
 func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
+	if fs.lowestRoundStored == 0 {
+		fs.lowestRoundStored = votingRoundID - 20
+	}
+
 	if votingRoundID > fs.lowestRoundStored {
 		fs.Lock()
 		defer fs.Unlock()
