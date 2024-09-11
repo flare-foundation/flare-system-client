@@ -38,7 +38,7 @@ type finalizationStorage struct {
 	lowestRoundStored uint32
 
 	// mutex
-	sync.Mutex
+	sync.RWMutex
 }
 
 type FinalizationReady struct {
@@ -226,8 +226,8 @@ func (sc *signaturesCollection) PrepareFinalizationResults() (FinalizationResult
 }
 
 func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8) (*signaturesCollection, bool) {
-	fs.Lock()
-	defer fs.Unlock()
+	fs.RLock()
+	defer fs.RUnlock()
 	round, exists := fs.stg[votingRoundID]
 
 	if !exists {

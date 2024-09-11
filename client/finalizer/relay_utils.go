@@ -1,7 +1,6 @@
 package finalizer
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"flare-fsc/client/config"
@@ -10,8 +9,6 @@ import (
 	"flare-fsc/utils/chain"
 	"flare-fsc/utils/contracts/relay"
 	"time"
-
-	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -145,46 +142,6 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 	return out
 }
 
-func (r *relayContractClient) SubmitPayloads(ctx context.Context, payloads []*signedPayload, signingPolicy *signingPolicy, dryRun bool) {
-	if len(payloads) == 0 || signingPolicy == nil {
-		return
-	}
-
-	buffer := bytes.NewBuffer(nil)
-	buffer.Write(r.relaySelector)
-	buffer.Write(signingPolicy.rawBytes)
-	buffer.Write(payloads[0].rawMessage)
-	signatureBytes, err := EncodeForRelay(payloads)
-	if err != nil {
-		logger.Error("Error encoding payloads %v", err)
-		return
-	}
-	buffer.Write(signatureBytes)
-	payload := buffer.Bytes()
-
-	execStatusChan := shared.ExecuteWithRetry(func() (any, error) {
-		err := r.ethClient.SendRawTx(r.privateKey, r.address, payload, dryRun)
-		if err != nil {
-			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
-				logger.Info("Non fatal error sending relay tx: %v", err)
-			} else {
-				return nil, errors.Wrap(err, "Error sending relay tx")
-			}
-		}
-		return nil, nil
-	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
-
-	select {
-	case execStatus := <-execStatusChan:
-		if execStatus.Success {
-			logger.Info("Relaying finished")
-		}
-
-	case <-ctx.Done():
-		return
-	}
-}
-
 func (r *relayContractClient) SubmitPayloadsV2(ctx context.Context, input []byte, dryRun bool) {
 	if len(input) == 0 {
 		return
@@ -229,27 +186,6 @@ func (r *relayContractClient) ProtocolMessageRelayedV2(db finalizerDB, from time
 			protocolID:    data.ProtocolId,
 			votingRoundID: data.VotingRoundId,
 		}] = true
-	}
-	return result, nil
-}
-
-func (r *relayContractClient) ProtocolMessageRelayed(db finalizerDB, from time.Time, to time.Time) (mapset.Set[queueItem], error) {
-	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0PMR, from.Unix(), to.Unix())
-	if err != nil {
-		return nil, err
-	}
-
-	result := mapset.NewSet[queueItem]()
-	for _, log := range logs {
-		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
-		if err != nil {
-			return nil, err
-		}
-		result.Add(queueItem{
-			protocolId:    data.ProtocolId,
-			votingRoundId: data.VotingRoundId,
-			messageHash:   data.MerkleRoot,
-		})
 	}
 	return result, nil
 }

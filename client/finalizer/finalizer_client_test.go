@@ -7,12 +7,10 @@ import (
 	"encoding/hex"
 	"flare-fsc/database"
 	"flare-fsc/logger"
-	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/relay"
 	"math/big"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,77 +19,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-type testClients struct {
-	db        *testDB
-	eth       *testEthClient
-	finalizer *finalizerClient
-}
-
 var msgSubmit = &submittedPayload{
 	protocolId:         0x1,
 	votingRoundId:      1,
 	randomQualityScore: true,
 	merkleRoot:         bytes.Repeat([]byte{0xff}, 32),
-}
-
-func setupTest() (*testClients, error) {
-	ethClient := new(testEthClient)
-
-	privateKey, err := crypto.HexToECDSA(testPrivateKeyHex)
-	if err != nil {
-		return nil, err
-	}
-
-	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-
-	relayClient, err := NewRelayContractClient(
-		nil,
-		relayContractAddress,
-		privateKey,
-		fromAddress,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	relayClient.ethClient = ethClient
-
-	submissionStorage := newSubmissionStorage()
-
-	db, err := newTestDB(privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	fCtx := &finalizerContext{
-		votingEpoch: &utils.Epoch{
-			Start:  time.Unix(0, 0),
-			Period: time.Hour,
-		},
-		rewardEpoch: &utils.IntEpoch{
-			Start:  0,
-			Period: 100,
-		},
-		voterThresholdBIPS: 5000,
-	}
-
-	client := &finalizerClient{
-		db:                   db,
-		relayClient:          relayClient,
-		signingPolicyStorage: newSigningPolicyStorage(),
-		submissionStorage:    submissionStorage,
-		submissionClient:     NewSubmissionContractClient(submissionContractAddress),
-		queueProcessor: newFinalizerQueueProcessor(
-			db, submissionStorage, relayClient, fCtx,
-		),
-		finalizerContext: fCtx,
-	}
-
-	return &testClients{
-		db:        db,
-		eth:       ethClient,
-		finalizer: client,
-	}, nil
 }
 
 type testEthClient struct {

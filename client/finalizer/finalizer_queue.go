@@ -4,78 +4,86 @@ import (
 	"context"
 	"flare-fsc/logger"
 	"flare-fsc/utils"
+	"flare-fsc/utils/contracts/relay"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/slices"
 )
+
+var relayFunctionSelector []byte
 
 const (
 	finalizerQueueProcessorInterval = 100 * time.Millisecond
 )
 
-type queueItem struct {
+func init() {
+	relayABI, err := relay.RelayMetaData.GetAbi()
+	if err != nil {
+		panic(err)
+	}
+
+	relayFunctionSelector = relayABI.Methods["relay"].ID
+}
+
+type queueItemV2 struct {
 	seed          *big.Int
-	votingRoundId uint32
-	protocolId    byte
-	messageHash   common.Hash
+	votingRoundID uint32
+	protocolID    uint8
 }
 
-func (i *queueItem) String() string {
-	return fmt.Sprintf("seed=%v, votingRoundId=%v, protocolId=%v, messageHash=%v", i.seed, i.votingRoundId, i.protocolId, i.messageHash.Hex())
+func (i *queueItemV2) String() string {
+	return fmt.Sprintf("seed=%v, votingRoundID=%v, protocolID=%v", i.seed, i.votingRoundID, i.protocolID)
 }
 
-type finalizerQueue struct {
-	queue []*queueItem
+type finalizerQueueV2 struct {
+	queue []*queueItemV2
 
 	sync.Mutex
 }
 
-type finalizerQueueProcessor struct {
+type finalizerQueueProcessorV2 struct {
 	db            finalizerDB
-	queue         *finalizerQueue
-	delayedQueues *utils.DelayedQueueManager[*queueItem]
+	queue         *finalizerQueueV2
+	delayedQueues *utils.DelayedQueueManager[*queueItemV2]
 
-	submissionStorage *submissionStorage
-	relayClient       *relayContractClient
-	finalizerContext  *finalizerContext
+	finalizationStorage *finalizationStorage
+	relayClient         *relayContractClient
+	finalizerContext    *finalizerContext
 }
 
-func newFinalizerQueueProcessor(
+func newFinalizerQueueProcessorV2(
 	db finalizerDB,
-	submissionStorage *submissionStorage,
+	finalizationStorage *finalizationStorage,
 	relayClient *relayContractClient,
 	finalizerContext *finalizerContext,
-) *finalizerQueueProcessor {
-	qp := &finalizerQueueProcessor{
-		db:                db,
-		submissionStorage: submissionStorage,
-		relayClient:       relayClient,
-		queue:             newFinalizerQueue(),
+) *finalizerQueueProcessorV2 {
+	qp := &finalizerQueueProcessorV2{
+		db:                  db,
+		finalizationStorage: finalizationStorage,
+		relayClient:         relayClient,
+		queue:               newFinalizerQueueV2(),
 
 		finalizerContext: finalizerContext,
 	}
-	qp.delayedQueues = utils.NewDelayedQueueManager[*queueItem](qp.processDelayedQueue)
+	qp.delayedQueues = utils.NewDelayedQueueManager[*queueItemV2](qp.processDelayedQueue)
 	return qp
 }
 
-func newFinalizerQueue() *finalizerQueue {
-	return &finalizerQueue{
-		queue: make([]*queueItem, 0, 256),
+func newFinalizerQueueV2() *finalizerQueueV2 {
+	return &finalizerQueueV2{
+		queue: make([]*queueItemV2, 0, 256),
 	}
 }
 
-func (q *finalizerQueue) Add(item *queueItem) {
+func (q *finalizerQueueV2) Add(item *queueItemV2) {
 	q.Lock()
 	defer q.Unlock()
 
 	q.queue = append(q.queue, item)
 }
 
-func (q *finalizerQueue) Pop() *queueItem {
+func (q *finalizerQueueV2) Pop() *queueItemV2 {
 	q.Lock()
 	defer q.Unlock()
 
@@ -89,32 +97,20 @@ func (q *finalizerQueue) Pop() *queueItem {
 	return item
 }
 
-func (p *finalizerQueueProcessor) Add(item *submitterPayloadItem, seed *big.Int) {
-	p.queue.Add(&queueItem{
+func (p *finalizerQueueProcessorV2) Add(item *FinalizationReady, seed *big.Int) {
+	p.queue.Add(&queueItemV2{
 		seed:          seed,
-		votingRoundId: item.votingRoundId,
-		protocolId:    item.protocolId,
-		messageHash:   item.payload.messageHash,
-	})
-}
-
-func (p *finalizerQueueProcessor) AddV2(item *submitterPayloadItem, seed *big.Int) {
-	p.queue.Add(&queueItem{
-		seed:          seed,
-		votingRoundId: item.votingRoundId,
-		protocolId:    item.protocolId,
-		messageHash:   item.payload.messageHash,
+		votingRoundID: item.votingRoundID,
+		protocolID:    item.protocolID,
 	})
 }
 
 // Infinite loop, should be run in a goroutine
-func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
+func (p *finalizerQueueProcessorV2) Run(ctx context.Context) error {
 	ticker := time.NewTicker(finalizerQueueProcessorInterval)
 	for {
 		select {
 		case <-ticker.C:
-			break
-
 		case <-ctx.Done():
 			logger.Info("Finalizer queue processor stopped")
 			return ctx.Err()
@@ -133,10 +129,10 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		} else {
 			logger.Info("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
 
-			data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
-			if data != nil {
-				// Finalization for a votingRoundId should happen in the following voting round votingRoundId + 1
-				votingRoundStartTime := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundId + 1))
+			_, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID)
+			if exists {
+				// Finalization for a votingRoundID should happen in the following voting round votingRoundID + 1
+				votingRoundStartTime := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundID + 1))
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
 				logger.Info("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
@@ -145,16 +141,16 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 	}
 }
 
-func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
+func (p *finalizerQueueProcessorV2) isVoterForCurrentEpoch(item *queueItemV2) bool {
 	if item == nil {
 		return false
 	}
-	data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
-	if data == nil {
+	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID)
+	if !exists {
 		return false
 	}
 
-	voters, err := data.signingPolicy.voters.SelectVoters(item.seed, item.protocolId, item.votingRoundId, p.finalizerContext.voterThresholdBIPS)
+	voters, err := data.signingPolicy.voters.SelectVoters(item.seed, item.protocolID, item.votingRoundID, p.finalizerContext.voterThresholdBIPS)
 	if err != nil {
 		return false
 	}
@@ -164,58 +160,43 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	return voters[p.relayClient.senderAddress]
 }
 
-func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueItem, isDelayed bool) {
+func (p *finalizerQueueProcessorV2) processItem(ctx context.Context, item *queueItemV2, isDelayed bool) {
 	if item == nil {
 		return
 	}
-	data := p.submissionStorage.Get(item.votingRoundId, item.protocolId, item.messageHash)
-	if data == nil {
+
+	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID)
+	if !exists {
 		return
 	}
 
-	payloads := make([]*signedPayload, 0, len(data.payload))
-	for _, payload := range data.payload {
-		if payload != nil {
-			payloads = append(payloads, payload)
-		}
+	finalizationData, err := data.PrepareFinalizationResults()
+	if err != nil {
+		//TODO
+		return
 	}
 
-	// (sort decreasing by weight)
-	slices.SortFunc(payloads, func(p, q *signedPayload) int {
-		return int(data.signingPolicy.voters.VoterWeight(q.index)) - int(data.signingPolicy.voters.VoterWeight(p.index))
-	})
-
-	// greedy select until threshold is reached
-	weight := uint16(0)
-	var selected []*signedPayload
-	for _, payload := range payloads {
-		weight += data.signingPolicy.voters.VoterWeight(payload.index)
-		selected = append(selected, payload)
-		if weight > data.signingPolicy.threshold {
-			break
-		}
+	txInput, err := finalizationData.PrepareFinalizationTxInput()
+	if err != nil {
+		//TODO
+		return
 	}
 
-	// sort selected payloads by index
-	slices.SortFunc(selected, func(p, q *signedPayload) int {
-		return p.index - q.index
-	})
-
-	p.relayClient.SubmitPayloads(ctx, selected, data.signingPolicy, isDelayed)
+	p.relayClient.SubmitPayloadsV2(ctx, txInput, isDelayed)
 }
 
-func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
+func (p *finalizerQueueProcessorV2) processDelayedQueue(items []*queueItemV2) error {
 	now := time.Now()
 	currentEpoch := p.finalizerContext.votingEpoch.EpochIndex(now)
 	startTime := p.finalizerContext.votingEpoch.StartTime(currentEpoch)
 
-	relayedItems, err := p.relayClient.ProtocolMessageRelayed(p.db, startTime, now)
+	relayedItems, err := p.relayClient.ProtocolMessageRelayedV2(p.db, startTime, now)
 	if err != nil {
 		return err
 	}
 
 	for _, item := range items {
-		if relayedItems.Contains(*item) {
+		if relayedItems[*item] {
 			continue
 		}
 		logger.Info("Finalizer processes delayed queue item %v", item)
