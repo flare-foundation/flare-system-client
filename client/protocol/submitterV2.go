@@ -27,7 +27,7 @@ func (s *SignatureSubmitter) WritePayloadV2(
 	buffer.WriteByte(protocolID) // Protocol ID (1 byte)
 	buffer.Write(epochBytes[:])  // Epoch (4 bytes)
 	buffer.Write(lengthBytes[:]) // Length (2 bytes)
-	buffer.WriteByte(0)          // Type (1 byte)
+	buffer.WriteByte(1)          // Type (1 byte)
 
 	buffer.WriteByte(signature[64] + 27) // V (1 byte)
 	buffer.Write(signature[0:32])        // R (32 bytes)
