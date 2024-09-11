@@ -6,7 +6,6 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/bradleyjkemp/cupaloy v2.3.0+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.14.8
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/gorilla/mux v1.8.1
@@ -33,6 +32,7 @@ require (
 	github.com/consensys/gnark-crypto v0.14.0 // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/ethereum/c-kzg-4844 v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
