@@ -47,9 +47,8 @@ type FinalizationReady struct {
 	votingRoundID    uint32
 }
 
-func NewSignatureCollection(message []byte, signingPolicy *signingPolicy) *signaturesCollection {
+func NewSignatureCollection(signingPolicy *signingPolicy) *signaturesCollection {
 	return &signaturesCollection{
-		message:       message,
 		signatures:    make([][]byte, signingPolicy.voters.Count()),
 		signingPolicy: signingPolicy,
 	}
@@ -80,7 +79,7 @@ func (pc *protocolCollection) addMessage(message []byte) (bool, error) {
 		return false, fmt.Errorf("message added twice")
 	}
 
-	pc.signatureCollection = *NewSignatureCollection(message, pc.signingPolicy)
+	pc.signatureCollection.message = message
 	pc.messageAdded = true
 
 	for _, up := range pc.unprocessedPayloads {
@@ -140,7 +139,11 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 	pc, exists := rc.protocolCollections[p.protocolID]
 	if !exists {
+
 		pc = &protocolCollection{signingPolicy: signingPolicy}
+
+		pc.signatureCollection = *NewSignatureCollection(pc.signingPolicy)
+
 		rc.protocolCollections[p.protocolID] = pc
 	}
 
@@ -175,6 +178,9 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	pc, exists := rc.protocolCollections[p.ProtocolID]
 	if !exists {
 		pc = &protocolCollection{signingPolicy: signingPolicy}
+
+		pc.signatureCollection = *NewSignatureCollection(pc.signingPolicy)
+
 		rc.protocolCollections[p.ProtocolID] = pc
 	}
 
