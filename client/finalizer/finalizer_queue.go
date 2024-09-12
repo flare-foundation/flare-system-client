@@ -167,6 +167,7 @@ func (p *finalizerQueueProcessorV2) processItem(ctx context.Context, item *queue
 
 	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID)
 	if !exists {
+		logger.Warn("finalization data for protocol %d for round %d missing", item.protocolID, item.votingRoundID)
 		return
 	}
 

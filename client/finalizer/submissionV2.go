@@ -2,8 +2,8 @@ package finalizer
 
 import (
 	"context"
-	"encoding/hex"
 	"flare-fsc/client/shared"
+	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/submission"
 	"fmt"
@@ -159,9 +159,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 	return FinalizationReady{thresholdReached: false}, nil
 }
 
-// Add adds a signed payload to the submission storage
-// The provided signing policy must be the signing policy for the voting round
-// Returns true if the payload was added, false if it was already added
+// AddMessage adds a protocol message to the finalizationStorage and adds all unprocessedPayloads for the respective round and protocol.
 func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolicy *signingPolicy) (FinalizationReady, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -266,7 +264,7 @@ func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
 
 		for i := fs.lowestRoundStored; i < votingRoundID; i++ {
 
-			logger.Info("deleting round", i)
+			logger.Info("deleting round %d", i)
 			delete(fs.stg, i)
 		}
 
@@ -278,6 +276,7 @@ type submitterProcessorV2 interface {
 	// Return error if the submission was not processed and needs a retry
 	// Should be able to handle duplicates
 	ProcessSubmissionData(submissionListenerResponseV2) error
+	ProcessTransaction(database.Transaction) error
 }
 
 func (s *submissionContractClient) SubmissionTxListenerV2(
@@ -294,7 +293,25 @@ func (s *submissionContractClient) SubmissionTxListenerV2(
 
 	selector := submissionABI.Methods["submitSignatures"].ID
 	ticker := time.NewTicker(shared.ListenerInterval)
-	eventRangeStart := startTime.Unix()
+
+	txs, err := db.FetchTransactionsByAddressAndSelector(s.address, selector, startTime.Unix(), time.Now().Unix())
+	if err != nil {
+		logger.Error("Error fetching transactions %v", err)
+	}
+
+	lastBlockChecked := uint64(0)
+
+	for _, tx := range txs {
+		err := processor.ProcessTransaction(tx)
+		if err != nil {
+			logger.Warn("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
+		}
+
+		if tx.BlockNumber > uint64(lastBlockChecked) {
+			lastBlockChecked = tx.BlockNumber
+		}
+	}
+
 	for {
 		select {
 		case <-ticker.C:
@@ -302,49 +319,20 @@ func (s *submissionContractClient) SubmissionTxListenerV2(
 			logger.Info("Submission tx listener stopped")
 			return ctx.Err()
 		}
-		now := time.Now().Unix()
-		txs, err := db.FetchTransactionsByAddressAndSelector(s.address, selector, eventRangeStart, now)
+
+		txs, err := db.FetchTransactionsByAddressAndSelectorFromBlockNumber(s.address, selector, int64(lastBlockChecked))
 		if err != nil {
 			logger.Error("Error fetching transactions %v", err)
 			continue
 		}
 		for _, tx := range txs {
-			inputBytes, err := hex.DecodeString(tx.Input)
+			err := processor.ProcessTransaction(tx)
 			if err != nil {
-				logger.Info("Invalid submitSignatures tx sent by %s: %v, skipping", tx.FromAddress, err)
+				logger.Warn("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
 			}
-			payloads, err := ExtractPayloads(inputBytes)
-			if err != nil {
-				// if input cannot be decoded, it is not a valid submission and should be skipped
-				logger.Info("Invalid submitSignatures input sent by %s: %v, skipping", tx.FromAddress, err)
+			if tx.BlockNumber > uint64(lastBlockChecked) {
+				lastBlockChecked = tx.BlockNumber
 			}
-
-			signaturePayloads := []*submitSignaturesPayload{}
-			for i := range payloads {
-				signaturePayload, err := decodeSignedPayloadV2(payloads[i])
-				if err != nil {
-					// if input cannot be decoded, it is not a valid submission and should be skipped
-					logger.Info("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
-
-				}
-				signaturePayloads = append(signaturePayloads, &signaturePayload)
-			}
-
-			if len(signaturePayloads) > 0 {
-				err = processor.ProcessSubmissionData(submissionListenerResponseV2{
-					payloads:  signaturePayloads,
-					timestamp: int64(tx.Timestamp),
-				})
-				if err != nil {
-					// retry the full range, error occurs when the corresponding signing policy
-					// is not yet available
-					logger.Warn("Error processing submitSignatures payload sent by %s: %v, retrying", tx.FromAddress, err)
-					break
-				}
-			}
-			// -1 for overlap in case of an error and retry above
-			// processor should be able to handle duplicates
-			eventRangeStart = int64(tx.Timestamp) - 1
 		}
 	}
 }

@@ -37,3 +37,19 @@ func FetchTransactionsByAddressAndSelector(db *gorm.DB, toAddress string, functi
 	}
 	return transactions, nil
 }
+
+// Fetch all transactions matching toAddress and functionSig from  with higher blockNumber than from, ordered by timestamp
+func FetchTransactionsByAddressAndSelectorFromBlockNumber(db *gorm.DB, toAddress string, functionSig string,
+	from int64) ([]Transaction, error) {
+	var transactions []Transaction
+	err := db.Where(
+		"to_address = ? AND function_sig = ? AND timestamp > block_number ?",
+		strings.ToLower(strings.TrimPrefix(toAddress, "0x")),
+		strings.ToLower(strings.TrimPrefix(functionSig, "0x")),
+		from,
+	).Order("timestamp").Find(&transactions).Error
+	if err != nil {
+		return nil, err
+	}
+	return transactions, nil
+}

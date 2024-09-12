@@ -2,9 +2,11 @@ package finalizer
 
 import (
 	"context"
+	"encoding/hex"
 	clientContext "flare-fsc/client/context"
 	"flare-fsc/client/shared"
 	"flare-fsc/config"
+	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/relay"
 	"flare-fsc/utils/credentials"
@@ -162,7 +164,6 @@ func (c *finalizerClientV2) runSigningPolicyInitializedListener(ctx context.Cont
 
 func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponseV2) error {
 	for _, payloadItem := range slr.payloads {
-
 		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
 			logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - before startingVotingRound", payloadItem.votingRoundID, payloadItem.protocolID)
 			continue
@@ -200,6 +201,45 @@ func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponse
 			}
 		}
 	}
+	return nil
+}
+
+func (c *finalizerClientV2) ProcessTransaction(tx database.Transaction) error {
+	inputBytes, err := hex.DecodeString(tx.Input)
+	if err != nil {
+		logger.Info("Invalid submitSignatures tx sent by %s: %v, skipping", tx.FromAddress, err)
+	}
+	payloads, err := ExtractPayloads(inputBytes)
+	if err != nil {
+		// if input cannot be decoded, it is not a valid submission and should be skipped
+		logger.Info("Invalid submitSignatures input sent by %s: %v, skipping", tx.FromAddress, err)
+	}
+
+	signaturePayloads := []*submitSignaturesPayload{}
+	for i := range payloads {
+		signaturePayload, err := decodeSignedPayloadV2(payloads[i])
+
+		if err != nil {
+			// if input cannot be decoded, it is not a valid submission and should be skipped
+			logger.Info("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
+
+		}
+		signaturePayloads = append(signaturePayloads, &signaturePayload)
+	}
+
+	if len(signaturePayloads) > 0 {
+		err = c.ProcessSubmissionData(submissionListenerResponseV2{
+			payloads:  signaturePayloads,
+			timestamp: int64(tx.Timestamp),
+		})
+		if err != nil {
+			// retry the full range, error occurs when the corresponding signing policy
+			// is not yet available
+			return err
+		}
+	}
+	// -1 for overlap in case of an error and retry above
+	// processor should be able to handle duplicates
 	return nil
 }
 
@@ -244,7 +284,7 @@ func (c *finalizerClientV2) messagesChannelListener(ctx context.Context) error {
 		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp)
 
 		if err != nil {
-			logger.Debug("Ignoring submitted signature: %v", err)
+			logger.Debug("Ignoring submitted message for protocol %d, round %d: %v", protocolMessage.ProtocolID, protocolMessage.VotingRoundID, err)
 			continue
 		}
 

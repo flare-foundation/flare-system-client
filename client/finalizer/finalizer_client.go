@@ -10,7 +10,10 @@ import (
 
 type finalizerDB interface {
 	FetchTransactionsByAddressAndSelector(
-		common.Address, []byte, int64, int64,
+		address common.Address, selector []byte, from int64, to int64,
+	) ([]database.Transaction, error)
+	FetchTransactionsByAddressAndSelectorFromBlockNumber(
+		address common.Address, selector []byte, from int64,
 	) ([]database.Transaction, error)
 	FetchLogsByAddressAndTopic0(common.Address, string, int64, int64) ([]database.Log, error)
 }
@@ -24,6 +27,13 @@ func (db finalizerDBImpl) FetchTransactionsByAddressAndSelector(
 ) ([]database.Transaction, error) {
 	hexSelector := hex.EncodeToString(selector)
 	return database.FetchTransactionsByAddressAndSelector(db.client, address.Hex(), hexSelector, from, to)
+}
+
+func (db finalizerDBImpl) FetchTransactionsByAddressAndSelectorFromBlockNumber(
+	address common.Address, selector []byte, from int64,
+) ([]database.Transaction, error) {
+	hexSelector := hex.EncodeToString(selector)
+	return database.FetchTransactionsByAddressAndSelectorFromBlockNumber(db.client, address.Hex(), hexSelector, from)
 }
 
 func (db finalizerDBImpl) FetchLogsByAddressAndTopic0(
