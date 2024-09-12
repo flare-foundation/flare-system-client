@@ -43,7 +43,7 @@ func FetchTransactionsByAddressAndSelectorFromBlockNumber(db *gorm.DB, toAddress
 	from int64) ([]Transaction, error) {
 	var transactions []Transaction
 	err := db.Where(
-		"to_address = ? AND function_sig = ? AND timestamp > block_number ?",
+		"to_address = ? AND function_sig = ? AND block_number >?",
 		strings.ToLower(strings.TrimPrefix(toAddress, "0x")),
 		strings.ToLower(strings.TrimPrefix(functionSig, "0x")),
 		from,
