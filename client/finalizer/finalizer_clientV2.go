@@ -241,14 +241,14 @@ func (c *finalizerClientV2) messagesChannelListener(ctx context.Context) error {
 
 		sp, _ := c.signingPolicyData(protocolMessage.VotingRoundID)
 
-		finalizationReady, thresholdReached, err := c.finalizationStorage.AddMessage(&protocolMessage, sp)
+		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp)
 
 		if err != nil {
 			logger.Debug("Ignoring submitted signature: %v", err)
 			continue
 		}
 
-		if thresholdReached {
+		if finalizationReady.thresholdReached {
 			logger.Info("Threshold reached for protocol %d in voting round %d with hash %v", finalizationReady.protocolID, finalizationReady.votingRoundID)
 			c.queueProcessor.Add(&finalizationReady, sp.seed)
 		}

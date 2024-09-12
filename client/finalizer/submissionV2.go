@@ -60,7 +60,7 @@ func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, 
 	}
 
 	if len(sc.signatures[p.voterIndex]) != 0 {
-		return false, fmt.Errorf("signature for %s already added", p.signer)
+		return false, fmt.Errorf("signature for signer %d with address %s already added", p.voterIndex, p.signer)
 	}
 
 	sc.signatures[p.voterIndex] = p.signature
@@ -82,22 +82,23 @@ func (pc *protocolCollection) addMessage(message []byte) (bool, error) {
 	pc.signatureCollection.message = message
 	pc.messageAdded = true
 
-	for _, up := range pc.unprocessedPayloads {
-		thresholdReached, err := pc.addPayload(up)
+	thresholdReached := false
 
+	for _, up := range pc.unprocessedPayloads {
+		tr, err := pc.addPayload(up)
 		if err != nil {
 			logger.Debug("%v", err)
 		}
 
-		if thresholdReached {
-			return true, nil
+		if tr {
+			thresholdReached = true
 		}
 	}
 
 	//clear unprocessedPayloads
 	pc.unprocessedPayloads = nil
 
-	return false, nil
+	return thresholdReached, nil
 }
 
 func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool, error) {
@@ -161,12 +162,12 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 // Add adds a signed payload to the submission storage
 // The provided signing policy must be the signing policy for the voting round
 // Returns true if the payload was added, false if it was already added
-func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolicy *signingPolicy) (FinalizationReady, bool, error) {
+func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolicy *signingPolicy) (FinalizationReady, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	if p.VotingRoundID < s.lowestRoundStored {
-		return FinalizationReady{}, false, nil //TODO
+		return FinalizationReady{thresholdReached: false}, nil //TODO
 	}
 
 	rc, exists := s.stg[p.VotingRoundID]
@@ -186,13 +187,13 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 
 	thresholdReached, err := pc.addMessage(p.Message)
 	if err != nil {
-		return FinalizationReady{}, false, err
+		return FinalizationReady{thresholdReached: false}, err
 	}
 	if thresholdReached {
-		return FinalizationReady{protocolID: p.ProtocolID, votingRoundID: p.VotingRoundID}, true, nil
+		return FinalizationReady{thresholdReached: true, protocolID: p.ProtocolID, votingRoundID: p.VotingRoundID}, nil
 	}
 
-	return FinalizationReady{}, false, nil
+	return FinalizationReady{thresholdReached: false}, nil
 }
 
 func (sc *signaturesCollection) PrepareFinalizationResults() (FinalizationResult, error) {
