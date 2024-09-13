@@ -37,7 +37,8 @@ func (s *SignatureSubmitter) WritePayloadV2(
 	return nil
 }
 
-//  1. Run every sub-protocol provider with delay of 1 second at most five times.
+// RunEpochV2 gets the submitSignature messages from the subprotocols providers.
+//  1. run every sub-protocol provider with delay of 1 second at most five times.
 //  2. repeat 1 for each sub-protocol provider not giving valid answer.
 //
 // Repeat 1 and 2 until all sub-protocol providers give valid answer or we did maxRounds attempts.

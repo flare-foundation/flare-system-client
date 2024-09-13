@@ -158,19 +158,21 @@ func (c *finalizerClientV2) runSigningPolicyInitializedListener(ctx context.Cont
 			logger.Warn("Error adding signing policy %v", err)
 		}
 		logger.Info("New signing policy received for epoch %v", policy.rewardEpochID)
-		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.lowestRoundStored)
+		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.lowestRoundStored) //remove signingPolicies that will never be used again
 	}
 }
 
 func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponseV2) error {
 	for _, payloadItem := range slr.payloads {
 		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
-			logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - before startingVotingRound", payloadItem.votingRoundID, payloadItem.protocolID)
+			logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - before startingVotingRound %d", payloadItem.votingRoundID, payloadItem.protocolID, c.finalizerContext.startingVotingRound)
 			continue
 		}
 
 		// Skip if voting round is in the future
 		if !c.checkVotingRoundTime(payloadItem.votingRoundID) {
+			logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - round not started yet", payloadItem.votingRoundID, payloadItem.protocolID)
+
 			continue
 		}
 		sp, _ := c.signingPolicyData(payloadItem.votingRoundID)
@@ -195,9 +197,8 @@ func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponse
 			c.queueProcessor.Add(&finalizationReady, sp.seed)
 
 			//clean old rounds
-
 			if finalizationReady.votingRoundID > minRoundsStored {
-				c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored)
+				c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored) // remove that are at least minRoundStored + 1 older then the one that has been finalized
 			}
 		}
 	}

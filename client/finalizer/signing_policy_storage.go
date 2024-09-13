@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"flare-fsc/client/shared"
 	"flare-fsc/client/shared/voters"
+	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/relay"
 	"fmt"
 	"math/big"
@@ -13,7 +14,7 @@ import (
 )
 
 // Duplicates relay.RelaySigningPolicyInitialized but with different fields and
-// different types for some fields
+// different types for some fields.
 type signingPolicy struct {
 	rewardEpochID      int64
 	startVotingRoundID uint32
@@ -88,13 +89,13 @@ func (s *signingPolicyStorage) Add(sp *signingPolicy) error {
 	return nil
 }
 
-// Return the signing policy for the voting round, or nil if not found.
+// GetForVotingRound return the signingPolicy for the votingRoundID, or nil if not found.
 // Also returns true if the policy is the last one or false otherwise.
-func (s *signingPolicyStorage) GetForVotingRound(votingRoundId uint32) (*signingPolicy, bool) {
+func (s *signingPolicyStorage) GetForVotingRound(votingRoundID uint32) (*signingPolicy, bool) {
 	s.Lock()
 	defer s.Unlock()
 
-	sp := s.findByVotingRoundId(votingRoundId)
+	sp := s.findByVotingRoundId(votingRoundID)
 	if sp == nil {
 		return nil, false
 	}
@@ -111,34 +112,16 @@ func (s *signingPolicyStorage) First() *signingPolicy {
 	return s.spList[0]
 }
 
-// Removes all signing policies with start voting round id <= than the provided one.
-// Returns the list of removed reward epoch ids.
-func (s *signingPolicyStorage) RemoveByVotingRound(votingRoundId uint32) []uint32 {
-	s.Lock()
-	defer s.Unlock()
-
-	var removedRewardEpochIds []uint32
-	for len(s.spList) > 0 && s.spList[0].startVotingRoundID <= votingRoundId {
-		removedRewardEpochIds = append(removedRewardEpochIds, uint32(s.spList[0].rewardEpochID))
-		s.spList[0] = nil
-		s.spList = s.spList[1:]
-	}
-	return removedRewardEpochIds
-}
-
 // RemoveBefore removes all signing policies that ended strictly before votingRoundID.
-// Returns the list of removed reward epoch ids.
-func (s *signingPolicyStorage) RemoveBefore(votingRoundID uint32) []uint32 {
+func (s *signingPolicyStorage) RemoveBefore(votingRoundID uint32) {
 	s.Lock()
 	defer s.Unlock()
 
-	var removedRewardEpochIDs []uint32
 	for len(s.spList) > 1 && s.spList[1].startVotingRoundID < votingRoundID {
-		removedRewardEpochIDs = append(removedRewardEpochIDs, uint32(s.spList[0].rewardEpochID))
+		logger.Debug("Removing signing policy for reward epoch %d", s.spList[0].rewardEpochID)
 		s.spList[0] = nil
 		s.spList = s.spList[1:]
 	}
-	return removedRewardEpochIDs
 }
 
 func (s *signingPolicy) Encode() ([]byte, error) {

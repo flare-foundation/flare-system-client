@@ -58,6 +58,7 @@ type submitSignaturesPayload struct {
 	typeID        uint8
 	signature     []byte
 
+	//assigned after processing
 	signer     common.Address
 	voterIndex int
 	weight     uint16
@@ -72,7 +73,6 @@ func decodeSignedPayloadV2(payloadMsg payloadMessage) (submitSignaturesPayload, 
 	case 0:
 		signatureStart = 1 + 38
 		signatureEnd = signatureStart + 1 + 2*32
-
 	case 1:
 		signatureStart = 1
 		signatureEnd = signatureStart + 1 + 2*32

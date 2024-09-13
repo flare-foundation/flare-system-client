@@ -97,6 +97,7 @@ func (q *finalizerQueueV2) Pop() *queueItemV2 {
 	return item
 }
 
+// Add adds a finalizationItem to the finalization queue
 func (p *finalizerQueueProcessorV2) Add(item *FinalizationReady, seed *big.Int) {
 	p.queue.Add(&queueItemV2{
 		seed:          seed,
@@ -105,7 +106,9 @@ func (p *finalizerQueueProcessorV2) Add(item *FinalizationReady, seed *big.Int) 
 	})
 }
 
-// Infinite loop, should be run in a goroutine
+// Run runs the infinite loops that handles finalization queue.
+//
+// Should be run in a goroutine.
 func (p *finalizerQueueProcessorV2) Run(ctx context.Context) error {
 	ticker := time.NewTicker(finalizerQueueProcessorInterval)
 	for {

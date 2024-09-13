@@ -122,13 +122,15 @@ func newFinalizationStorage() *finalizationStorage {
 	}
 }
 
-// addPayload add a submitSignature payload to the finalizationStorage.
+// addPayload adds a submitSignature payload to the finalizationStorage.
+// The payload is added to the protocolCollection for the protocolID and roundID of the payload.
+// An indicator whether the addition has made the protocol reach the threshold for the round is returned.
 func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPolicy *signingPolicy) (FinalizationReady, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	if p.votingRoundID < s.lowestRoundStored {
-		return FinalizationReady{thresholdReached: false}, nil //TODO
+		return FinalizationReady{thresholdReached: false}, fmt.Errorf("payload for an round before lowestRoundStored %d", s.lowestRoundStored)
 	}
 
 	rc, exists := s.stg[p.votingRoundID]
@@ -159,7 +161,8 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 	return FinalizationReady{thresholdReached: false}, nil
 }
 
-// AddMessage adds a protocol message to the finalizationStorage and adds all unprocessedPayloads for the respective round and protocol.
+// AddMessage adds a protocol message to the finalizationStorage for the respective protocol and round, and adds all unprocessedPayloads for the respective round and protocol.
+// An indicator whether the additions have made the protocol reach the threshold for the round is returned.
 func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolicy *signingPolicy) (FinalizationReady, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -194,6 +197,9 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	return FinalizationReady{thresholdReached: false}, nil
 }
 
+// PrepareFinalizationResults returns the message and signatures that are needed to construct the transaction input that is needed for the finalization.
+//
+// The signatures are chosen in a way to minimize the number of signatures needed for finalization.
 func (sc *signaturesCollection) PrepareFinalizationResults() (FinalizationResult, error) {
 	availableSignatures := []IndexedSignature{}
 	selectedSignatures := []IndexedSignature{}
@@ -230,6 +236,8 @@ func (sc *signaturesCollection) PrepareFinalizationResults() (FinalizationResult
 	return FinalizationResult{message: sc.message, signatures: selectedSignatures, signingPolicy: sc.signingPolicy}, nil
 }
 
+// Get returns the signatureCollection for votingRoundID and protocolID.
+// A boolean inductor of existence is also returned.
 func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
@@ -253,7 +261,9 @@ type submissionListenerResponseV2 struct {
 	timestamp int64
 }
 
+// RemoveRoundsBefore deletes rounds before votingRoundID.
 func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
+	// initial cleanup
 	if fs.lowestRoundStored == 0 && votingRoundID > 20 {
 		fs.lowestRoundStored = votingRoundID - 20
 	}
@@ -263,12 +273,11 @@ func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
 		defer fs.Unlock()
 
 		for i := fs.lowestRoundStored; i < votingRoundID; i++ {
-
 			logger.Info("deleting round %d", i)
 			delete(fs.stg, i)
 		}
 
-		fs.lowestRoundStored = votingRoundID
+		fs.lowestRoundStored = votingRoundID + 1
 	}
 }
 

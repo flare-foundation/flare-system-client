@@ -18,13 +18,14 @@ type IndexedSignature struct {
 	signature []byte
 }
 
+// PrepareFinalizationTxInput prepares a tx input needed to finalize.
 func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(relayFunctionSelector)
 	buffer.Write(fr.signingPolicy.rawBytes)
 	buffer.Write(fr.message)
 
-	encodedSignatures, err := EncodeSignatures(fr.signatures)
+	encodedSignatures, err := encodeSignatures(fr.signatures)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +35,9 @@ func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func EncodeSignatures(signatures []IndexedSignature) ([]byte, error) {
+// encodeSignatures encodes indexed signature to be used in the finalization transaction.
+// Signatures should be ordered by the indexes of their providers.
+func encodeSignatures(signatures []IndexedSignature) ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 	if len(signatures) > math.MaxUint16 {
 		return nil, fmt.Errorf("too many payloads: %d", len(signatures))
