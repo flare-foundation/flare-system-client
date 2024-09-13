@@ -9,8 +9,6 @@ import (
 	"math/big"
 	"sync"
 	"time"
-
-	"github.com/ethereum/go-ethereum/log"
 )
 
 var relayFunctionSelector []byte
@@ -175,17 +173,17 @@ func (p *finalizerQueueProcessorV2) processItem(ctx context.Context, item *queue
 
 	finalizationData, err := data.PrepareFinalizationResults()
 	if err != nil {
-		//TODO
+		logger.Warn("finalization data preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return
 	}
 
 	txInput, err := finalizationData.PrepareFinalizationTxInput()
 	if err != nil {
-		//TODO
+		logger.Warn("finalization tx input preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return
 	}
 
-	log.Info("Relaying for round %d for protocol %d", item.votingRoundID, item.protocolID)
+	logger.Info("Relaying for round %d for protocol %d", item.votingRoundID, item.protocolID)
 	p.relayClient.SubmitPayloadsV2(ctx, txInput, isDelayed)
 }
 
