@@ -92,7 +92,7 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	}
 
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	nonce, err := client.NonceAt(context.Background(), fromAddress, nil)
 	if err != nil {
 		return err
 	}
