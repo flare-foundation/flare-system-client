@@ -9,6 +9,8 @@ import (
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var relayFunctionSelector []byte
@@ -30,6 +32,7 @@ type queueItemV2 struct {
 	seed          *big.Int
 	votingRoundID uint32
 	protocolID    uint8
+	msgHash       common.Hash
 }
 
 func (i *queueItemV2) String() string {
@@ -103,6 +106,7 @@ func (p *finalizerQueueProcessorV2) Add(item *FinalizationReady, seed *big.Int) 
 		seed:          seed,
 		votingRoundID: item.votingRoundID,
 		protocolID:    item.protocolID,
+		msgHash:       item.msgHash,
 	})
 }
 
@@ -132,7 +136,7 @@ func (p *finalizerQueueProcessorV2) Run(ctx context.Context) error {
 		} else {
 			logger.Info("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
 
-			_, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID)
+			_, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
 			if exists {
 				// Finalization for a votingRoundID should happen in the following voting round votingRoundID + 1
 				votingRoundStartTime := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundID + 1))
@@ -148,7 +152,7 @@ func (p *finalizerQueueProcessorV2) isVoterForCurrentEpoch(item *queueItemV2) bo
 	if item == nil {
 		return false
 	}
-	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID)
+	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
 	if !exists {
 		return false
 	}
@@ -168,7 +172,7 @@ func (p *finalizerQueueProcessorV2) processItem(ctx context.Context, item *queue
 		return
 	}
 
-	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID)
+	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
 	if !exists {
 		logger.Warn("finalization data for protocol %d for round %d missing", item.protocolID, item.votingRoundID)
 		return

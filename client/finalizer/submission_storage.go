@@ -1,15 +1,13 @@
 package finalizer
 
 import (
-	"context"
 	"flare-fsc/client/shared"
 	"flare-fsc/database"
 	"flare-fsc/logger"
-	"flare-fsc/utils/contracts/submission"
 	"fmt"
 	"sync"
-	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/slices"
 )
 
@@ -23,7 +21,8 @@ type signaturesCollection struct {
 
 type protocolCollection struct {
 	messageAdded        bool
-	signatureCollection signaturesCollection
+	messageChosenHash   common.Hash
+	signatureCollection map[common.Hash]*signaturesCollection
 	unprocessedPayloads []*submitSignaturesPayload
 	signingPolicy       *signingPolicy
 }
@@ -45,6 +44,7 @@ type FinalizationReady struct {
 	thresholdReached bool
 	protocolID       uint8
 	votingRoundID    uint32
+	msgHash          common.Hash
 }
 
 func NewSignatureCollection(signingPolicy *signingPolicy) *signaturesCollection {
@@ -74,20 +74,30 @@ func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, 
 	return false, nil
 }
 
-func (pc *protocolCollection) addMessage(message []byte) (bool, error) {
+func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.Hash, error) {
 	if pc.messageAdded {
-		return false, fmt.Errorf("message added twice")
+		return false, common.Hash{}, fmt.Errorf("message added twice")
 	}
 
-	pc.signatureCollection.message = message
+	msgHsh := common.Hash(message.Hash())
+	sigCollection, exists := pc.signatureCollection[msgHsh]
+	if !exists {
+		pc.signatureCollection[msgHsh] = NewSignatureCollection(pc.signingPolicy)
+		pc.messageChosenHash = msgHsh
+	}
+
+	sigCollection.message = message
 	pc.messageAdded = true
 
 	thresholdReached := false
 
 	for _, up := range pc.unprocessedPayloads {
-		tr, err := pc.addPayload(up)
+		tr, msgHashCheck, err := pc.addPayload(up)
 		if err != nil {
 			logger.Debug("%v", err)
+		}
+		if msgHashCheck != msgHashCheck {
+			logger.Debug("unexpected behavior, hashes should match")
 		}
 
 		if tr {
@@ -98,22 +108,40 @@ func (pc *protocolCollection) addMessage(message []byte) (bool, error) {
 	//clear unprocessedPayloads
 	pc.unprocessedPayloads = nil
 
-	return thresholdReached, nil
+	return thresholdReached, msgHsh, nil
 }
 
-func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool, error) {
-	if !pc.messageAdded {
+func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool, common.Hash, error) {
+	if !pc.messageAdded && payload.typeID != 0 {
 		pc.unprocessedPayloads = append(pc.unprocessedPayloads, payload)
 
-		return false, nil
+		return false, common.Hash{}, nil
 	}
 
-	err := payload.AddSigner(pc.signatureCollection.message.Hash(), pc.signatureCollection.signingPolicy.voters)
+	var msgHash []byte
+	var sigCollection *signaturesCollection
+	if payload.typeID == 0 {
+		msgHash = payload.message.Hash()
+		_, exists := pc.signatureCollection[common.Hash(msgHash)]
+		if !exists {
+			pc.signatureCollection[common.Hash(msgHash)] = NewSignatureCollection(pc.signingPolicy)
+		}
+		sigCollection = pc.signatureCollection[common.Hash(msgHash)]
+	} else if pc.messageAdded {
+		sigCollection = pc.signatureCollection[pc.messageChosenHash]
+		msgHash = sigCollection.message.Hash()
+	} else {
+		return false, common.Hash{}, fmt.Errorf("unexpected behavior, no message")
+	}
+
+	err := payload.AddSigner(msgHash, sigCollection.signingPolicy.voters)
 	if err != nil {
-		return false, fmt.Errorf("adding payload, %v", err)
+		return false, common.Hash{}, fmt.Errorf("adding payload, %v", err)
 	}
 
-	return pc.signatureCollection.addSignature(payload)
+	thresholdReached, err := sigCollection.addSignature(payload)
+
+	return thresholdReached, common.Hash(msgHash), err
 }
 
 func newFinalizationStorage() *finalizationStorage {
@@ -142,20 +170,16 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 	pc, exists := rc.protocolCollections[p.protocolID]
 	if !exists {
-
 		pc = &protocolCollection{signingPolicy: signingPolicy}
-
-		pc.signatureCollection = *NewSignatureCollection(pc.signingPolicy)
-
 		rc.protocolCollections[p.protocolID] = pc
 	}
 
-	thresholdReached, err := pc.addPayload(p)
+	thresholdReached, msgHash, err := pc.addPayload(p)
 	if err != nil {
 		return FinalizationReady{thresholdReached: false}, err
 	}
 	if thresholdReached {
-		return FinalizationReady{thresholdReached: true, protocolID: p.protocolID, votingRoundID: p.votingRoundID}, nil
+		return FinalizationReady{thresholdReached: true, protocolID: p.protocolID, votingRoundID: p.votingRoundID, msgHash: common.Hash(msgHash)}, nil
 	}
 
 	return FinalizationReady{thresholdReached: false}, nil
@@ -180,18 +204,15 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	pc, exists := rc.protocolCollections[p.ProtocolID]
 	if !exists {
 		pc = &protocolCollection{signingPolicy: signingPolicy}
-
-		pc.signatureCollection = *NewSignatureCollection(pc.signingPolicy)
-
 		rc.protocolCollections[p.ProtocolID] = pc
 	}
 
-	thresholdReached, err := pc.addMessage(p.Message)
+	thresholdReached, msgHash, err := pc.addMessage(p.Message)
 	if err != nil {
 		return FinalizationReady{thresholdReached: false}, err
 	}
 	if thresholdReached {
-		return FinalizationReady{thresholdReached: true, protocolID: p.ProtocolID, votingRoundID: p.VotingRoundID}, nil
+		return FinalizationReady{thresholdReached: true, protocolID: p.ProtocolID, votingRoundID: p.VotingRoundID, msgHash: msgHash}, nil
 	}
 
 	return FinalizationReady{thresholdReached: false}, nil
@@ -238,22 +259,25 @@ func (sc *signaturesCollection) PrepareFinalizationResults() (FinalizationResult
 
 // Get returns the signatureCollection for votingRoundID and protocolID.
 // A boolean inductor of existence is also returned.
-func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8) (*signaturesCollection, bool) {
+func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
 	round, exists := fs.stg[votingRoundID]
-
 	if !exists {
 		return &signaturesCollection{}, false
 	}
 
 	pc, exists := round.protocolCollections[protocolID]
-
-	if !exists || !pc.messageAdded {
+	if !exists {
 		return &signaturesCollection{}, false
 	}
 
-	return &pc.signatureCollection, true
+	sigCollection, exists := pc.signatureCollection[msgHash]
+	if !exists {
+		return &signaturesCollection{}, false
+	}
+
+	return sigCollection, true
 }
 
 type submissionListenerResponseV2 struct {
@@ -286,62 +310,4 @@ type submitterProcessorV2 interface {
 	// Should be able to handle duplicates
 	ProcessSubmissionData(submissionListenerResponseV2) error
 	ProcessTransaction(database.Transaction) error
-}
-
-func (s *submissionContractClient) SubmissionTxListenerV2(
-	ctx context.Context,
-	db finalizerDB,
-	startTime time.Time,
-	processor submitterProcessorV2,
-) error {
-	submissionABI, err := submission.SubmissionMetaData.GetAbi()
-	if err != nil {
-		// Should not happen, unhandled errors will cause a panic further up.
-		return err
-	}
-
-	selector := submissionABI.Methods["submitSignatures"].ID
-	ticker := time.NewTicker(shared.ListenerInterval)
-
-	txs, err := db.FetchTransactionsByAddressAndSelector(s.address, selector, startTime.Unix(), time.Now().Unix())
-	if err != nil {
-		logger.Error("Error fetching transactions %v", err)
-	}
-
-	lastBlockChecked := uint64(0)
-
-	for _, tx := range txs {
-		err := processor.ProcessTransaction(tx)
-		if err != nil {
-			logger.Warn("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
-		}
-
-		if tx.BlockNumber > uint64(lastBlockChecked) {
-			lastBlockChecked = tx.BlockNumber
-		}
-	}
-
-	for {
-		select {
-		case <-ticker.C:
-		case <-ctx.Done():
-			logger.Info("Submission tx listener stopped")
-			return ctx.Err()
-		}
-
-		txs, err := db.FetchTransactionsByAddressAndSelectorFromBlockNumber(s.address, selector, int64(lastBlockChecked))
-		if err != nil {
-			logger.Error("Error fetching transactions %v", err)
-			continue
-		}
-		for _, tx := range txs {
-			err := processor.ProcessTransaction(tx)
-			if err != nil {
-				logger.Warn("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
-			}
-			if tx.BlockNumber > uint64(lastBlockChecked) {
-				lastBlockChecked = tx.BlockNumber
-			}
-		}
-	}
 }
