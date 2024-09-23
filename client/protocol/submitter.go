@@ -211,20 +211,52 @@ func (s *SignatureSubmitter) WritePayload(
 	epochBytes := shared.Uint32toBytes(uint32(currentEpoch - 1))
 	lengthBytes := shared.Uint16toBytes(uint16(dataLength + len(data.AdditionalData)))
 
-	buffer.WriteByte(protocolID) // Protocol ID (1 byte)
-	buffer.Write(epochBytes[:])  // Epoch (4 bytes)
-	buffer.Write(lengthBytes[:]) // Length (2 bytes)
-
-	buffer.WriteByte(protocolType) // Type (1 byte)
-	if protocolType == 0 {
-		buffer.Write(data.Data) // Message (38 bytes)
+	err = buffer.WriteByte(protocolID) // Protocol ID (1 byte)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+	_, err = buffer.Write(epochBytes[:]) // Epoch (4 bytes)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
 	}
 
-	buffer.WriteByte(signature[64] + 27) // V (1 byte)
-	buffer.Write(signature[0:32])        // R (32 bytes)
-	buffer.Write(signature[32:64])       // S (32 bytes)
+	_, err = buffer.Write(lengthBytes[:]) // Length (2 bytes)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
 
-	buffer.Write(data.AdditionalData)
+	err = buffer.WriteByte(protocolType) // Type (1 byte)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+	if protocolType == 0 {
+		n, err := buffer.Write(data.Data) // Message (38 bytes)
+		if err != nil {
+			return errors.Wrap(err, "error writing Payload")
+		}
+		if n != 38 {
+			return errors.New("message not 38 bytes")
+		}
+	}
+
+	err = buffer.WriteByte(signature[64] + 27) // V (1 byte)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+	_, err = buffer.Write(signature[0:32]) // R (32 bytes)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+	_, err = buffer.Write(signature[32:64]) // S (32 bytes)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+
+	_, err = buffer.Write(data.AdditionalData)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+
 	return nil
 }
 

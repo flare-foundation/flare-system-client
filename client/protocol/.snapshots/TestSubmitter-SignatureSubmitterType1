@@ -1,4 +1,4 @@
-(*protocol.sentTxInfo)({
+  (*protocol.sentTxInfo)({
   privateKey: (*ecdsa.PrivateKey)({
     PublicKey: (ecdsa.PublicKey) {
       Curve: (*secp256k1.BitCurve)({
@@ -16,11 +16,10 @@
   }),
   to: (common.Address) (len=20) 0xBB6eae07aD2c5899A081984e31157035b0604106,
   payload: ([]uint8) (len=75) {
-    00000000  64 00 00 00 00 00 44 00  1b 2b 4e 88 e9 3f d2 d2  |d.....D..+N..?..|
+    00000000  64 00 00 00 00 00 44 01  1b 2b 4e 88 e9 3f d2 d2  |d.....D..+N..?..|
     00000010  49 90 cd 8e b9 6d bf d8  49 84 d3 4c 3a e4 33 14  |I....m..I..L:.3.|
     00000020  c6 ee 7e 6a 48 7f b3 d1  ae 2e 08 bb bc cf cf 7d  |..~jH..........}|
     00000030  d7 a9 a5 e7 f7 ca 75 2b  e4 02 d2 ff ed 49 62 94  |......u+.....Ib.|
-    00000040  d9 55 c8 54 e9 65 a3 20  e8 12 34                 |.U.T.e. ..4|            
+    00000040  d9 55 c8 54 e9 65 a3 20  e8 12 34                 |.U.T.e. ..4|
   }
-}
-)
+})
