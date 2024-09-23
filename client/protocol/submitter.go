@@ -190,8 +190,18 @@ func newSignatureSubmitter(
 // WritePayloadV2 encodes payload to buffer.
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 66)
 func (s *SignatureSubmitter) WritePayloadV2(
-	buffer *bytes.Buffer, currentEpoch int64, data *SubProtocolResponse, protocolID uint8,
+	buffer *bytes.Buffer, currentEpoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
 ) error {
+	var dataLength int
+	switch protocolType {
+	case 0:
+		dataLength = 104
+	case 1:
+		dataLength = 66
+	default:
+		return errors.New("unrecognized protocol type")
+	}
+
 	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
 	signature, err := crypto.Sign(dataHash, s.protocolContext.signerPrivateKey)
 	if err != nil {
@@ -199,12 +209,16 @@ func (s *SignatureSubmitter) WritePayloadV2(
 	}
 
 	epochBytes := shared.Uint32toBytes(uint32(currentEpoch - 1))
-	lengthBytes := shared.Uint16toBytes(uint16(66 + len(data.AdditionalData)))
+	lengthBytes := shared.Uint16toBytes(uint16(dataLength + len(data.AdditionalData)))
 
 	buffer.WriteByte(protocolID) // Protocol ID (1 byte)
 	buffer.Write(epochBytes[:])  // Epoch (4 bytes)
 	buffer.Write(lengthBytes[:]) // Length (2 bytes)
-	buffer.WriteByte(1)          // Type (1 byte)
+
+	buffer.WriteByte(protocolType) // Type (1 byte)
+	if protocolType == 0 {
+		buffer.Write(data.Data) // Message (38 bytes)
+	}
 
 	buffer.WriteByte(signature[64] + 27) // V (1 byte)
 	buffer.Write(signature[0:32])        // R (32 bytes)
@@ -256,7 +270,7 @@ func (s *SignatureSubmitter) RunEpochV2(currentEpoch int64) {
 				logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
-			err := s.WritePayloadV2(buffer, currentEpoch, data.Value, s.subProtocols[i].ID)
+			err := s.WritePayloadV2(buffer, currentEpoch, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
 			if err != nil {
 				logger.Error("Error writing payload for submitter %s: %v", s.name, err)
 				continue

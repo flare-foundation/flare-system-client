@@ -47,8 +47,9 @@ type FinalizationReady struct {
 	msgHash          common.Hash
 }
 
-func NewSignatureCollection(signingPolicy *signingPolicy) *signaturesCollection {
+func NewSignatureCollection(message shared.Message, signingPolicy *signingPolicy) *signaturesCollection {
 	return &signaturesCollection{
+		message:       message,
 		signatures:    make([][]byte, signingPolicy.voters.Count()),
 		signingPolicy: signingPolicy,
 	}
@@ -80,13 +81,13 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	}
 
 	msgHsh := common.Hash(message.Hash())
-	sigCollection, exists := pc.signatureCollection[msgHsh]
+	_, exists := pc.signatureCollection[msgHsh]
 	if !exists {
-		pc.signatureCollection[msgHsh] = NewSignatureCollection(pc.signingPolicy)
+		pc.signatureCollection[msgHsh] = NewSignatureCollection(message, pc.signingPolicy)
 		pc.messageChosenHash = msgHsh
 	}
 
-	sigCollection.message = message
+	pc.signatureCollection[msgHsh].message = message
 	pc.messageAdded = true
 
 	thresholdReached := false
@@ -124,7 +125,7 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 		msgHash = payload.message.Hash()
 		_, exists := pc.signatureCollection[common.Hash(msgHash)]
 		if !exists {
-			pc.signatureCollection[common.Hash(msgHash)] = NewSignatureCollection(pc.signingPolicy)
+			pc.signatureCollection[common.Hash(msgHash)] = NewSignatureCollection(payload.message, pc.signingPolicy)
 		}
 		sigCollection = pc.signatureCollection[common.Hash(msgHash)]
 	} else if pc.messageAdded {
@@ -170,7 +171,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 	pc, exists := rc.protocolCollections[p.protocolID]
 	if !exists {
-		pc = &protocolCollection{signingPolicy: signingPolicy}
+		pc = &protocolCollection{signingPolicy: signingPolicy, signatureCollection: make(map[common.Hash]*signaturesCollection)}
 		rc.protocolCollections[p.protocolID] = pc
 	}
 
@@ -203,7 +204,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 
 	pc, exists := rc.protocolCollections[p.ProtocolID]
 	if !exists {
-		pc = &protocolCollection{signingPolicy: signingPolicy}
+		pc = &protocolCollection{signingPolicy: signingPolicy, signatureCollection: make(map[common.Hash]*signaturesCollection)}
 		rc.protocolCollections[p.ProtocolID] = pc
 	}
 
