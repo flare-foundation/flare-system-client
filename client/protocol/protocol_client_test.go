@@ -129,7 +129,7 @@ func TestSubmitter(t *testing.T) {
 		}
 
 		epochID := int64(1)
-		submitter.RunEpochV2(epochID)
+		submitter.RunEpoch(epochID)
 
 		t.Logf("sentTxs: %v", ethClient.sentTxs)
 		require.Len(t, ethClient.sentTxs, 1)
@@ -154,7 +154,7 @@ func TestSubmitter(t *testing.T) {
 		}
 
 		epochID := int64(1)
-		submitter.RunEpochV2(epochID)
+		submitter.RunEpoch(epochID)
 
 		t.Logf("sentTxs: %v", ethClient.sentTxs)
 		require.Empty(t, ethClient.sentTxs)

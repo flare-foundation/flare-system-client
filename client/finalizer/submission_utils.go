@@ -20,11 +20,11 @@ func NewSubmissionContractClient(address common.Address) *submissionContractClie
 	}
 }
 
-func (s *submissionContractClient) SubmissionTxListenerV2(
+func (s *submissionContractClient) SubmissionTxListener(
 	ctx context.Context,
 	db finalizerDB,
 	startTime time.Time,
-	processor submitterProcessorV2,
+	processor submitterProcessor,
 ) error {
 	submissionABI, err := submission.SubmissionMetaData.GetAbi()
 	if err != nil {

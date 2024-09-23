@@ -97,7 +97,7 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 		if err != nil {
 			logger.Debug("%v", err)
 		}
-		if msgHashCheck != msgHashCheck {
+		if msgHashCheck != msgHsh {
 			logger.Debug("unexpected behavior, hashes should match")
 		}
 
@@ -281,7 +281,7 @@ func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHa
 	return sigCollection, true
 }
 
-type submissionListenerResponseV2 struct {
+type submissionListenerResponse struct {
 	payloads  []*submitSignaturesPayload
 	timestamp int64
 }
@@ -306,9 +306,9 @@ func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
 	}
 }
 
-type submitterProcessorV2 interface {
+type submitterProcessor interface {
 	// Return error if the submission was not processed and needs a retry
 	// Should be able to handle duplicates
-	ProcessSubmissionData(submissionListenerResponseV2) error
+	ProcessSubmissionData(submissionListenerResponse) error
 	ProcessTransaction(database.Transaction) error
 }

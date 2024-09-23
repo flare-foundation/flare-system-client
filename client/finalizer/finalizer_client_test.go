@@ -44,7 +44,7 @@ var (
 type testClients struct {
 	db        *testDB
 	eth       *testEthClient
-	finalizer *finalizerClientV2
+	finalizer *finalizerClient
 }
 
 func setupTest(protocolType uint8) (*testClients, error) {
@@ -79,7 +79,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 	// mocked ethereum client
 	ethClient := new(testEthClient)
 
-	// finally set up finalizerClientV2
+	// finally set up finalizerClient
 	relayClient, err := NewRelayContractClient(
 		nil,
 		relayContractAddress,
@@ -111,13 +111,13 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		messagesChannel <- shared.ProtocolMessage{ProtocolID: item.protocolID, VotingRoundID: item.votingRoundID, Message: item.message}
 	}
 
-	client := &finalizerClientV2{
+	client := &finalizerClient{
 		db:                   db,
 		relayClient:          relayClient,
 		signingPolicyStorage: newSigningPolicyStorage(),
 		finalizationStorage:  submissionStorage,
 		submissionClient:     NewSubmissionContractClient(submissionContractAddress),
-		queueProcessor: newFinalizerQueueProcessorV2(
+		queueProcessor: newFinalizerQueueProcessor(
 			db, submissionStorage, relayClient, fCtx,
 		),
 		finalizerContext: fCtx,

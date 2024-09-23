@@ -169,7 +169,7 @@ L:
 				// signatureSubmitter is independent of submit1 and submit2
 				go func() {
 					time.Sleep(c.signatureSubmitter.startOffset)
-					c.signatureSubmitter.RunEpochV2(currentEpoch)
+					c.signatureSubmitter.RunEpoch(currentEpoch)
 				}()
 			}
 		case <-ctx.Done():

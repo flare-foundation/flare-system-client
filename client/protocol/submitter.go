@@ -187,9 +187,9 @@ func newSignatureSubmitter(
 	}
 }
 
-// WritePayloadV2 encodes payload to buffer.
+// WritePayload encodes payload to buffer.
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 66)
-func (s *SignatureSubmitter) WritePayloadV2(
+func (s *SignatureSubmitter) WritePayload(
 	buffer *bytes.Buffer, currentEpoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
 ) error {
 	var dataLength int
@@ -228,12 +228,12 @@ func (s *SignatureSubmitter) WritePayloadV2(
 	return nil
 }
 
-// RunEpochV2 gets the submitSignature messages from the subprotocols providers.
+// RunEpoch gets the submitSignature messages from the subprotocols providers.
 //  1. run every sub-protocol provider with delay of 1 second at most five times.
 //  2. repeat 1 for each sub-protocol provider not giving valid answer.
 //
 // Repeat 1 and 2 until all sub-protocol providers give valid answer or we did maxRounds attempts.
-func (s *SignatureSubmitter) RunEpochV2(currentEpoch int64) {
+func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 	logger.Info("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
 
 	protocolsToSend := make(map[int]bool)
@@ -270,7 +270,7 @@ func (s *SignatureSubmitter) RunEpochV2(currentEpoch int64) {
 				logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
-			err := s.WritePayloadV2(buffer, currentEpoch, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
+			err := s.WritePayload(buffer, currentEpoch, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
 			if err != nil {
 				logger.Error("Error writing payload for submitter %s: %v", s.name, err)
 				continue

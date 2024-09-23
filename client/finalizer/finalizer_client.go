@@ -19,7 +19,7 @@ import (
 
 const minRoundsStored uint32 = 10
 
-type finalizerClientV2 struct {
+type finalizerClient struct {
 	db finalizerDB
 
 	relayClient          *relayContractClient
@@ -27,12 +27,12 @@ type finalizerClientV2 struct {
 	signingPolicyStorage *signingPolicyStorage
 	messages             <-chan shared.ProtocolMessage
 	finalizationStorage  *finalizationStorage
-	queueProcessor       *finalizerQueueProcessorV2
+	queueProcessor       *finalizerQueueProcessor
 
 	finalizerContext *finalizerContext
 }
 
-func NewFinalizerClientV2(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage) (*finalizerClientV2, error) {
+func NewFinalizerClient(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage) (*finalizerClient, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EnabledFinalizer {
 		return nil, nil
@@ -76,19 +76,19 @@ func NewFinalizerClientV2(ctx clientContext.ClientContext, messageChannel <-chan
 
 	db := finalizerDBImpl{client: ctx.DB()}
 
-	return &finalizerClientV2{
+	return &finalizerClient{
 		db:                   db,
 		relayClient:          relayClient,
 		signingPolicyStorage: newSigningPolicyStorage(),
 		messages:             messageChannel,
 		finalizationStorage:  finalizationStorage,
 		submissionClient:     submissionClient,
-		queueProcessor:       newFinalizerQueueProcessorV2(db, finalizationStorage, relayClient, finalizerContext),
+		queueProcessor:       newFinalizerQueueProcessor(db, finalizationStorage, relayClient, finalizerContext),
 		finalizerContext:     finalizerContext,
 	}, nil
 }
 
-func (c *finalizerClientV2) Run(ctx context.Context) error {
+func (c *finalizerClient) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	startTime := time.Now().Add(-c.finalizerContext.startTimeOffset)
@@ -101,7 +101,7 @@ func (c *finalizerClientV2) Run(ctx context.Context) error {
 		return c.runSigningPolicyInitializedListener(ctx, startTime)
 	})
 	eg.Go(func() error {
-		return c.submissionClient.SubmissionTxListenerV2(ctx, c.db, startTime, c)
+		return c.submissionClient.SubmissionTxListener(ctx, c.db, startTime, c)
 	})
 	eg.Go(func() error {
 		return c.queueProcessor.Run(ctx)
@@ -113,7 +113,7 @@ func (c *finalizerClientV2) Run(ctx context.Context) error {
 	return eg.Wait()
 }
 
-func (c *finalizerClientV2) fetchExistingSigningPolicies(
+func (c *finalizerClient) fetchExistingSigningPolicies(
 	_ context.Context, startTime time.Time,
 ) (time.Time, error) {
 	// Read current signing policies from the database and add them to the storage
@@ -139,7 +139,7 @@ func (c *finalizerClientV2) fetchExistingSigningPolicies(
 	return startTime, nil
 }
 
-func (c *finalizerClientV2) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
+func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
 	spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
 	for {
 		var dbPolicy signingPolicyListenerResponse
@@ -162,7 +162,7 @@ func (c *finalizerClientV2) runSigningPolicyInitializedListener(ctx context.Cont
 	}
 }
 
-func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponseV2) error {
+func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
 	for _, payloadItem := range slr.payloads {
 		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
 			logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - before startingVotingRound %d", payloadItem.votingRoundID, payloadItem.protocolID, c.finalizerContext.startingVotingRound)
@@ -205,7 +205,7 @@ func (c *finalizerClientV2) ProcessSubmissionData(slr submissionListenerResponse
 	return nil
 }
 
-func (c *finalizerClientV2) ProcessTransaction(tx database.Transaction) error {
+func (c *finalizerClient) ProcessTransaction(tx database.Transaction) error {
 	inputBytes, err := hex.DecodeString(tx.Input)
 	if err != nil {
 		logger.Info("Invalid submitSignatures tx sent by %s: %v, skipping", tx.FromAddress, err)
@@ -218,7 +218,7 @@ func (c *finalizerClientV2) ProcessTransaction(tx database.Transaction) error {
 
 	signaturePayloads := []*submitSignaturesPayload{}
 	for i := range payloads {
-		signaturePayload, err := decodeSignedPayloadV2(payloads[i])
+		signaturePayload, err := decodeSignedPayload(payloads[i])
 
 		if err != nil {
 			// if input cannot be decoded, it is not a valid submission and should be skipped
@@ -229,7 +229,7 @@ func (c *finalizerClientV2) ProcessTransaction(tx database.Transaction) error {
 	}
 
 	if len(signaturePayloads) > 0 {
-		err = c.ProcessSubmissionData(submissionListenerResponseV2{
+		err = c.ProcessSubmissionData(submissionListenerResponse{
 			payloads:  signaturePayloads,
 			timestamp: int64(tx.Timestamp),
 		})
@@ -245,7 +245,7 @@ func (c *finalizerClientV2) ProcessTransaction(tx database.Transaction) error {
 }
 
 // return signing policy and voting threshold for the given voting round
-func (c *finalizerClientV2) signingPolicyData(votingRoundID uint32) (*signingPolicy, uint16) {
+func (c *finalizerClient) signingPolicyData(votingRoundID uint32) (*signingPolicy, uint16) {
 	sp, last := c.signingPolicyStorage.GetForVotingRound(votingRoundID)
 	if sp == nil {
 		return nil, 0
@@ -264,12 +264,12 @@ func (c *finalizerClientV2) signingPolicyData(votingRoundID uint32) (*signingPol
 }
 
 // Return true if voting round is not in the future, i.e., is <= the current voting round
-func (c *finalizerClientV2) checkVotingRoundTime(votingRoundID uint32) bool {
+func (c *finalizerClient) checkVotingRoundTime(votingRoundID uint32) bool {
 	currentEpochID := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
 	return votingRoundID <= uint32(currentEpochID)
 }
 
-func (c *finalizerClientV2) messagesChannelListener(ctx context.Context) error {
+func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
 	for {
 		var protocolMessage shared.ProtocolMessage
 

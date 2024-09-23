@@ -67,7 +67,7 @@ type submitSignaturesPayload struct {
 	message shared.Message // only if type 0
 }
 
-func decodeSignedPayloadV2(payloadMsg payloadMessage) (submitSignaturesPayload, error) {
+func decodeSignedPayload(payloadMsg payloadMessage) (submitSignaturesPayload, error) {
 	typeID := payloadMsg.payload[0]
 
 	var signatureStart, signatureEnd int
