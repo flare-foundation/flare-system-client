@@ -1,4 +1,4 @@
-  (*protocol.sentTxInfo)({
+(*protocol.sentTxInfo)({
   privateKey: (*ecdsa.PrivateKey)({
     PublicKey: (ecdsa.PublicKey) {
       Curve: (*secp256k1.BitCurve)({
