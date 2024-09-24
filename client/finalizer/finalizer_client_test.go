@@ -48,14 +48,14 @@ type testClients struct {
 }
 
 func setupTest(protocolType uint8) (*testClients, error) {
-	// prepare private keys
+	// prepare a private and public key
 	privateKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	if err != nil {
 		return nil, err
 	}
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
-	// prepare mocked DB with one submitSignature entry
+	// prepare a message signed by the private key
 	merkleRoot := bytes.Repeat([]byte{0xff}, 32)
 	item := submitSignaturesPayload{
 		protocolID:    0x1,
@@ -71,7 +71,10 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		return nil, err
 	}
 
-	db, err := newTestDB(item, privateKey, protocolType)
+	// prepare mocked DB with:
+	// - a log entry emitting a policy in which the voter address has a majority
+	// - a transaction having a submitSignature entry with that address
+	db, err := newTestDB(item, fromAddress, protocolType)
 	if err != nil {
 		return nil, err
 	}
@@ -178,8 +181,8 @@ type testDB struct {
 	submitterPayload []byte
 }
 
-func newTestDB(item submitSignaturesPayload, privateKey *ecdsa.PrivateKey, protocolType uint8) (*testDB, error) {
-	spiLog, err := newSPILog(privateKey)
+func newTestDB(item submitSignaturesPayload, voterAddress common.Address, protocolType uint8) (*testDB, error) {
+	spiLog, err := newSPILog(voterAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -201,9 +204,7 @@ func (db *testDB) hasAnyFetchTxsCalls() bool {
 	return db.fetchTxsCalls > 0
 }
 
-func newSPILog(privateKey *ecdsa.PrivateKey) (*database.Log, error) {
-	voterAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-
+func newSPILog(voterAddress common.Address) (*database.Log, error) {
 	spiLog := relay.RelaySigningPolicyInitialized{
 		RewardEpochId:      big.NewInt(1),
 		StartVotingRoundId: 1,
@@ -329,10 +330,6 @@ func encodeForDB(item *submitSignaturesPayload) ([]byte, error) {
 	if _, err := buf.Write(payload); err != nil {
 		return nil, err
 	}
-
-	// if len(payloadBytes) < 104 {
-	// 	return nil, errors.Errorf("unexpected payload length %d", len(payloadBytes))
-	// }
 
 	return buf.Bytes(), nil
 }
