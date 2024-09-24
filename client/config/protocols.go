@@ -8,6 +8,7 @@ import (
 type ProtocolConfig struct {
 	ID          uint8  `toml:"id"`
 	ApiEndpoint string `toml:"api_endpoint"`
+	Type        uint8  `toml:"type"`
 }
 
 func (cfg ProtocolConfig) XApiKey() string {

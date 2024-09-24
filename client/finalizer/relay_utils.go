@@ -142,8 +142,8 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 	return out
 }
 
-// SubmitPayloadsV2 sends a transaction with input relay contract.
-func (r *relayContractClient) SubmitPayloadsV2(ctx context.Context, input []byte, dryRun bool) {
+// SubmitPayloads sends a transaction with input relay contract.
+func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool) {
 	if len(input) == 0 {
 		return
 	}
@@ -171,20 +171,20 @@ func (r *relayContractClient) SubmitPayloadsV2(ctx context.Context, input []byte
 	}
 }
 
-// ProtocolMessageRelayedV2 returns a set of pairs of protocol and round that have been finalized.
-func (r *relayContractClient) ProtocolMessageRelayedV2(db finalizerDB, from time.Time, to time.Time) (map[queueItemV2]bool, error) {
+// ProtocolMessageRelayed returns a set of pairs of protocol and round that have been finalized.
+func (r *relayContractClient) ProtocolMessageRelayed(db finalizerDB, from time.Time, to time.Time) (map[queueItem]bool, error) {
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0PMR, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(map[queueItemV2]bool)
+	result := make(map[queueItem]bool)
 	for _, log := range logs {
 		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
 		if err != nil {
 			return nil, err
 		}
-		result[queueItemV2{
+		result[queueItem{
 			protocolID:    data.ProtocolId,
 			votingRoundID: data.VotingRoundId,
 		}] = true

@@ -55,7 +55,7 @@ func TestSubmitter(t *testing.T) {
 
 	ethClient := testEthClient{}
 
-	subProtocol := &SubProtocol{ID: 100, ApiEndpoint: apiEndpointURL}
+	subProtocol := &SubProtocol{ID: 100, ApiEndpoint: apiEndpointURL, Type: 0}
 
 	privKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestSubmitter(t *testing.T) {
 		require.Empty(t, ethClient.sentTxs)
 	})
 
-	t.Run("SignatureSubmitter", func(t *testing.T) {
+	t.Run("SignatureSubmitterType0", func(t *testing.T) {
 		msgChan := make(chan<- shared.ProtocolMessage, 10)
 		defer close(msgChan)
 
@@ -129,12 +129,35 @@ func TestSubmitter(t *testing.T) {
 		}
 
 		epochID := int64(1)
-		submitter.RunEpochV2(epochID)
+		submitter.RunEpoch(epochID)
 
 		t.Logf("sentTxs: %v", ethClient.sentTxs)
 		require.Len(t, ethClient.sentTxs, 1)
 
-		// cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+	})
+
+	t.Run("SignatureSubmitterType1", func(t *testing.T) {
+		msgChan := make(chan<- shared.ProtocolMessage, 10)
+		defer close(msgChan)
+
+		defer ethClient.reset()
+
+		submitter := SignatureSubmitter{
+			SubmitterBase:  base,
+			messageChannel: msgChan,
+			maxRounds:      1,
+		}
+		subProtocolType1 := &SubProtocol{ID: 100, ApiEndpoint: apiEndpointURL, Type: 1}
+		submitter.SubmitterBase.subProtocols = []*SubProtocol{subProtocolType1}
+
+		epochID := int64(1)
+		submitter.RunEpoch(epochID)
+
+		t.Logf("sentTxs: %v", ethClient.sentTxs)
+		require.Len(t, ethClient.sentTxs, 1)
+
+		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
 	})
 
 	t.Run("SignatureSubmitterError", func(t *testing.T) {
@@ -154,7 +177,7 @@ func TestSubmitter(t *testing.T) {
 		}
 
 		epochID := int64(1)
-		submitter.RunEpochV2(epochID)
+		submitter.RunEpoch(epochID)
 
 		t.Logf("sentTxs: %v", ethClient.sentTxs)
 		require.Empty(t, ethClient.sentTxs)

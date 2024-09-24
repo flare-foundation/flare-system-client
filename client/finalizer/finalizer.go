@@ -3,6 +3,7 @@ package finalizer
 import (
 	"encoding/binary"
 	"errors"
+	"flare-fsc/client/shared"
 	"flare-fsc/client/shared/voters"
 	"fmt"
 
@@ -62,9 +63,11 @@ type submitSignaturesPayload struct {
 	signer     common.Address
 	voterIndex int
 	weight     uint16
+
+	message shared.Message // only if type 0
 }
 
-func decodeSignedPayloadV2(payloadMsg payloadMessage) (submitSignaturesPayload, error) {
+func decodeSignedPayload(payloadMsg payloadMessage) (submitSignaturesPayload, error) {
 	typeID := payloadMsg.payload[0]
 
 	var signatureStart, signatureEnd int
@@ -93,6 +96,10 @@ func decodeSignedPayloadV2(payloadMsg payloadMessage) (submitSignaturesPayload, 
 		signature:     signature,
 
 		voterIndex: -1, // 0 is a valid index, we use -1 before assigning the proper value
+	}
+
+	if typeID == 0 {
+		signedPayload.message = payloadMsg.payload[1:39]
 	}
 
 	return signedPayload, nil

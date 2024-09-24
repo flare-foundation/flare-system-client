@@ -1,338 +1,598 @@
 package finalizer
 
-// import (
-// 	"bytes"
-// 	"crypto/ecdsa"
-// 	"encoding/binary"
-// 	"encoding/hex"
-// 	"flare-fsc/database"
-// 	"flare-fsc/logger"
-// 	"flare-fsc/utils/contracts/relay"
-// 	"math/big"
-// 	"strings"
-// 	"sync"
+import (
+	"bytes"
+	"context"
+	"crypto/ecdsa"
+	"encoding/binary"
+	"encoding/hex"
+	"flare-fsc/client/shared"
+	"flare-fsc/config"
+	"flare-fsc/database"
+	"flare-fsc/logger"
+	"flare-fsc/utils"
+	"flare-fsc/utils/contracts/relay"
+	"math/big"
+	"os"
+	"strings"
+	"sync"
+	"testing"
+	"time"
 
-// 	"github.com/ethereum/go-ethereum/accounts"
-// 	"github.com/ethereum/go-ethereum/common"
-// 	"github.com/ethereum/go-ethereum/core/types"
-// 	"github.com/ethereum/go-ethereum/crypto"
-// 	"github.com/pkg/errors"
-// )
+	"github.com/bradleyjkemp/cupaloy"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+)
 
-// var msgSubmit = &submittedPayload{
-// 	protocolId:         0x1,
-// 	votingRoundId:      1,
-// 	randomQualityScore: true,
-// 	merkleRoot:         bytes.Repeat([]byte{0xff}, 32),
-// }
+const (
+	testPrivateKeyHex            = "4f65bffe3c8ed6c0b812e84d35402e949feea042061cc1635fe6ae83ed84df4a"
+	relayContractAddressHex      = "0xb849b93B585eFfb7cE4B522Ff88d9b3B24955f24"
+	submissionContractAddressHex = "0x2F79Dce2375571207a7976148D4468195F89a73e"
+	topicSPIHex                  = "0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8"
+)
 
-// type testEthClient struct {
-// 	calls     int
-// 	sentTxs   []*sentTxInfo
-// 	mu        sync.RWMutex
-// 	sendTxErr error
-// }
+var (
+	relayContractAddress      = common.HexToAddress(relayContractAddressHex)
+	submissionContractAddress = common.HexToAddress(submissionContractAddressHex)
+)
 
-// type sentTxInfo struct {
-// 	privateKey *ecdsa.PrivateKey
-// 	to         common.Address
-// 	data       []byte
-// }
+type testClients struct {
+	db        *testDB
+	eth       *testEthClient
+	finalizer *finalizerClient
+}
 
-// func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, dryRun bool) error {
-// 	eth.mu.Lock()
-// 	defer eth.mu.Unlock()
+func setupTest(protocolType uint8) (*testClients, error) {
+	// prepare private keys
+	privateKey, err := crypto.HexToECDSA(testPrivateKeyHex)
+	if err != nil {
+		return nil, err
+	}
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
-// 	eth.calls++
+	// prepare mocked DB with one submitSignature entry
+	merkleRoot := bytes.Repeat([]byte{0xff}, 32)
+	item := submitSignaturesPayload{
+		protocolID:    0x1,
+		votingRoundID: 1,
+		typeID:        protocolType,
+	}
+	item.message, err = encodeMessage(item.protocolID, item.votingRoundID, true, merkleRoot)
+	if err != nil {
+		return nil, err
+	}
+	item.signature, err = signMessage(item.message, privateKey)
+	if err != nil {
+		return nil, err
+	}
 
-// 	if eth.sendTxErr != nil {
-// 		return eth.sendTxErr
-// 	}
+	db, err := newTestDB(item, privateKey, protocolType)
+	if err != nil {
+		return nil, err
+	}
 
-// 	eth.sentTxs = append(eth.sentTxs, &sentTxInfo{
-// 		privateKey: privateKey,
-// 		to:         to,
-// 		data:       data,
-// 	})
+	// mocked ethereum client
+	ethClient := new(testEthClient)
 
-// 	return nil
-// }
+	// finally set up finalizerClient
+	relayClient, err := NewRelayContractClient(
+		nil,
+		relayContractAddress,
+		privateKey,
+		fromAddress,
+	)
+	if err != nil {
+		return nil, err
+	}
 
-// func (eth *testEthClient) hasAnyCalls() bool {
-// 	eth.mu.RLock()
-// 	defer eth.mu.RUnlock()
-// 	return eth.calls > 0
-// }
+	relayClient.ethClient = ethClient
 
-// type testDB struct {
-// 	fetchLogsErr     error
-// 	fetchTxsCalls    int
-// 	fetchTxsErr      error
-// 	mu               sync.Mutex
-// 	spiLog           *database.Log
-// 	submitterPayload []byte
-// }
+	submissionStorage := newFinalizationStorage()
 
-// func newTestDB(privateKey *ecdsa.PrivateKey) (*testDB, error) {
-// 	spiLog, err := newSPILog(privateKey)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	fCtx := &finalizerContext{
+		votingEpoch: &utils.Epoch{
+			Start:  time.Unix(0, 0),
+			Period: time.Hour,
+		},
+		rewardEpoch: &utils.IntEpoch{
+			Start:  0,
+			Period: 100,
+		},
+		voterThresholdBIPS: 5000,
+	}
 
-// 	submitterPayload, err := encodeSubmitterPayload(privateKey)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	messagesChannel := make(chan shared.ProtocolMessage, 1)
+	if protocolType == 1 {
+		messagesChannel <- shared.ProtocolMessage{ProtocolID: item.protocolID, VotingRoundID: item.votingRoundID, Message: item.message}
+	}
 
-// 	return &testDB{
-// 		spiLog:           spiLog,
-// 		submitterPayload: submitterPayload,
-// 	}, nil
-// }
+	client := &finalizerClient{
+		db:                   db,
+		relayClient:          relayClient,
+		signingPolicyStorage: newSigningPolicyStorage(),
+		finalizationStorage:  submissionStorage,
+		submissionClient:     NewSubmissionContractClient(submissionContractAddress),
+		queueProcessor: newFinalizerQueueProcessor(
+			db, submissionStorage, relayClient, fCtx,
+		),
+		finalizerContext: fCtx,
+		messages:         messagesChannel,
+	}
 
-// func (db *testDB) hasAnyFetchTxsCalls() bool {
-// 	db.mu.Lock()
-// 	defer db.mu.Unlock()
-// 	return db.fetchTxsCalls > 0
-// }
+	return &testClients{
+		db:        db,
+		eth:       ethClient,
+		finalizer: client,
+	}, nil
+}
 
-// func newSPILog(privateKey *ecdsa.PrivateKey) (*database.Log, error) {
-// 	voterAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
+type testEthClient struct {
+	calls     int
+	sentTxs   []*sentTxInfo
+	mu        sync.RWMutex
+	sendTxErr error
+}
 
-// 	spiLog := relay.RelaySigningPolicyInitialized{
-// 		RewardEpochId:      big.NewInt(1),
-// 		StartVotingRoundId: 1,
-// 		Threshold:          1,
-// 		Seed:               big.NewInt(1),
-// 		Voters:             []common.Address{voterAddress},
-// 		Weights:            []uint16{2}, // Weight of 2 > threshold of 1
-// 		SigningPolicyBytes: []byte{0x01},
-// 		Timestamp:          0,
-// 	}
+type sentTxInfo struct {
+	privateKey *ecdsa.PrivateKey
+	to         common.Address
+	data       []byte
+}
 
-// 	relayABI, err := relay.RelayMetaData.GetAbi()
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, dryRun bool) error {
+	eth.mu.Lock()
+	defer eth.mu.Unlock()
 
-// 	event, ok := relayABI.Events["SigningPolicyInitialized"]
-// 	if !ok {
-// 		return nil, errors.New("event not found")
-// 	}
+	eth.calls++
 
-// 	inputs := event.Inputs
+	if eth.sendTxErr != nil {
+		return eth.sendTxErr
+	}
 
-// 	// Only non-indexed inputs are packed into the log data, indexed inputs are
-// 	// stored in the topics.
-// 	packedData, err := inputs.NonIndexed().Pack(
-// 		spiLog.StartVotingRoundId,
-// 		spiLog.Threshold,
-// 		spiLog.Seed,
-// 		spiLog.Voters,
-// 		spiLog.Weights,
-// 		spiLog.SigningPolicyBytes,
-// 		spiLog.Timestamp,
-// 	)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "failed to pack data")
-// 	}
+	eth.sentTxs = append(eth.sentTxs, &sentTxInfo{
+		privateKey: privateKey,
+		to:         to,
+		data:       data,
+	})
 
-// 	hexData := hex.EncodeToString(packedData)
+	return nil
+}
 
-// 	// Integers are serialized as their byte representation, padded to 32 bytes.
-// 	topic1 := common.BigToHash(spiLog.RewardEpochId)
+func (eth *testEthClient) hasAnyCalls() bool {
+	eth.mu.RLock()
+	defer eth.mu.RUnlock()
+	return eth.calls > 0
+}
 
-// 	log := &database.Log{
-// 		BaseEntity: database.BaseEntity{
-// 			ID: 1,
-// 		},
-// 		TransactionID:   1,
-// 		Address:         relayContractAddressHex,
-// 		Data:            hexData,
-// 		Topic0:          topicSPIHex,
-// 		Topic1:          topic1.Hex(),
-// 		Topic2:          "NULL", // NULL is required for unused topics.
-// 		Topic3:          "NULL",
-// 		TransactionHash: "0x" + strings.Repeat("ff", 32),
-// 		LogIndex:        0,
-// 		Timestamp:       0,
-// 	}
+type testDB struct {
+	fetchLogsErr     error
+	fetchTxsCalls    int
+	fetchTxsErr      error
+	mu               sync.Mutex
+	spiLog           *database.Log
+	submitterPayload []byte
+}
 
-// 	// Sanity check that the log can be parsed.
-// 	relayContract, err := relay.NewRelay(relayContractAddress, nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func newTestDB(item submitSignaturesPayload, privateKey *ecdsa.PrivateKey, protocolType uint8) (*testDB, error) {
+	spiLog, err := newSPILog(privateKey)
+	if err != nil {
+		return nil, err
+	}
 
-// 	_, err = relayContract.RelayFilterer.ParseSigningPolicyInitialized(types.Log{
-// 		Data: packedData,
-// 		Topics: []common.Hash{
-// 			common.HexToHash(topicSPIHex),
-// 			topic1,
-// 		},
-// 	})
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "ParseSigningPolicyInitialized failed")
-// 	}
+	submitterPayload, err := encodeForDB(&item)
+	if err != nil {
+		return nil, err
+	}
 
-// 	return log, nil
-// }
+	return &testDB{
+		spiLog:           spiLog,
+		submitterPayload: submitterPayload,
+	}, nil
+}
 
-// func encodeSubmitterPayload(privateKey *ecdsa.PrivateKey) ([]byte, error) {
-// 	item := submitterPayloadItem{
-// 		protocolId:    0x1,
-// 		votingRoundId: 1,
-// 		payload: &signedPayload{
-// 			typeId:  0x0,
-// 			message: msgSubmit,
-// 		},
-// 	}
+func (db *testDB) hasAnyFetchTxsCalls() bool {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.fetchTxsCalls > 0
+}
 
-// 	buf := new(bytes.Buffer)
+func newSPILog(privateKey *ecdsa.PrivateKey) (*database.Log, error) {
+	voterAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
-// 	// Start with 4 random bytes, these are not parsed by the implementation.
-// 	if _, err := buf.Write([]byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
-// 		return nil, err
-// 	}
+	spiLog := relay.RelaySigningPolicyInitialized{
+		RewardEpochId:      big.NewInt(1),
+		StartVotingRoundId: 1,
+		Threshold:          1,
+		Seed:               big.NewInt(1),
+		Voters:             []common.Address{voterAddress},
+		Weights:            []uint16{2}, // Weight of 2 > threshold of 1
+		SigningPolicyBytes: []byte{0x01},
+		Timestamp:          0,
+	}
 
-// 	if err := buf.WriteByte(item.protocolId); err != nil {
-// 		return nil, err
-// 	}
+	relayABI, err := relay.RelayMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
 
-// 	if err := binary.Write(buf, binary.BigEndian, item.votingRoundId); err != nil {
-// 		return nil, err
-// 	}
+	event, ok := relayABI.Events["SigningPolicyInitialized"]
+	if !ok {
+		return nil, errors.New("event not found")
+	}
 
-// 	payloadBytes, err := encodeSignedPayload(privateKey, item.payload)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if len(payloadBytes) < 104 {
-// 		return nil, errors.Errorf("unexpected payload length %d", len(payloadBytes))
-// 	}
+	inputs := event.Inputs
 
-// 	if err := binary.Write(buf, binary.BigEndian, uint16(len(payloadBytes))); err != nil {
-// 		return nil, err
-// 	}
+	// Only non-indexed inputs are packed into the log data, indexed inputs are
+	// stored in the topics.
+	packedData, err := inputs.NonIndexed().Pack(
+		spiLog.StartVotingRoundId,
+		spiLog.Threshold,
+		spiLog.Seed,
+		spiLog.Voters,
+		spiLog.Weights,
+		spiLog.SigningPolicyBytes,
+		spiLog.Timestamp,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to pack data")
+	}
 
-// 	_, err = buf.Write(payloadBytes)
-// 	return buf.Bytes(), err
-// }
+	hexData := hex.EncodeToString(packedData)
 
-// func encodeSignedPayload(privateKey *ecdsa.PrivateKey, payload *signedPayload) ([]byte, error) {
-// 	buf := new(bytes.Buffer)
-// 	if err := buf.WriteByte(payload.typeId); err != nil {
-// 		return nil, err
-// 	}
+	// Integers are serialized as their byte representation, padded to 32 bytes.
+	topic1 := common.BigToHash(spiLog.RewardEpochId)
 
-// 	submittedPayloadBytes, err := encodeSubmittedPayload(payload.message)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	log := &database.Log{
+		BaseEntity: database.BaseEntity{
+			ID: 1,
+		},
+		TransactionID:   1,
+		Address:         relayContractAddressHex,
+		Data:            hexData,
+		Topic0:          topicSPIHex,
+		Topic1:          topic1.Hex(),
+		Topic2:          "NULL", // NULL is required for unused topics.
+		Topic3:          "NULL",
+		TransactionHash: "0x" + strings.Repeat("ff", 32),
+		LogIndex:        0,
+		Timestamp:       0,
+	}
 
-// 	_, err = buf.Write(submittedPayloadBytes)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	// Sanity check that the log can be parsed.
+	relayContract, err := relay.NewRelay(relayContractAddress, nil)
+	if err != nil {
+		return nil, err
+	}
 
-// 	signature, err := signPayload(privateKey, submittedPayloadBytes)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	_, err = relayContract.RelayFilterer.ParseSigningPolicyInitialized(types.Log{
+		Data: packedData,
+		Topics: []common.Hash{
+			common.HexToHash(topicSPIHex),
+			topic1,
+		},
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "ParseSigningPolicyInitialized failed")
+	}
 
-// 	_, err = buf.Write(signature)
-// 	return buf.Bytes(), err
-// }
+	return log, nil
+}
 
-// func signPayload(privateKey *ecdsa.PrivateKey, submittedPayloadBytes []byte) ([]byte, error) {
-// 	hash := accounts.TextHash(crypto.Keccak256(submittedPayloadBytes))
+func encodePayload(item *submitSignaturesPayload) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if err := buf.WriteByte(item.typeID); err != nil {
+		return nil, err
+	}
 
-// 	signature, err := crypto.Sign(hash, privateKey)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	// include message only if type is 0
+	if item.typeID == 0 {
+		if _, err := buf.Write(item.message); err != nil {
+			return nil, err
+		}
+	}
 
-// 	logger.Info("signature: %x", signature)
+	if _, err := buf.Write(item.signature); err != nil {
+		return nil, err
+	}
 
-// 	// Signature is in the format [R | S | V], where V is 0 or 1.
-// 	// Need to transform to [V | R | S] where V is 27 or 28.
+	return buf.Bytes(), nil
+}
 
-// 	var retSignature [65]byte
-// 	retSignature[0] = signature[64] + 27
-// 	copy(retSignature[1:], signature[:64])
+func encodeForDB(item *submitSignaturesPayload) ([]byte, error) {
+	buf := new(bytes.Buffer)
 
-// 	return retSignature[:], nil
-// }
+	if _, err := buf.Write([]byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
+		return nil, err
+	}
 
-// func encodeSubmittedPayload(payload *submittedPayload) ([]byte, error) {
-// 	buf := new(bytes.Buffer)
-// 	if err := buf.WriteByte(payload.protocolId); err != nil {
-// 		return nil, err
-// 	}
+	if err := buf.WriteByte(item.protocolID); err != nil {
+		return nil, err
+	}
 
-// 	if err := binary.Write(buf, binary.BigEndian, payload.votingRoundId); err != nil {
-// 		return nil, err
-// 	}
+	if err := binary.Write(buf, binary.BigEndian, item.votingRoundID); err != nil {
+		return nil, err
+	}
 
-// 	if payload.randomQualityScore {
-// 		buf.WriteByte(1)
-// 	} else {
-// 		buf.WriteByte(0)
-// 	}
+	payload, err := encodePayload(item)
+	if err != nil {
+		return nil, err
+	}
 
-// 	_, err := buf.Write(payload.merkleRoot)
-// 	return buf.Bytes(), err
-// }
+	if err := binary.Write(buf, binary.BigEndian, uint16(len(payload))); err != nil {
+		return nil, err
+	}
+	if _, err := buf.Write(payload); err != nil {
+		return nil, err
+	}
 
-// func (db *testDB) FetchTransactionsByAddressAndSelector(
-// 	address common.Address, selector []byte, from, to int64,
-// ) ([]database.Transaction, error) {
-// 	db.mu.Lock()
-// 	defer db.mu.Unlock()
+	// if len(payloadBytes) < 104 {
+	// 	return nil, errors.Errorf("unexpected payload length %d", len(payloadBytes))
+	// }
 
-// 	db.fetchTxsCalls++
+	return buf.Bytes(), nil
+}
 
-// 	if db.fetchTxsErr != nil {
-// 		return nil, db.fetchTxsErr
-// 	}
+func signMessage(message []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
+	hash := accounts.TextHash(crypto.Keccak256(message))
+	signature, err := crypto.Sign(hash, privateKey)
+	if err != nil {
+		return nil, err
+	}
 
-// 	logger.Debug("fetching transactions from db: address=%s, selector=%x", address.Hex(), selector)
-// 	if address != submissionContractAddress {
-// 		return nil, errors.New("unknown address")
-// 	}
+	logger.Info("signature: %x", signature)
 
-// 	if db.submitterPayload == nil {
-// 		return nil, nil
-// 	}
+	// Signature is in the format [R | S | V], where V is 0 or 1.
+	// Need to transform to [V | R | S] where V is 27 or 28.
 
-// 	submitterPayloadHex := hex.EncodeToString(db.submitterPayload)
-// 	db.submitterPayload = nil
+	var retSignature [65]byte
+	retSignature[0] = signature[64] + 27
+	copy(retSignature[1:], signature[:64])
 
-// 	return []database.Transaction{{
-// 		Input: submitterPayloadHex,
-// 	}}, nil
-// }
+	return retSignature[:], nil
+}
 
-// func (db *testDB) FetchLogsByAddressAndTopic0(
-// 	address common.Address, topic string, from, to int64,
-// ) ([]database.Log, error) {
-// 	db.mu.Lock()
-// 	defer db.mu.Unlock()
+func encodeMessage(protocolID uint8, votingRoundID uint32, randomQualityScore bool, merkleRoot []byte) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if err := buf.WriteByte(protocolID); err != nil {
+		return nil, err
+	}
 
-// 	if db.fetchLogsErr != nil {
-// 		return nil, db.fetchLogsErr
-// 	}
+	if err := binary.Write(buf, binary.BigEndian, votingRoundID); err != nil {
+		return nil, err
+	}
 
-// 	logger.Debug("fetching logs from db: address=%s, topic=%s", address.Hex(), topic)
-// 	if topic != topicSPIHex {
-// 		return nil, errors.New("unknown topic")
-// 	}
+	if randomQualityScore {
+		buf.WriteByte(1)
+	} else {
+		buf.WriteByte(0)
+	}
 
-// 	if db.spiLog == nil {
-// 		return nil, nil
-// 	}
+	_, err := buf.Write(merkleRoot)
+	return buf.Bytes(), err
+}
 
-// 	log := *db.spiLog
-// 	db.spiLog = nil
-// 	return []database.Log{log}, nil
-// }
+func (db *testDB) FetchTransactionsByAddressAndSelector(
+	address common.Address, selector []byte, from, to int64,
+) ([]database.Transaction, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	db.fetchTxsCalls++
+
+	if db.fetchTxsErr != nil {
+		return nil, db.fetchTxsErr
+	}
+
+	logger.Debug("fetching transactions from db: address=%s, selector=%x", address.Hex(), selector)
+	if address != submissionContractAddress {
+		return nil, errors.New("unknown address")
+	}
+
+	if db.submitterPayload == nil {
+		return nil, nil
+	}
+
+	submitterPayloadHex := hex.EncodeToString(db.submitterPayload)
+
+	db.submitterPayload = nil
+
+	return []database.Transaction{{
+		Input: submitterPayloadHex,
+	}}, nil
+}
+
+func (db *testDB) FetchTransactionsByAddressAndSelectorFromBlockNumber(
+	address common.Address, selector []byte, fromBlockNum int64,
+) ([]database.Transaction, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	db.fetchTxsCalls++
+
+	if db.fetchTxsErr != nil {
+		return nil, db.fetchTxsErr
+	}
+
+	logger.Debug("fetching transactions from db: address=%s, selector=%x", address.Hex(), selector)
+	if address != submissionContractAddress {
+		return nil, errors.New("unknown address")
+	}
+
+	if db.submitterPayload == nil {
+		return nil, nil
+	}
+
+	submitterPayloadHex := hex.EncodeToString(db.submitterPayload)
+	db.submitterPayload = nil
+
+	return []database.Transaction{{
+		Input: submitterPayloadHex,
+	}}, nil
+}
+
+func (db *testDB) FetchLogsByAddressAndTopic0(
+	address common.Address, topic string, from, to int64,
+) ([]database.Log, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if db.fetchLogsErr != nil {
+		return nil, db.fetchLogsErr
+	}
+
+	logger.Debug("fetching logs from db: address=%s, topic=%s", address.Hex(), topic)
+	if topic != topicSPIHex {
+		return nil, errors.New("unknown topic")
+	}
+
+	if db.spiLog == nil {
+		return nil, nil
+	}
+
+	log := *db.spiLog
+	db.spiLog = nil
+
+	return []database.Log{log}, nil
+}
+
+func TestMain(m *testing.M) {
+	logger.Configure(config.LoggerConfig{
+		Level:   "DEBUG",
+		Console: true,
+	})
+
+	os.Exit(m.Run())
+}
+
+func TestFinalizerClientType0(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	clients, err := setupTest(0)
+	require.NoError(t, err)
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.Run(ctx)
+	})
+
+	require.Eventually(
+		t, clients.eth.hasAnyCalls, 10*time.Second, 100*time.Millisecond,
+	)
+
+	cancel()
+	err = eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Len(t, clients.eth.sentTxs, 1)
+
+	cupaloy.SnapshotT(t, clients.eth.sentTxs[0])
+}
+
+func TestFinalizerClientType1(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	clients, err := setupTest(1)
+	require.NoError(t, err)
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.Run(ctx)
+	})
+
+	require.Eventually(
+		t, clients.eth.hasAnyCalls, 10*time.Second, 100*time.Millisecond,
+	)
+
+	cancel()
+	err = eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Len(t, clients.eth.sentTxs, 1)
+
+	cupaloy.SnapshotT(t, clients.eth.sentTxs[0])
+}
+
+func TestFinalizerClientSendTxErr(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	clients, err := setupTest(0)
+	require.NoError(t, err)
+
+	clients.eth.sendTxErr = errors.New("sendRawTx error")
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.Run(ctx)
+	})
+
+	require.Eventually(
+		t, clients.eth.hasAnyCalls, 10*time.Second, 100*time.Millisecond,
+	)
+
+	cancel()
+	err = eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Empty(t, clients.eth.sentTxs)
+}
+
+func TestFinalizerClientFetchTxsErr(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	clients, err := setupTest(0)
+	require.NoError(t, err)
+
+	clients.db.fetchTxsErr = errors.New("fetchTxs error")
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.Run(ctx)
+	})
+
+	require.Eventually(
+		t, clients.db.hasAnyFetchTxsCalls, 10*time.Second, 100*time.Millisecond,
+	)
+
+	cancel()
+	err = eg.Wait()
+	require.True(t, errors.Is(err, context.Canceled), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Empty(t, clients.eth.sentTxs)
+}
+
+func TestFinalizerClientFetchLogsErr(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	clients, err := setupTest(0)
+	require.NoError(t, err)
+
+	clients.db.fetchLogsErr = errors.New("fetchLogs error")
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return clients.finalizer.Run(ctx)
+	})
+
+	err = eg.Wait()
+	require.True(t, errors.Is(err, clients.db.fetchLogsErr), "unexpected error: %v", err)
+
+	t.Logf("sent transactions: %d", len(clients.eth.sentTxs))
+	require.Empty(t, clients.eth.sentTxs)
+}

@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 )
@@ -182,5 +184,143 @@ func newSignatureSubmitter(
 		},
 		maxRounds:      submitCfg.MaxRounds,
 		messageChannel: messageChannel,
+	}
+}
+
+// WritePayload encodes payload to buffer.
+// Payload data should be valid (data length 38, additional data length <= maxuint16 - 66)
+func (s *SignatureSubmitter) WritePayload(
+	buffer *bytes.Buffer, currentEpoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
+) error {
+	var dataLength int
+	switch protocolType {
+	case 0:
+		dataLength = 104
+	case 1:
+		dataLength = 66
+	default:
+		return errors.New("unrecognized protocol type")
+	}
+
+	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
+	signature, err := crypto.Sign(dataHash, s.protocolContext.signerPrivateKey)
+	if err != nil {
+		return errors.Wrap(err, "error signing submitSignatures data")
+	}
+
+	epochBytes := shared.Uint32toBytes(uint32(currentEpoch - 1))
+	lengthBytes := shared.Uint16toBytes(uint16(dataLength + len(data.AdditionalData)))
+
+	err = buffer.WriteByte(protocolID) // Protocol ID (1 byte)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+	_, err = buffer.Write(epochBytes[:]) // Epoch (4 bytes)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+
+	_, err = buffer.Write(lengthBytes[:]) // Length (2 bytes)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+
+	err = buffer.WriteByte(protocolType) // Type (1 byte)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+	if protocolType == 0 {
+		n, err := buffer.Write(data.Data) // Message (38 bytes)
+		if err != nil {
+			return errors.Wrap(err, "error writing Payload")
+		}
+		if n != 38 {
+			return errors.New("message not 38 bytes")
+		}
+	}
+
+	err = buffer.WriteByte(signature[64] + 27) // V (1 byte)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+	_, err = buffer.Write(signature[0:32]) // R (32 bytes)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+	_, err = buffer.Write(signature[32:64]) // S (32 bytes)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+
+	_, err = buffer.Write(data.AdditionalData)
+	if err != nil {
+		return errors.Wrap(err, "error writing Payload")
+	}
+
+	return nil
+}
+
+// RunEpoch gets the submitSignature messages from the subprotocols providers.
+//  1. run every sub-protocol provider with delay of 1 second at most five times.
+//  2. repeat 1 for each sub-protocol provider not giving valid answer.
+//
+// Repeat 1 and 2 until all sub-protocol providers give valid answer or we did maxRounds attempts.
+func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
+	logger.Info("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
+
+	protocolsToSend := make(map[int]bool)
+	for i := range s.subProtocols {
+		protocolsToSend[i] = true
+	}
+	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
+	for i := 0; i < s.maxRounds && len(protocolsToSend) > 0; i++ {
+		for i, protocol := range s.subProtocols {
+			if !protocolsToSend[i] {
+				continue
+			}
+			channels[i] = protocol.getDataWithRetry(
+				currentEpoch-1,
+				"submitSignatures",
+				s.protocolContext.submitSignaturesAddress.Hex(),
+				s.dataFetchRetries,
+				s.dataFetchTimeout,
+				SignatureSubmitterDataVerifier,
+			)
+		}
+
+		protocolsSent := []int{}
+
+		buffer := bytes.NewBuffer(nil)
+		buffer.Write(s.selector)
+		for i := range s.subProtocols {
+			if !protocolsToSend[i] {
+				continue
+			}
+
+			data := <-channels[i]
+			if !data.Success {
+				logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
+				continue
+			}
+			err := s.WritePayload(buffer, currentEpoch, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
+			if err != nil {
+				logger.Error("Error writing payload for submitter %s: %v", s.name, err)
+				continue
+			}
+
+			// send message to finalizer
+			s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
+
+			protocolsSent = append(protocolsSent, i)
+		}
+		if len(protocolsSent) > 0 {
+			if s.submit(buffer.Bytes()) {
+				for _, i := range protocolsSent {
+					delete(protocolsToSend, i)
+				}
+			}
+		} else {
+			logger.Info("Submitter %s did not get any new data", s.name)
+		}
 	}
 }

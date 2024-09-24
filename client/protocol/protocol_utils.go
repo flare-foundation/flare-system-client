@@ -24,6 +24,7 @@ type SubProtocol struct {
 	ID          uint8
 	ApiEndpoint string
 	XApiKey     string
+	Type        uint8
 }
 
 type SubProtocolResponse struct {
@@ -43,6 +44,7 @@ func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 		ID:          config.ID,
 		ApiEndpoint: config.ApiEndpoint,
 		XApiKey:     config.XApiKey(),
+		Type:        config.Type,
 	}
 }
 

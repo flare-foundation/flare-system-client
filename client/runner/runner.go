@@ -45,7 +45,7 @@ func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientConte
 	if err != nil {
 		logger.Fatal("Error creating protocol client: %v", err)
 	}
-	finalizerClient, err := finalizer.NewFinalizerClientV2(clientCtx, messageChannel)
+	finalizerClient, err := finalizer.NewFinalizerClient(clientCtx, messageChannel)
 	if err != nil {
 		logger.Fatal("Error creating finalizer client: %v", err)
 	}
