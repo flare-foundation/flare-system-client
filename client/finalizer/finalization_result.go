@@ -5,6 +5,7 @@ import (
 	"flare-fsc/client/shared"
 	"fmt"
 	"math"
+	"slices"
 )
 
 type FinalizationResult struct {
@@ -16,6 +17,45 @@ type FinalizationResult struct {
 type IndexedSignature struct {
 	index     int
 	signature []byte
+}
+
+// PrepareFinalizationResults returns the message and signatures that are needed to construct the transaction input that is needed for the finalization.
+//
+// The signatures are chosen in a way to minimize the number of signatures needed for finalization.
+func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, error) {
+	availableSignatures := []IndexedSignature{}
+	selectedSignatures := []IndexedSignature{}
+
+	for i := range sc.signatures {
+		if len(sc.signatures[i]) > 0 {
+			availableSignatures = append(availableSignatures, IndexedSignature{index: i, signature: sc.signatures[i]})
+		}
+	}
+
+	// sort decreasing by weight
+	slices.SortFunc(availableSignatures, func(a, b IndexedSignature) int {
+		return int(sc.signingPolicy.voters.VoterWeight(b.index)) - int(sc.signingPolicy.voters.VoterWeight(a.index))
+	})
+
+	// greedy select until threshold is reached
+	weight := uint16(0)
+	for i := range availableSignatures {
+		selectedSignatures = append(selectedSignatures, availableSignatures[i])
+		weight += sc.signingPolicy.voters.VoterWeight(availableSignatures[i].index)
+		if weight > sc.signingPolicy.threshold {
+			break
+		}
+	}
+	if weight <= sc.signingPolicy.threshold {
+		return FinalizationResult{}, fmt.Errorf("threshold not reached")
+	}
+
+	// sort selected payloads by index
+	slices.SortFunc(selectedSignatures, func(p, q IndexedSignature) int {
+		return p.index - q.index
+	})
+
+	return FinalizationResult{message: sc.message, signatures: selectedSignatures, signingPolicy: sc.signingPolicy}, nil
 }
 
 // PrepareFinalizationTxInput prepares a tx input needed to finalize.

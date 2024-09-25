@@ -178,7 +178,7 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		return
 	}
 
-	finalizationData, err := data.PrepareFinalizationResults()
+	finalizationData, err := PrepareFinalizationResults(data)
 	if err != nil {
 		logger.Warn("finalization data preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return

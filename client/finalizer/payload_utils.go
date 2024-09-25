@@ -51,7 +51,7 @@ func ExtractPayloads(data []byte) ([]payloadMessage, error) {
 	return messages, nil
 }
 
-// submitSignaturesPayload is a specialized structure used only in submitSignatures calls to the chain
+// submitSignaturesPayload is a specialized structure used in submitSignatures calls to the chain
 type submitSignaturesPayload struct {
 	protocolID    uint8
 	votingRoundID uint32

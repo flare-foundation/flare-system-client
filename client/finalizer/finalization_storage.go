@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/slices"
 )
 
 type signaturesCollection struct {
@@ -218,45 +217,6 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	return FinalizationReady{thresholdReached: false}, nil
 }
 
-// PrepareFinalizationResults returns the message and signatures that are needed to construct the transaction input that is needed for the finalization.
-//
-// The signatures are chosen in a way to minimize the number of signatures needed for finalization.
-func (sc *signaturesCollection) PrepareFinalizationResults() (FinalizationResult, error) {
-	availableSignatures := []IndexedSignature{}
-	selectedSignatures := []IndexedSignature{}
-
-	for i := range sc.signatures {
-		if len(sc.signatures[i]) > 0 {
-			availableSignatures = append(availableSignatures, IndexedSignature{index: i, signature: sc.signatures[i]})
-		}
-	}
-
-	// sort decreasing by weight
-	slices.SortFunc(availableSignatures, func(a, b IndexedSignature) int {
-		return int(sc.signingPolicy.voters.VoterWeight(b.index)) - int(sc.signingPolicy.voters.VoterWeight(a.index))
-	})
-
-	// greedy select until threshold is reached
-	weight := uint16(0)
-	for i := range availableSignatures {
-		selectedSignatures = append(selectedSignatures, availableSignatures[i])
-		weight += sc.signingPolicy.voters.VoterWeight(availableSignatures[i].index)
-		if weight > sc.signingPolicy.threshold {
-			break
-		}
-	}
-	if weight <= sc.signingPolicy.threshold {
-		return FinalizationResult{}, fmt.Errorf("threshold not reached")
-	}
-
-	// sort selected payloads by index
-	slices.SortFunc(selectedSignatures, func(p, q IndexedSignature) int {
-		return p.index - q.index
-	})
-
-	return FinalizationResult{message: sc.message, signatures: selectedSignatures, signingPolicy: sc.signingPolicy}, nil
-}
-
 // Get returns the signatureCollection for votingRoundID and protocolID.
 // A boolean inductor of existence is also returned.
 func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
@@ -278,11 +238,6 @@ func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHa
 	}
 
 	return sigCollection, true
-}
-
-type submissionListenerResponse struct {
-	payloads  []*submitSignaturesPayload
-	timestamp int64
 }
 
 // RemoveRoundsBefore deletes rounds before votingRoundID.

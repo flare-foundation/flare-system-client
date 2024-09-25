@@ -14,6 +14,11 @@ type submittionProcessor interface {
 	ProcessTransaction(database.Transaction) error
 }
 
+type submissionListenerResponse struct {
+	payloads  []*submitSignaturesPayload
+	timestamp int64
+}
+
 // We use finalizerClient itself as a submissionProcessor.
 func (c *finalizerClient) ProcessSubmissionData(slr submissionListenerResponse) error {
 	for _, payloadItem := range slr.payloads {
