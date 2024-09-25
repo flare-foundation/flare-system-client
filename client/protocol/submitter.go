@@ -239,15 +239,10 @@ func (s *SignatureSubmitter) WritePayload(
 		}
 	}
 
-	err = buffer.WriteByte(signature[64] + 27) // V (1 byte)
-	if err != nil {
-		return errors.Wrap(err, "error writing Payload")
+	if len(signature) != 65 {
+		return errors.New("signature sanity check, this should not happen")
 	}
-	_, err = buffer.Write(signature[0:32]) // R (32 bytes)
-	if err != nil {
-		return errors.Wrap(err, "error writing Payload")
-	}
-	_, err = buffer.Write(signature[32:64]) // S (32 bytes)
+	_, err = buffer.Write(utils.TransformSignatureRSVtoVRS(signature))
 	if err != nil {
 		return errors.Wrap(err, "error writing Payload")
 	}

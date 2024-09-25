@@ -3,6 +3,7 @@ package finalizer
 import (
 	"context"
 	"flare-fsc/client/shared"
+	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/submission"
 	"time"
@@ -10,21 +11,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type submissionContractClient struct {
+type submissionListener struct {
 	address common.Address
 }
 
-func NewSubmissionContractClient(address common.Address) *submissionContractClient {
-	return &submissionContractClient{
+func NewSubmissionListener(address common.Address) *submissionListener {
+	return &submissionListener{
 		address: address,
 	}
 }
 
-func (s *submissionContractClient) SubmissionTxListener(
+func (s *submissionListener) SubmissionTxListen(
 	ctx context.Context,
 	db finalizerDB,
 	startTime time.Time,
-	processor submitterProcessor,
+	processor submittionProcessor,
 ) error {
 	submissionABI, err := submission.SubmissionMetaData.GetAbi()
 	if err != nil {
@@ -33,14 +34,26 @@ func (s *submissionContractClient) SubmissionTxListener(
 	}
 
 	selector := submissionABI.Methods["submitSignatures"].ID
-	ticker := time.NewTicker(shared.ListenerInterval)
-
-	txs, err := db.FetchTransactionsByAddressAndSelector(s.address, selector, startTime.Unix(), time.Now().Unix())
-	if err != nil {
-		logger.Error("Error fetching transactions %v", err)
-	}
-
 	lastBlockChecked := uint64(0)
+	var txs []database.Transaction
+
+	ticker := time.NewTicker(shared.ListenerInterval)
+	// a for loop to guarantee to get at least one transaction
+	for {
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			logger.Info("Submission tx listener stopped")
+			return ctx.Err()
+		}
+		txs, err = db.FetchTransactionsByAddressAndSelector(s.address, selector, startTime.Unix(), time.Now().Unix())
+		if err != nil {
+			logger.Error("Error fetching transactions %v", err)
+		}
+		if len(txs) > 0 {
+			break
+		}
+	}
 
 	for _, tx := range txs {
 		err := processor.ProcessTransaction(tx)
@@ -53,6 +66,7 @@ func (s *submissionContractClient) SubmissionTxListener(
 		}
 	}
 
+	ticker = time.NewTicker(shared.ListenerInterval)
 	for {
 		select {
 		case <-ticker.C:

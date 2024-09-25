@@ -2,7 +2,6 @@ package finalizer
 
 import (
 	"flare-fsc/client/shared"
-	"flare-fsc/database"
 	"flare-fsc/logger"
 	"fmt"
 	"sync"
@@ -304,11 +303,4 @@ func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
 
 		fs.lowestRoundStored = votingRoundID + 1
 	}
-}
-
-type submitterProcessor interface {
-	// Return error if the submission was not processed and needs a retry
-	// Should be able to handle duplicates
-	ProcessSubmissionData(submissionListenerResponse) error
-	ProcessTransaction(database.Transaction) error
 }

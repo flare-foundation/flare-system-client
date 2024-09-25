@@ -75,3 +75,28 @@ func Hex20ToBytes20(str string) (result [20]byte, err error) {
 	copy(result[:], strBytes)
 	return
 }
+
+// Transform signature to be used by go-ethereum crypto.SigToPub:
+// transforms [V || R || S] to [R || S || V - 27]
+// No checks are performed, we assume that signature array has length 65
+func TransformSignatureVRStoRSV(vrs []byte) (rsv []byte) {
+	rsv = make([]byte, 65)
+
+	copy(rsv[:], vrs[1:33])
+	copy(rsv[32:], vrs[33:65])
+	rsv[64] = vrs[0] - 27
+
+	return rsv
+}
+
+// Transform signature transforms [R || S || V - 27] to [V || R || S].
+// No checks are performed, we assume that signature array has length 65
+func TransformSignatureRSVtoVRS(rsv []byte) (vrs []byte) {
+	vrs = make([]byte, 65)
+
+	vrs[0] = rsv[64] + 27
+	copy(vrs[1:], rsv[0:32])
+	copy(vrs[33:], rsv[32:64])
+
+	return vrs
+}

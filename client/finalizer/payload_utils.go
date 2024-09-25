@@ -5,12 +5,14 @@ import (
 	"errors"
 	"flare-fsc/client/shared"
 	"flare-fsc/client/shared/voters"
+	"flare-fsc/utils"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+// payloadMessage is a general structure that is used in the submit calls to the chain
 type payloadMessage struct {
 	protocolID    uint8
 	votingRoundID uint32
@@ -26,14 +28,10 @@ func ExtractPayloads(data []byte) ([]payloadMessage, error) {
 			return nil, errors.New("wrongly formatted tx input, too short")
 		}
 
-		protocol := data[0] // 1 byte protocol ID
-
+		protocol := data[0]                               // 1 byte protocol ID
 		votingRound := binary.BigEndian.Uint32(data[1:5]) // 4 bytes votingRoundID
-
-		length := binary.BigEndian.Uint16(data[5:7]) // 2 bytes length of payload in bytes
-
+		length := binary.BigEndian.Uint16(data[5:7])      // 2 bytes length of payload in bytes
 		end := 7 + length
-
 		if len(data) < int(end) {
 			return nil, errors.New("wrongly formatted tx input")
 		}
@@ -45,14 +43,15 @@ func ExtractPayloads(data []byte) ([]payloadMessage, error) {
 			votingRoundID: votingRound,
 			payload:       payload,
 		}
-
 		messages = append(messages, message)
 
 		data = data[end:] // trim the extracted payload
 	}
+
 	return messages, nil
 }
 
+// submitSignaturesPayload is a specialized structure used only in submitSignatures calls to the chain
 type submitSignaturesPayload struct {
 	protocolID    uint8
 	votingRoundID uint32
@@ -67,7 +66,7 @@ type submitSignaturesPayload struct {
 	message shared.Message // only if type 0
 }
 
-func decodeSignedPayload(payloadMsg payloadMessage) (submitSignaturesPayload, error) {
+func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) error {
 	typeID := payloadMsg.payload[0]
 
 	var signatureStart, signatureEnd int
@@ -80,35 +79,32 @@ func decodeSignedPayload(payloadMsg payloadMessage) (submitSignaturesPayload, er
 		signatureStart = 1
 		signatureEnd = signatureStart + 1 + 2*32
 	default:
-		return submitSignaturesPayload{}, fmt.Errorf("invalid typeID %d", typeID)
+		return fmt.Errorf("invalid typeID %d", typeID)
 	}
 
 	if len(payloadMsg.payload) < signatureEnd {
-		return submitSignaturesPayload{}, fmt.Errorf("payload of type %d to short got %d, should be at least %d", typeID, len(payloadMsg.payload), signatureEnd)
+		return fmt.Errorf("payload of type %d to short got %d, should be at least %d", typeID, len(payloadMsg.payload), signatureEnd)
 	}
 
 	signature := payloadMsg.payload[signatureStart:signatureEnd]
 
-	signedPayload := submitSignaturesPayload{
-		protocolID:    payloadMsg.protocolID,
-		votingRoundID: payloadMsg.votingRoundID,
-		typeID:        typeID,
-		signature:     signature,
-
-		voterIndex: -1, // 0 is a valid index, we use -1 before assigning the proper value
-	}
+	s.protocolID = payloadMsg.protocolID
+	s.votingRoundID = payloadMsg.votingRoundID
+	s.typeID = typeID
+	s.signature = signature
+	s.voterIndex = -1 // 0 is a valid index, we use -1 before assigning the proper value
 
 	if typeID == 0 {
-		signedPayload.message = payloadMsg.payload[1:39]
+		s.message = payloadMsg.payload[1:39]
 	}
 
-	return signedPayload, nil
+	return nil
 }
 
 func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.VoterSet) error {
-	transformedSignature := transformSignature(pld.signature)
+	transformedSignature := utils.TransformSignatureVRStoRSV(pld.signature)
 
-	pk, err := crypto.SigToPub(messageHash, transformedSignature[:])
+	pk, err := crypto.SigToPub(messageHash, transformedSignature)
 	if err != nil {
 
 		fmt.Printf("err: %v\n", err)
@@ -125,14 +121,4 @@ func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *vote
 	pld.weight = voterSet.VoterWeight(pld.voterIndex)
 
 	return nil
-}
-
-// Transform signature to be used by go-ethereum crypto.SigToPub:
-// transforms [V || R || S] to [R || S || V - 27]
-// No checks are performed, we assume that signature array has length 65
-func transformSignature(signature []byte) (RSV [65]byte) {
-	copy(RSV[:], signature[1:33])
-	copy(RSV[32:], signature[33:65])
-	RSV[64] = signature[0] - 27
-	return RSV
 }
