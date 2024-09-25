@@ -67,7 +67,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 	// prepare mocked DB with:
 	// - a log entry emitting a policy in which the voter address has a majority
 	// - a transaction having a submitSignature entry with that address
-	db, err := newTestDB(item, fromAddress, protocolType)
+	db, err := newTestDB(item, fromAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ type testDB struct {
 	submitterPayload []byte
 }
 
-func newTestDB(item submitSignaturesPayload, voterAddress common.Address, protocolType uint8) (*testDB, error) {
+func newTestDB(item submitSignaturesPayload, voterAddress common.Address) (*testDB, error) {
 	spiLog, err := newSPILog(voterAddress)
 	if err != nil {
 		return nil, err
