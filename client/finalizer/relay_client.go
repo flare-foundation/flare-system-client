@@ -47,7 +47,7 @@ type relayEthClientImpl struct {
 }
 
 func (eth relayEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, dryRun bool) error {
-	return chain.SendRawTx(eth.client, privateKey, to, data, dryRun, &config.GasConfig{GasPriceFixed: common.Big0})
+	return chain.SendRawType2Tx(eth.client, privateKey, to, data, dryRun, &config.GasConfig{GasPriceFixed: common.Big0})
 }
 
 type signingPolicyListenerResponse struct {

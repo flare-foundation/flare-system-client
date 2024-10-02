@@ -46,7 +46,7 @@ type submitterEthClientImpl struct {
 }
 
 func (c submitterEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *config.GasConfig) error {
-	return chain.SendRawTx(c.ethClient, privateKey, to, payload, true, gasConfig)
+	return chain.SendRawType2Tx(c.ethClient, privateKey, to, payload, true, gasConfig)
 }
 
 type Submitter struct {

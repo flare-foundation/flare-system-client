@@ -112,6 +112,8 @@ type GasConfig struct {
 	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
 	GasLimit           int      `toml:"gas_limit"`
+
+	MaxPriorityFeePerGas *big.Int `toml:"max_priority_fee_per_gas"`
 }
 
 type UptimeConfig struct {

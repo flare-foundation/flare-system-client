@@ -50,7 +50,7 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 		return FinalizationResult{}, fmt.Errorf("threshold not reached")
 	}
 
-	// sort selected payloads by index
+	// sort selected by index
 	slices.SortFunc(selectedSignatures, func(p, q IndexedSignature) int {
 		return p.index - q.index
 	})
@@ -58,7 +58,7 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 	return FinalizationResult{message: sc.message, signatures: selectedSignatures, signingPolicy: sc.signingPolicy}, nil
 }
 
-// PrepareFinalizationTxInput prepares a tx input needed to finalize.
+// PrepareFinalizationTxInput prepares a transaction input needed to finalize.
 func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(relayFunctionSelector)
@@ -75,7 +75,7 @@ func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// encodeSignatures encodes indexed signature to be used in the finalization transaction.
+// encodeSignatures encodes indexed signature to be used in the finalization transaction input.
 // Signatures should be ordered by the indexes of their providers.
 func encodeSignatures(signatures []IndexedSignature) ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)

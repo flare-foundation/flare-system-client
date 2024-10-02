@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-type submittionProcessor interface {
+type submissionProcessor interface {
 	// Return error if the submission was not processed and needs a retry
 	// Should be able to handle duplicates
 	ProcessSubmissionData(submissionListenerResponse) error

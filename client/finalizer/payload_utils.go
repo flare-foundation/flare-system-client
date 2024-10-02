@@ -12,13 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// payloadMessage is a general structure that is used in the submit calls to the chain
+// payloadMessage is a general structure that is used in the submit calls to the chain.
 type payloadMessage struct {
 	protocolID    uint8
 	votingRoundID uint32
 	payload       []byte
 }
 
+// ExtractPayloads extracts payloads from a transaction input to submission contracts and returns a slice of payloadMessages.
 func ExtractPayloads(data []byte) ([]payloadMessage, error) {
 	messages := []payloadMessage{}
 
@@ -51,7 +52,7 @@ func ExtractPayloads(data []byte) ([]payloadMessage, error) {
 	return messages, nil
 }
 
-// submitSignaturesPayload is a specialized structure used in submitSignatures calls to the chain
+// submitSignaturesPayload is a specialized structure used in submitSignatures calls to the chain.
 type submitSignaturesPayload struct {
 	protocolID    uint8
 	votingRoundID uint32
@@ -101,6 +102,7 @@ func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) e
 	return nil
 }
 
+// AddSigner calculates the public key of the signer from the signature and messageHash and adds its voterIndex and weight (if the signer is in the votingSet) to the submitSignaturesPayload.
 func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.VoterSet) error {
 	transformedSignature := utils.TransformSignatureVRStoRSV(pld.signature)
 

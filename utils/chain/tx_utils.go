@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -84,6 +85,93 @@ func unpackError(result []byte) (string, error) {
 	return vs[0].(string), nil
 }
 
+func baseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
+	var result hexutil.Big
+	err := client.Client().CallContext(ctx, &result, "eth_baseFee")
+	return (*big.Int)(&result), err
+
+}
+
+// SendRawTypeTx prepares and sends EIP-1559 transaction.
+func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.GasConfig) error {
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	nonce, err := client.NonceAt(context.Background(), fromAddress, nil)
+	if err != nil {
+		return err
+	}
+
+	value := big.NewInt(0) // in wei (1 eth)
+
+	if dryRun {
+		err = dryRunTx(client, fromAddress, toAddress, value, data)
+		if err != nil {
+			return errors.Wrap(err, "dry run failed")
+		}
+	}
+
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		return err
+	}
+
+	gasLimit := getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
+
+	baseFeePerGas, err := baseFee(context.Background(), client)
+
+	if err != nil {
+		logger.Debug("ERROR, %v", err)
+		return err
+	}
+
+	gasFeeCap := baseFeePerGas.Mul(baseFeePerGas, big.NewInt(3)).Add(baseFeePerGas, gasConfig.MaxPriorityFeePerGas)
+
+	txData := types.DynamicFeeTx{
+		ChainID:   chainID,
+		Nonce:     nonce,
+		GasTipCap: gasConfig.MaxPriorityFeePerGas,
+		GasFeeCap: gasFeeCap,
+		Gas:       gasLimit,
+		To:        &toAddress,
+		Value:     value,
+		Data:      data,
+	}
+
+	tx := types.NewTx(&txData)
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("Sending signed tx: %s", signedTx.Hash().Hex())
+	err = client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		return err
+	}
+
+	verifier := NewTxVerifier(client)
+
+	logger.Debug("Waiting for tx to be mined...")
+	err = verifier.WaitUntilMined(fromAddress, signedTx, DefaultTxTimeout)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("Tx mined, getting receipt %s", signedTx.Hash().Hex())
+	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
+	if err != nil {
+		return err
+	}
+	logger.Debug("Receipt status: %v", rec.Status)
+	return nil
+}
+
+// SendRawTx prepares and sends legacy transaction.
 func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.GasConfig) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)

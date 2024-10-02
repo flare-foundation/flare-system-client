@@ -25,7 +25,7 @@ func (s *submissionListener) SubmissionTxListen(
 	ctx context.Context,
 	db finalizerDB,
 	startTime time.Time,
-	processor submittionProcessor,
+	processor submissionProcessor,
 ) error {
 	submissionABI, err := submission.SubmissionMetaData.GetAbi()
 	if err != nil {
