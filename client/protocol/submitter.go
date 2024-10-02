@@ -9,6 +9,8 @@ import (
 	"flare-tlc/utils"
 	"flare-tlc/utils/chain"
 	"fmt"
+	"math"
+	"math/big"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -48,7 +50,7 @@ type submitterEthClientImpl struct {
 }
 
 func (c submitterEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *config.GasConfig) error {
-	return chain.SendRawTx(c.ethClient, privateKey, to, payload, true, gasConfig)
+	return chain.SendRawTx(c.ethClient, privateKey, to, payload, false, gasConfig)
 }
 
 type Submitter struct {
@@ -64,8 +66,9 @@ type SignatureSubmitter struct {
 }
 
 func (s *SubmitterBase) submit(payload []byte) bool {
-	sendResult := <-shared.ExecuteWithRetry(func() (any, error) {
-		err := s.ethClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
+	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (any, error) {
+		gasConfig := gasConfigForAttempt(s.gasConfig, ri)
+		err := s.ethClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, gasConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
@@ -268,4 +271,23 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 			logger.Info("Submitter %s did not get any new data", s.name)
 		}
 	}
+}
+
+// gasConfigForAttempt bumps up the gas price multiplier (or fixed value if set) for each retry attempt by 50%,
+// up to a maximum of 10x the original value.
+func gasConfigForAttempt(cfg *config.GasConfig, ri int) *config.GasConfig {
+	retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
+
+	return &config.GasConfig{
+		GasPriceFixed:      bigIntTimesFloat(cfg.GasPriceFixed, retryMultiplier),
+		GasPriceMultiplier: cfg.GasPriceMultiplier * float32(retryMultiplier),
+		GasLimit:           cfg.GasLimit,
+	}
+}
+
+func bigIntTimesFloat(bi *big.Int, f float64) *big.Int {
+	fBigInt := big.NewInt(int64(f * 100))
+	result := new(big.Int).Mul(bi, fBigInt)
+	result.Div(result, big.NewInt(100))
+	return result
 }

@@ -187,5 +187,8 @@ func validateGasConfig(cfg *GasConfig) error {
 	if cfg.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.GasPriceMultiplier != 0.0 {
 		return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value")
 	}
+	if cfg.GasPriceMultiplier != 0.0 && cfg.GasPriceMultiplier < 1 {
+		return errors.New("if set, gas_price_multiplier value cannot be less than 1")
+	}
 	return nil
 }
