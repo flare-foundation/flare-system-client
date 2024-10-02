@@ -22,8 +22,9 @@ import (
 
 const (
 	// default timeout for waiting for a tx to be mined.
-	DefaultTxTimeout = 60 * time.Second
-	DefaultGasLimit  = 2_500_000
+	DefaultTxTimeout    = 60 * time.Second
+	DefaultGasLimit     = 2_500_000
+	DefaultTipPerGasCap = 20_000_000_000 //20 GWei
 )
 
 type TxVerifier struct {
@@ -89,7 +90,6 @@ func baseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	var result hexutil.Big
 	err := client.Client().CallContext(ctx, &result, "eth_baseFee")
 	return (*big.Int)(&result), err
-
 }
 
 // SendRawTypeTx prepares and sends EIP-1559 transaction.
@@ -123,13 +123,19 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	gasLimit := getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
 
 	baseFeePerGas, err := baseFee(context.Background(), client)
-
 	if err != nil {
 		logger.Debug("ERROR, %v", err)
 		return err
 	}
 
-	gasFeeCap := baseFeePerGas.Mul(baseFeePerGas, big.NewInt(3)).Add(baseFeePerGas, gasConfig.MaxPriorityFeePerGas)
+	gasFeeCap := baseFeePerGas.Mul(baseFeePerGas, big.NewInt(3))
+
+	tipCap := big.NewInt(DefaultTipPerGasCap)
+	if gasConfig.MaxPriorityFeePerGas != nil {
+		tipCap = gasConfig.MaxPriorityFeePerGas
+	}
+
+	gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
 
 	txData := types.DynamicFeeTx{
 		ChainID:   chainID,
