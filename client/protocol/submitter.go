@@ -74,7 +74,7 @@ func (s *SubmitterBase) submit(payload []byte) bool {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
 		return nil, nil
-	}, s.submitRetries, shared.TxRetryInterval)
+	}, s.submitRetries, 1*time.Second)
 	if sendResult.Success {
 		logger.Info("Submitter %s successfully sent tx", s.name)
 	}
