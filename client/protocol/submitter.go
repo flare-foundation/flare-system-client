@@ -68,6 +68,7 @@ type SignatureSubmitter struct {
 func (s *SubmitterBase) submit(payload []byte) bool {
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (any, error) {
 		gasConfig := gasConfigForAttempt(s.gasConfig, ri)
+		logger.Debug("[Attempt %d] Submitter %s sending tx with gas config: %+v", ri, s.name, gasConfig)
 		err := s.ethClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, gasConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))

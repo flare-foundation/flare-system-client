@@ -108,12 +108,6 @@ type FinalizerConfig struct {
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 
-var defaultGasConfig = GasConfig{
-	GasPriceMultiplier: 0,
-	GasPriceFixed:      common.Big0,
-	GasLimit:           0,
-}
-
 type GasConfig struct {
 	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
@@ -143,8 +137,8 @@ func newConfig() *ClientConfig {
 		SubmitSignatures: SubmitSignaturesConfig{
 			SubmitConfig: defaultSubmitConfig,
 		},
-		SubmitGas:   defaultGasConfig,
-		RegisterGas: defaultGasConfig,
+		SubmitGas:   GasConfig{GasPriceFixed: big.NewInt(0)},
+		RegisterGas: GasConfig{GasPriceFixed: big.NewInt(0)},
 		Uptime: UptimeConfig{
 			SigningWindow: 2,
 		},
