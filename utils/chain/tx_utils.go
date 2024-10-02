@@ -143,7 +143,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	}
 
 	tx := types.NewTx(&txData)
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), privateKey)
 	if err != nil {
 		return err
 	}
