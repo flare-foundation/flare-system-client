@@ -64,6 +64,8 @@ type CredentialsConfig struct {
 
 var defaultSubmitConfig = SubmitConfig{
 	Enabled:          true,
+	TxSubmitRetries:  1,
+	TxSubmitTimeout:  5 * time.Second,
 	DataFetchRetries: 1,
 	DataFetchTimeout: 5 * time.Second,
 }
@@ -72,6 +74,7 @@ type SubmitConfig struct {
 	Enabled          bool          `toml:"enabled"`
 	StartOffset      time.Duration `toml:"start_offset"` // offset from the start of the epoch
 	TxSubmitRetries  int           `toml:"tx_submit_retries"`
+	TxSubmitTimeout  time.Duration `toml:"tx_submit_timeout"`
 	DataFetchRetries int           `toml:"data_fetch_retries"`
 	DataFetchTimeout time.Duration `toml:"data_fetch_timeout"`
 }

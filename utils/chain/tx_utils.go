@@ -84,7 +84,7 @@ func unpackError(result []byte) (string, error) {
 	return vs[0].(string), nil
 }
 
-func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.GasConfig) error {
+func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.GasConfig, timeout time.Duration) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -133,7 +133,7 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	verifier := NewTxVerifier(client)
 
 	logger.Debug("Waiting for tx to be mined...")
-	err = verifier.WaitUntilMined(fromAddress, signedTx, 5*time.Second)
+	err = verifier.WaitUntilMined(fromAddress, signedTx, timeout)
 	if err != nil {
 		return err
 	}
