@@ -10,7 +10,6 @@ import (
 	"flare-tlc/utils/chain"
 	"fmt"
 	"math"
-	"math/big"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -69,7 +68,7 @@ type SignatureSubmitter struct {
 func (s *SubmitterBase) submit(payload []byte) bool {
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (any, error) {
 		gasConfig := gasConfigForAttempt(s.gasConfig, ri)
-		logger.Debug("[Attempt %d] Submitter %s sending tx with gas config: %+v", ri, s.name, gasConfig)
+		logger.Debug("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
 		err := s.ethClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, gasConfig, s.submitTimeout)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
@@ -182,6 +181,7 @@ func newSignatureSubmitter(
 			selector:         selector,
 			subProtocols:     subProtocols,
 			submitRetries:    max(1, submitCfg.TxSubmitRetries),
+			submitTimeout:    max(1*time.Second, submitCfg.TxSubmitTimeout),
 			name:             "submitSignatures",
 			submitPrivateKey: pc.submitSignaturesPrivateKey,
 			dataFetchTimeout: submitCfg.DataFetchTimeout,
@@ -276,21 +276,16 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 	}
 }
 
-// gasConfigForAttempt bumps up the gas price multiplier (or fixed value if set) for each retry attempt by 50%,
+// gasConfigForAttempt bumps up the gas price multiplier for each retry attempt by 50%,
 // up to a maximum of 10x the original value.
+//
+// Note: If GasPriceFixed is used, the retry multiplier will not be applied.
 func gasConfigForAttempt(cfg *config.GasConfig, ri int) *config.GasConfig {
 	retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
 
 	return &config.GasConfig{
-		GasPriceFixed:      bigIntTimesFloat(cfg.GasPriceFixed, retryMultiplier),
-		GasPriceMultiplier: cfg.GasPriceMultiplier * float32(retryMultiplier),
+		GasPriceMultiplier: max(1.0, cfg.GasPriceMultiplier) * float32(retryMultiplier),
+		GasPriceFixed:      cfg.GasPriceFixed,
 		GasLimit:           cfg.GasLimit,
 	}
-}
-
-func bigIntTimesFloat(bi *big.Int, f float64) *big.Int {
-	fBigInt := big.NewInt(int64(f * 100))
-	result := new(big.Int).Mul(bi, fBigInt)
-	result.Div(result, big.NewInt(100))
-	return result
 }
