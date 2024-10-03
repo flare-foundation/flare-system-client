@@ -44,6 +44,7 @@ enabled_finalizer = true
 [protocol.ftso1]
 id = 1
 api_endpoint = "http://localhost:3100/"
+type = 0
 
 [submit1]
 enabled = true
@@ -77,3 +78,4 @@ grace_period_end_offset = "17s"
 gas_price_multiplier = 1.5
 gas_price_fixed = 0
 gas_limit = 0
+max_priority_fee_per_gas = 20000000000

@@ -66,11 +66,13 @@ enabled_finalizer = true        # enable/disable finalizer client
 [protocol.ftso1]
 id = 1
 api_endpoint = "http://localhost:3000/ftso1"
+type = 0 # payload type: currently available 0 and 1
 # To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_1 env var
 
 [protocol.ftso2]
 id = 2
 api_endpoint = "http://localhost:3000/ftso2"
+type = 0
 # To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_2 env var
 
 [submit1]
@@ -110,6 +112,9 @@ gas_limit = 0             # (optional) gas limit for transaction. Defaults to 0,
 gas_price_multiplier = 0
 gas_price_fixed = 50000000000 # 50 * 1e9
 gas_limit = 0
+max_priority_fee_per_gas = 20000000000
+
+
 
 [uptime] # uptime vote configuration - clients.enabled_uptime_voting must be set to true
 signing_window = 2 # (optional) how many epochs in the past wße attempt to sign uptime vote for, default: 2.
