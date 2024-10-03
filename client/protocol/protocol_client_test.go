@@ -63,7 +63,7 @@ func TestSubmitter(t *testing.T) {
 
 	base := SubmitterBase{
 		ethClient: &ethClient,
-		gasConfig: &clientConfig.GasConfig{},
+		gasConfig: &clientConfig.GasConfig{GasPriceFixed: common.Big0},
 		protocolContext: &protocolContext{
 			submitPrivateKey:           privKey,
 			signerPrivateKey:           privKey,
@@ -76,6 +76,7 @@ func TestSubmitter(t *testing.T) {
 		epoch:            &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
 		subProtocols:     []*SubProtocol{subProtocol},
 		submitRetries:    1,
+		submitTimeout:    1 * time.Second,
 		dataFetchRetries: 1,
 		dataFetchTimeout: 1 * time.Second,
 		name:             "test",
@@ -170,7 +171,7 @@ type sentTxInfo struct {
 }
 
 func (c *testEthClient) SendRawTx(
-	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *clientConfig.GasConfig,
+	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, _ *clientConfig.GasConfig, _ time.Duration,
 ) error {
 	c.sentTxs = append(c.sentTxs, &sentTxInfo{
 		privateKey: privateKey,
