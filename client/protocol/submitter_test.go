@@ -38,6 +38,18 @@ func TestGasConfigForAttempt(t *testing.T) {
 			},
 		},
 		{
+			name: "retry 1 - no config",
+			cfg: config.GasConfig{
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 0,
+			},
+			ri: 1,
+			expected: config.GasConfig{
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 1.5,
+			},
+		},
+		{
 			name: "retry 2",
 			cfg: config.GasConfig{
 				GasPriceFixed:      big.NewInt(0),
@@ -57,7 +69,7 @@ func TestGasConfigForAttempt(t *testing.T) {
 			},
 			ri: 1,
 			expected: config.GasConfig{
-				GasPriceFixed:      big.NewInt(150),
+				GasPriceFixed:      big.NewInt(100),
 				GasPriceMultiplier: 0,
 			},
 		},

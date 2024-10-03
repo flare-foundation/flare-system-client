@@ -281,6 +281,10 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 //
 // Note: If GasPriceFixed is used, the retry multiplier will not be applied.
 func gasConfigForAttempt(cfg *config.GasConfig, ri int) *config.GasConfig {
+	if cfg.GasPriceFixed.Cmp(common.Big0) != 0 {
+		return cfg
+	}
+
 	retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
 
 	return &config.GasConfig{
