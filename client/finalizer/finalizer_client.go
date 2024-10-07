@@ -8,6 +8,7 @@ import (
 	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/relay"
 	"flare-fsc/utils/credentials"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -159,7 +160,7 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 	}
 }
 
-// return signing policy and voting threshold for the given voting round
+// signingPolicyData return signing policy and voting threshold for the given votingRoundID.
 func (c *finalizerClient) signingPolicyData(votingRoundID uint32) (*signingPolicy, uint16) {
 	sp, last := c.signingPolicyStorage.GetForVotingRound(votingRoundID)
 	if sp == nil {
@@ -197,6 +198,16 @@ func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
 
 		sp, _ := c.signingPolicyData(protocolMessage.VotingRoundID)
 
+		// TODO check this
+		if sp == nil {
+			first := c.signingPolicyStorage.First()
+			if first != nil && protocolMessage.VotingRoundID < first.startVotingRoundID {
+				// This is a submission for an old voting round, skip it
+				logger.Debug("Ignoring message for voting round %d, protocolID  %d - before policy startVotingRoundID", protocolMessage.VotingRoundID, protocolMessage.ProtocolID)
+				continue
+			}
+			return fmt.Errorf("no signing policy found for voting round %d", protocolMessage.VotingRoundID) // should this really return?
+		}
 		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp)
 
 		if err != nil {
