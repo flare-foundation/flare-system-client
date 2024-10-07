@@ -29,10 +29,10 @@ type ProtocolClient struct {
 	submitter2         *Submitter
 	signatureSubmitter *SignatureSubmitter
 
-	votingEpoch    *utils.Epoch
+	votingEpoch    *utils.EpochConfig
 	systemsManager *system.FlareSystemsManager
 
-	rewardEpoch     *utils.Epoch
+	rewardEpoch     *utils.EpochConfig
 	registry        voterRegistry
 	identityAddress common.Address
 }

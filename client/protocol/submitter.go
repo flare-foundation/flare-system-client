@@ -24,7 +24,7 @@ type SubmitterBase struct {
 
 	protocolContext *protocolContext
 
-	epoch        *utils.Epoch
+	epoch        *utils.EpochConfig
 	selector     []byte
 	subProtocols []*SubProtocol
 
@@ -38,13 +38,14 @@ type SubmitterBase struct {
 }
 
 type submitterEthClient interface {
-	SendRawTx(*ecdsa.PrivateKey, common.Address, []byte, *config.GasConfig) error
+	SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *config.GasConfig) error
 }
 
 type submitterEthClientImpl struct {
 	ethClient *ethclient.Client
 }
 
+// SendRawTx sends a transaction with payload signed by privateKey to to address.
 func (c submitterEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *config.GasConfig) error {
 	return chain.SendRawType2Tx(c.ethClient, privateKey, to, payload, true, gasConfig)
 }
@@ -80,7 +81,7 @@ func (s *SubmitterBase) submit(payload []byte) bool {
 func newSubmitter(
 	ethClient *ethclient.Client,
 	pc *protocolContext,
-	epoch *utils.Epoch,
+	epoch *utils.EpochConfig,
 	submitCfg *config.SubmitConfig,
 	gasCfg *config.GasConfig,
 	selector []byte,
@@ -160,7 +161,7 @@ func (s *Submitter) RunEpoch(currentEpoch int64) {
 func newSignatureSubmitter(
 	ethClient *ethclient.Client,
 	pc *protocolContext,
-	epoch *utils.Epoch,
+	epoch *utils.EpochConfig,
 	submitCfg *config.SubmitSignaturesConfig,
 	gasCfg *config.GasConfig,
 	selector []byte,

@@ -17,8 +17,8 @@ type finalizerContext struct {
 	voterThresholdBIPS   uint16
 	gracePeriodEndOffset time.Duration
 
-	votingEpoch *utils.Epoch
-	rewardEpoch *utils.IntEpoch
+	votingEpoch *utils.EpochConfig
+	rewardEpoch *utils.RewardEpochConfig
 }
 
 // func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {

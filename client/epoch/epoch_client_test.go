@@ -268,7 +268,7 @@ func (db testDB) FetchLogsByAddressAndTopic0(
 }
 
 type testSystemsManagerClient struct {
-	rewardEpoch    *utils.Epoch
+	rewardEpoch    *utils.EpochConfig
 	rewardEpochErr error
 	vpbsChan       chan *system.FlareSystemsManagerVotePowerBlockSelected
 	signedPolicies map[string][]byte
@@ -277,7 +277,7 @@ type testSystemsManagerClient struct {
 
 func newTestSystemsManagerClient() testSystemsManagerClient {
 	return testSystemsManagerClient{
-		rewardEpoch: &utils.Epoch{
+		rewardEpoch: &utils.EpochConfig{
 			Start:  time.Time{},
 			Period: time.Hour,
 		},
@@ -290,12 +290,12 @@ func (c testSystemsManagerClient) sendTestVPBS(vpbs *system.FlareSystemsManagerV
 	c.vpbsChan <- vpbs
 }
 
-func (c testSystemsManagerClient) RewardEpochFromChain() (*utils.Epoch, error) {
+func (c testSystemsManagerClient) RewardEpochFromChain() (*utils.EpochConfig, error) {
 	return c.rewardEpoch, nil
 }
 
 func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
-	db epochClientDB, epoch *utils.Epoch,
+	db epochClientDB, epoch *utils.EpochConfig,
 ) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
 	return c.vpbsChan
 }
@@ -345,7 +345,7 @@ func (c testRelayClient) sendTestPolicy(policy *relay.RelaySigningPolicyInitiali
 }
 
 func (c testRelayClient) SigningPolicyInitializedListener(
-	db epochClientDB, epoch *utils.Epoch,
+	db epochClientDB, epoch *utils.EpochConfig,
 ) <-chan *relay.RelaySigningPolicyInitialized {
 	return c.policyChan
 }
@@ -385,7 +385,7 @@ func (c testRegistryClient) RegisterVoter(
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.Epoch, i int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochConfig, i int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 }
 
@@ -395,7 +395,7 @@ func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.Execu
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.EpochConfig, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 }
 

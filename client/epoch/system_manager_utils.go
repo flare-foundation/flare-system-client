@@ -33,15 +33,15 @@ var (
 )
 
 type systemsManagerContractClient interface {
-	RewardEpochFromChain() (*utils.Epoch, error)
+	RewardEpochFromChain() (*utils.EpochConfig, error)
 
-	VotePowerBlockSelectedListener(epochClientDB, *utils.Epoch) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
+	VotePowerBlockSelectedListener(epochClientDB, *utils.EpochConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
 	SignNewSigningPolicy(*big.Int, []byte) <-chan shared.ExecuteStatus[any]
 
-	SignUptimeVoteEnabledListener(epochClientDB, *utils.Epoch, int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
+	SignUptimeVoteEnabledListener(epochClientDB, *utils.EpochConfig, int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
 	SignUptimeVote(*big.Int) <-chan shared.ExecuteStatus[any]
 
-	UptimeVoteSignedListener(epochClientDB, *utils.Epoch, int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned
+	UptimeVoteSignedListener(epochClientDB, *utils.EpochConfig, int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned
 	SignRewards(*big.Int, *common.Hash, int) <-chan shared.ExecuteStatus[any]
 
 	GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int]
@@ -132,7 +132,7 @@ func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochId() <-chan shar
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epochClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
+func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epochClientDB, epoch *utils.EpochConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
 	out := make(chan *system.FlareSystemsManagerVotePowerBlockSelected)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "VotePowerBlockSelected")
 	if err != nil {
@@ -173,11 +173,11 @@ func (s *systemsManagerContractClientImpl) parseVotePowerBlockSelectedEvent(dbLo
 	return s.flareSystemsManager.FlareSystemsManagerFilterer.ParseVotePowerBlockSelected(*contractLog)
 }
 
-func (s *systemsManagerContractClientImpl) RewardEpochFromChain() (*utils.Epoch, error) {
+func (s *systemsManagerContractClientImpl) RewardEpochFromChain() (*utils.EpochConfig, error) {
 	return shared.RewardEpochFromChain(s.flareSystemsManager)
 }
 
-func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochConfig, window int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	out := make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "SignUptimeVoteEnabled")
 	if err != nil {
@@ -254,7 +254,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	return nil
 }
 
-func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClientDB, epoch *utils.EpochConfig, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	out := make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "UptimeVoteSigned")
 	if err != nil {

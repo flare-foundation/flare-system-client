@@ -91,11 +91,11 @@ func setupTest(protocolType uint8) (*testClients, error) {
 	finalizationStorage := newFinalizationStorage()
 
 	fCtx := &finalizerContext{
-		votingEpoch: &utils.Epoch{
+		votingEpoch: &utils.EpochConfig{
 			Start:  time.Unix(0, 0),
 			Period: time.Hour,
 		},
-		rewardEpoch: &utils.IntEpoch{
+		rewardEpoch: &utils.RewardEpochConfig{
 			Start:  0,
 			Period: 100,
 		},

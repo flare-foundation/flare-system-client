@@ -74,7 +74,7 @@ func TestSubmitter(t *testing.T) {
 			submitAddress:              address,
 			submitSignaturesAddress:    address,
 		},
-		epoch:            &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
+		epoch:            &utils.EpochConfig{Start: time.Unix(0, 0), Period: time.Hour},
 		subProtocols:     []*SubProtocol{subProtocol},
 		submitRetries:    1,
 		dataFetchRetries: 1,
@@ -310,7 +310,7 @@ func TestWaitUntilRegistered(t *testing.T) {
 	}
 	client := ProtocolClient{
 		registry:        &registry,
-		rewardEpoch:     utils.NewEpoch(time.Now(), 100*time.Millisecond),
+		rewardEpoch:     utils.NewEpochConfig(time.Now(), 100*time.Millisecond),
 		identityAddress: identityAddress,
 	}
 
@@ -332,7 +332,7 @@ func TestWaitUntilRegisteredTransientError(t *testing.T) {
 	}
 	client := ProtocolClient{
 		registry:        &registry,
-		rewardEpoch:     utils.NewEpoch(time.Now(), time.Minute),
+		rewardEpoch:     utils.NewEpochConfig(time.Now(), time.Minute),
 		identityAddress: identityAddress,
 	}
 
