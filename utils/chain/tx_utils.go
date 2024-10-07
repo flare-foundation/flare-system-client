@@ -90,13 +90,16 @@ func unpackError(result []byte) (string, error) {
 	return vs[0].(string), nil
 }
 
+// baseFee returns the baseFee per gas if the block was mined immediately.
+//
+// WORKS ONLY ON AVALANCHE C-CHAIN LIKE CHAINS
 func baseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	var result hexutil.Big
 	err := client.Client().CallContext(ctx, &result, "eth_baseFee")
 	return (*big.Int)(&result), err
 }
 
-// SendRawTypeTx prepares and sends EIP-1559 transaction.
+// SendRawTypeTx prepares and sends EIP-1559 transaction. The value sent is 0.
 func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.GasConfig) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
@@ -110,21 +113,24 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 		return err
 	}
 
-	value := big.NewInt(0) // in wei (1 eth)
+	value := big.NewInt(0)
 
-	if dryRun {
-		err = dryRunTx(client, fromAddress, toAddress, value, data)
+	var gasLimit uint64
+
+	if dryRun && gasConfig.GasLimit > 0 {
+		gasLimit = uint64(gasConfig.GasLimit)
+		_, err = dryRunTx(client, fromAddress, toAddress, value, data)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
+	} else if dryRun {
+		gasLimit, err = dryRunTx(client, fromAddress, toAddress, value, data)
+		if err != nil {
+			return errors.Wrap(err, "dry run failed")
+		}
+	} else {
+		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
 	}
-
-	chainID, err := client.NetworkID(context.Background())
-	if err != nil {
-		return err
-	}
-
-	gasLimit := getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
 
 	baseFeePerGas, err := baseFee(context.Background(), client)
 	if err != nil {
@@ -138,6 +144,11 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 		tipCap.Set(gasConfig.MaxPriorityFeePerGas)
 	}
 	gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
+
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		return err
+	}
 
 	txData := types.DynamicFeeTx{
 		ChainID:   chainID,
@@ -194,15 +205,21 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	}
 
 	value := big.NewInt(0) // in wei (1 eth)
+	var gasLimit uint64
 
 	if dryRun {
-		err = dryRunTx(client, fromAddress, toAddress, value, data)
+		gasLimit, err = dryRunTx(client, fromAddress, toAddress, value, data)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
+	} else if gasConfig.GasLimit == 0 {
+		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
 	}
 
-	gasLimit := getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
+	if gasConfig.GasLimit > 0 {
+		gasLimit = uint64(gasConfig.GasLimit)
+	}
+
 	gasPrice, err := GetGasPrice(gasConfig, client)
 	if err != nil {
 		return err
@@ -243,14 +260,15 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	return nil
 }
 
-func dryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) error {
-	_, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+// dryRunTx locally executes a transaction with the current state of blockchain and returns gasUsed and potential errors.
+func dryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) (uint64, error) {
+	estimatedGas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
 		From:  fromAddress,
 		To:    &toAddress,
 		Value: value,
 		Data:  data,
 	})
-	return err
+	return estimatedGas, err
 }
 
 func getGasLimit(gasConfig *config.GasConfig, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) uint64 {
