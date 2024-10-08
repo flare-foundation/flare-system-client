@@ -169,13 +169,12 @@ func (c *finalizerClient) signingPolicyData(votingRoundID uint32) (*signingPolic
 	if !last {
 		return sp, sp.threshold
 	}
-	endVotingEpoch := c.finalizerContext.rewardEpoch.EndEpoch(sp.rewardEpochID)
-	end := c.finalizerContext.votingEpoch.EndTime(endVotingEpoch)
+	expectedEnd := c.finalizerContext.rewardEpoch.EndEpoch(sp.rewardEpochID)
 
-	if time.Now().Before(end) {
+	if int64(votingRoundID) < expectedEnd {
 		return sp, sp.threshold
 	} else {
-		return sp, uint16((uint32(sp.voters.TotalWeight()) * 60) / 100)
+		return sp, uint16((uint32(sp.voters.TotalWeight()) * 60) / 100) // if the rewardEpoch extends beyond the expected end, the threshold is raised to 60%.
 	}
 }
 
@@ -196,7 +195,7 @@ func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		sp, _ := c.signingPolicyData(protocolMessage.VotingRoundID)
+		sp, threshold := c.signingPolicyData(protocolMessage.VotingRoundID)
 
 		// TODO check this
 		if sp == nil {
@@ -208,7 +207,7 @@ func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", protocolMessage.VotingRoundID) // should this really return?
 		}
-		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp)
+		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp, threshold)
 
 		if err != nil {
 			logger.Debug("Ignoring submitted message for protocol %d, round %d: %v", protocolMessage.ProtocolID, protocolMessage.VotingRoundID, err)

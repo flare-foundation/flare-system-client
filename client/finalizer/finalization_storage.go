@@ -15,6 +15,7 @@ type signaturesCollection struct {
 	weight           uint16
 	thresholdReached bool
 	signingPolicy    *signingPolicy
+	threshold        uint16
 }
 
 type protocolCollection struct {
@@ -23,6 +24,7 @@ type protocolCollection struct {
 	signatureCollection map[common.Hash]*signaturesCollection
 	unprocessedPayloads []*submitSignaturesPayload
 	signingPolicy       *signingPolicy
+	threshold           uint16
 }
 
 // roundCollection maps protocolID to signatureCollection
@@ -45,11 +47,12 @@ type FinalizationReady struct {
 	msgHash          common.Hash
 }
 
-func NewSignatureCollection(message shared.Message, signingPolicy *signingPolicy) *signaturesCollection {
+func NewSignatureCollection(message shared.Message, signingPolicy *signingPolicy, threshold uint16) *signaturesCollection {
 	return &signaturesCollection{
 		message:       message,
 		signatures:    make([][]byte, signingPolicy.voters.Count()),
 		signingPolicy: signingPolicy,
+		threshold:     threshold,
 	}
 }
 
@@ -66,7 +69,7 @@ func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, 
 
 	sc.weight += p.weight
 	if !sc.thresholdReached {
-		sc.thresholdReached = sc.weight > sc.signingPolicy.threshold
+		sc.thresholdReached = sc.weight > sc.threshold
 
 		return sc.thresholdReached, nil
 	}
@@ -81,7 +84,7 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	msgHsh := common.Hash(message.Hash())
 	_, exists := pc.signatureCollection[msgHsh]
 	if !exists {
-		pc.signatureCollection[msgHsh] = NewSignatureCollection(message, pc.signingPolicy)
+		pc.signatureCollection[msgHsh] = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
 		pc.messageChosenHash = msgHsh
 	}
 
@@ -123,7 +126,7 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 		msgHash = payload.message.Hash()
 		_, exists := pc.signatureCollection[common.Hash(msgHash)]
 		if !exists {
-			pc.signatureCollection[common.Hash(msgHash)] = NewSignatureCollection(payload.message, pc.signingPolicy)
+			pc.signatureCollection[common.Hash(msgHash)] = NewSignatureCollection(payload.message, pc.signingPolicy, pc.threshold)
 		}
 		sigCollection = pc.signatureCollection[common.Hash(msgHash)]
 	} else if pc.messageAdded {
@@ -186,7 +189,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 // AddMessage adds a protocol message to the finalizationStorage for the respective protocol and round, and adds all unprocessedPayloads for the respective round and protocol.
 // An indicator whether the additions have made the protocol reach the threshold for the round is returned.
-func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolicy *signingPolicy) (FinalizationReady, error) {
+func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolicy *signingPolicy, threshold uint16) (FinalizationReady, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -202,7 +205,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 
 	pc, exists := rc.protocolCollections[p.ProtocolID]
 	if !exists {
-		pc = &protocolCollection{signingPolicy: signingPolicy, signatureCollection: make(map[common.Hash]*signaturesCollection)}
+		pc = &protocolCollection{signatureCollection: make(map[common.Hash]*signaturesCollection), signingPolicy: signingPolicy, threshold: threshold}
 		rc.protocolCollections[p.ProtocolID] = pc
 	}
 

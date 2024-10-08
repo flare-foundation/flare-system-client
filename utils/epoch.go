@@ -41,17 +41,12 @@ func NewRewardEpochConfig(start int64, period int64) *RewardEpochConfig {
 	}
 }
 
-// EpochIndex returns the index of the rewardEpoch in which the voting round with index n is.
-func (e RewardEpochConfig) EpochIndex(n int64) int64 {
-	return (n - e.Start) / e.Period
-}
-
-// StartEpoch returns the index of the voting epoch in which the n-th reward epoch starts.
+// StartEpoch returns the index of the voting epoch in which the n-th reward epoch is expected to start.
 func (e RewardEpochConfig) StartEpoch(n int64) int64 {
 	return e.Start + e.Period*n
 }
 
-// EndEpoch returns the index of the voting epoch in which the n-th reward epoch ends.
+// EndEpoch returns the index of the voting epoch in which the n-th reward epoch is expected to end.
 func (e RewardEpochConfig) EndEpoch(n int64) int64 {
 	return e.Start + e.Period*(n+1)
 }
