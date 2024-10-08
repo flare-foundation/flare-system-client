@@ -24,7 +24,7 @@ type SubProtocol struct {
 	ID          uint8
 	ApiEndpoint string
 	XApiKey     string
-	Type        uint8
+	Type        uint8 //type of submitSignature payload
 }
 
 type SubProtocolResponse struct {

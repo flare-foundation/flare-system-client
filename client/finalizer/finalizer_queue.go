@@ -124,7 +124,6 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		}
 
 		item := p.queue.Pop()
-
 		if item == nil {
 			continue
 		}
@@ -143,11 +142,14 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
 				logger.Info("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
+			} else {
+				logger.Error("Finalizer missing finalization data for protocol %v in votingRound %v", item.protocolID, item.votingRoundID)
 			}
 		}
 	}
 }
 
+// isVoterForCurrentEpoch checks whether the voter is selected to finalize an item in the prioritized period.
 func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	if item == nil {
 		return false

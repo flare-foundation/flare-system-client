@@ -160,7 +160,9 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 	}
 }
 
-// signingPolicyData return signing policy and voting threshold for the given votingRoundID.
+// signingPolicyData returns signing policy and voting threshold for the given votingRoundID.
+//
+// If the signing policy was expected to end before votingRoundID but it was prolonged, the threshold is raised to 60% of total weight.
 func (c *finalizerClient) signingPolicyData(votingRoundID uint32) (*signingPolicy, uint16) {
 	sp, last := c.signingPolicyStorage.GetForVotingRound(votingRoundID)
 	if sp == nil {
@@ -178,12 +180,13 @@ func (c *finalizerClient) signingPolicyData(votingRoundID uint32) (*signingPolic
 	}
 }
 
-// Return true if voting round is not in the future, i.e., is <= the current voting round
+// checkVotingRoundTime returns true if votingRoundID is not in the future, i.e., is <= the current voting round
 func (c *finalizerClient) checkVotingRoundTime(votingRoundID uint32) bool {
 	currentEpochID := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
 	return votingRoundID <= uint32(currentEpochID)
 }
 
+// messagesChannelListener listens to the messages from the protocol message channel and adds them to the finalizationStorage.
 func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
 	for {
 		var protocolMessage shared.ProtocolMessage
