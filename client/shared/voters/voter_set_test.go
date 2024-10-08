@@ -62,13 +62,6 @@ func TestBinarySearch(t *testing.T) {
 	})
 }
 
-func TestRandomNumberSequence(t *testing.T) {
-	seed := voters.InitialHashSeed(big.NewInt(1), 1, 1)
-	randoms := voters.RandomNumberSequence(seed, 5)
-
-	cupaloy.SnapshotT(t, randoms)
-}
-
 func TestSelectVoters(t *testing.T) {
 	vs := voters.NewVoterSet(testVoters, testWeights)
 	seed := voters.InitialHashSeed(big.NewInt(1), 1, 1)

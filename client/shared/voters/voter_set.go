@@ -17,7 +17,7 @@ type VoterData struct {
 }
 
 type VoterSet struct {
-	voters      []common.Address
+	voters      []common.Address //signingPolicyAddresses
 	weights     []uint16
 	totalWeight uint16
 	thresholds  []uint16
@@ -66,16 +66,7 @@ func InitialHashSeed(rewardEpochSeed *big.Int, protocolID byte, votingRoundID ui
 	return common.BytesToHash(crypto.Keccak256(seed))
 }
 
-func RandomNumberSequence(initialSeed common.Hash, length int) []common.Hash {
-	sequence := make([]common.Hash, length)
-	currentSeed := initialSeed
-	for i := 0; i < length; i++ {
-		sequence[i] = currentSeed
-		currentSeed = crypto.Keccak256Hash(currentSeed.Bytes())
-	}
-	return sequence
-}
-
+// SelectVoters returns a set of signingPolicyAddresses that are prioritized to finalize.
 func (vs *VoterSet) SelectVoters(rewardEpochSeed *big.Int, protocolID byte, votingRoundID uint32, thresholdBIPS uint16) (map[common.Address]bool, error) {
 	seed := InitialHashSeed(rewardEpochSeed, protocolID, votingRoundID)
 	return vs.RandomSelectThresholdWeightVoters(seed, thresholdBIPS)
@@ -107,15 +98,16 @@ func (vs *VoterSet) RandomSelectThresholdWeightVoters(randomSeed common.Hash, th
 	return selected, nil
 }
 
-// Selects a random voter based provided random number.
+// selectVoterIndex selects a random voter based on the provided randomNumber.
 func (vs *VoterSet) selectVoterIndex(randomNumber common.Hash) int {
-	randomWeight := big.NewInt(0).SetBytes(randomNumber.Bytes())
+	randomWeight := randomNumber.Big()
 	randomWeight = randomWeight.Mod(randomWeight, big.NewInt(int64(vs.totalWeight)))
 	return vs.BinarySearch(uint16(randomWeight.Uint64()))
 }
 
-// Searches for the highest index of the threshold that is less than or equal to the value.
-// Binary search is used.
+// BinarySearch finds the highest index of the threshold that is less than or equal to the value.
+//
+// value has to be lower then vs.totalWeight otherwise, the function will panic.
 func (vs *VoterSet) BinarySearch(value uint16) int {
 	if value > vs.totalWeight {
 		panic("Value must be between 0 and total weight")
@@ -139,13 +131,17 @@ func (vs *VoterSet) BinarySearch(value uint16) int {
 	return left - 1
 }
 
+// TotalWeight is sum of weights of all voters.
 func (vs *VoterSet) TotalWeight() uint16 {
 	return vs.totalWeight
 }
+
+// VoterWeight returns the weight of the voter with index.
 func (vs *VoterSet) VoterWeight(index int) uint16 {
 	return vs.weights[index]
 }
 
+// Count returns the number of voters.
 func (vs *VoterSet) Count() int {
 	return len(vs.voters)
 }
@@ -156,6 +152,9 @@ func (vs *VoterSet) WriteVoterRaw(buffer *bytes.Buffer, i int) {
 	buffer.Write(weightBytes[:])
 }
 
+// VoterIndex returns the signing policy index of the signingPolicy address.
+//
+// If address is not among the signingPolicy addresses, it returns -1.
 func (vs *VoterSet) VoterIndex(address common.Address) int {
 	voterData, ok := vs.voterDataMap[address]
 	if !ok {
