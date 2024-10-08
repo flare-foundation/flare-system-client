@@ -42,11 +42,11 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 	for i := range availableSignatures {
 		selectedSignatures = append(selectedSignatures, availableSignatures[i])
 		weight += sc.signingPolicy.voters.VoterWeight(availableSignatures[i].index)
-		if weight > sc.signingPolicy.threshold {
+		if weight > sc.threshold {
 			break
 		}
 	}
-	if weight <= sc.signingPolicy.threshold {
+	if weight <= sc.threshold {
 		return FinalizationResult{}, fmt.Errorf("threshold not reached")
 	}
 
