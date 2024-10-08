@@ -155,7 +155,7 @@ func newFinalizationStorage() *finalizationStorage {
 // addPayload adds a submitSignature payload to the finalizationStorage.
 // The payload is added to the protocolCollection for the protocolID and roundID of the payload.
 // An indicator whether the addition has made the protocol reach the threshold for the round is returned.
-func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPolicy *signingPolicy) (FinalizationReady, error) {
+func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPolicy *signingPolicy, threshold uint16) (FinalizationReady, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -172,7 +172,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 	pc, exists := rc.protocolCollections[p.protocolID]
 	if !exists {
-		pc = &protocolCollection{signingPolicy: signingPolicy, signatureCollection: make(map[common.Hash]*signaturesCollection)}
+		pc = &protocolCollection{signingPolicy: signingPolicy, signatureCollection: make(map[common.Hash]*signaturesCollection), threshold: threshold}
 		rc.protocolCollections[p.protocolID] = pc
 	}
 
