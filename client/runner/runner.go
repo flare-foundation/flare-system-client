@@ -17,6 +17,7 @@ type Runner interface {
 	Run(ctx context.Context) error
 }
 
+// RunAsync runs a runner in a go routine with context and adds it to work group.
 func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, r Runner) {
 	if r == nil || reflect.ValueOf(r).IsNil() {
 		return
@@ -33,6 +34,7 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 	}()
 }
 
+// Start sets up registrationClient, protocolClient, and finalizerClient, then asynchronously runs all of them and returns their workgroup.
 func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientContext.ClientContext) *sync.WaitGroup {
 	registrationClient, err := epoch.NewEpochClient(clientCtx)
 	if err != nil {

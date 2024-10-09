@@ -43,7 +43,7 @@ enabled_finalizer = true
 
 [protocol.ftso1]
 id = 1
-api_endpoint = "http://localhost:3100/"
+api_url = "http://localhost:3100/"
 type = 0
 
 [submit1]

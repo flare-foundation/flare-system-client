@@ -111,7 +111,7 @@ func newSubmitter(
 func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 	for i, protocol := range s.subProtocols {
-		channels[i] = protocol.getDataWithRetry(
+		channels[i] = protocol.fetchDataWithRetry(
 			currentEpoch+s.epochOffset,
 			s.name,
 			s.protocolContext.submitAddress.Hex(),
@@ -274,7 +274,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 			if !protocolsToSend[i] {
 				continue
 			}
-			channels[i] = protocol.getDataWithRetry(
+			channels[i] = protocol.fetchDataWithRetry(
 				currentEpoch-1,
 				"submitSignatures",
 				s.protocolContext.submitSignaturesAddress.Hex(),
