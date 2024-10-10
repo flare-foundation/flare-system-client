@@ -13,9 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.20.3
 	github.com/stretchr/testify v1.9.0
 	gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010142030-53d2d121c47c
-	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.8.0
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/gorm v1.25.12
 )
 
@@ -56,11 +54,13 @@ require (
 	github.com/tklauser/numcpus v0.8.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.7 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
