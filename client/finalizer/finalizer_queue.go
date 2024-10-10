@@ -160,7 +160,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 		return false
 	}
 
-	voters, err := data.signingPolicy.voters.SelectVoters(item.seed, item.protocolID, item.votingRoundID, p.finalizerContext.voterThresholdBIPS)
+	voters, err := data.signingPolicy.Voters.SelectVoters(item.seed, item.protocolID, item.votingRoundID, p.finalizerContext.voterThresholdBIPS)
 	if err != nil {
 		return false
 	}

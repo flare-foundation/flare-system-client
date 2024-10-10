@@ -6,7 +6,6 @@ import (
 	flarectx "flare-fsc/client/context"
 	"flare-fsc/config"
 	"flare-fsc/utils/chain"
-	"flare-fsc/utils/contracts/relay"
 	"flare-fsc/utils/contracts/system"
 	"flare-fsc/utils/credentials"
 	"math/big"
@@ -15,6 +14,8 @@ import (
 	"github.com/pkg/errors"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
 )
 
 // EpochClient performs reward epoch registration and signing actions, triggered on SystemsManager contract events:

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"math"
 	"slices"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/policy"
 )
 
 type FinalizationResult struct {
 	message       shared.Message
 	signatures    []IndexedSignature //signatures are ordered by voterIndex of their provider
-	signingPolicy *signingPolicy
+	signingPolicy *policy.SigningPolicy
 }
 
 type IndexedSignature struct {
@@ -34,14 +36,14 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 
 	// sort decreasing by weight
 	slices.SortFunc(availableSignatures, func(a, b IndexedSignature) int {
-		return int(sc.signingPolicy.voters.VoterWeight(b.index)) - int(sc.signingPolicy.voters.VoterWeight(a.index))
+		return int(sc.signingPolicy.Voters.VoterWeight(b.index)) - int(sc.signingPolicy.Voters.VoterWeight(a.index))
 	})
 
 	// greedy select until threshold is reached
 	weight := uint16(0)
 	for i := range availableSignatures {
 		selectedSignatures = append(selectedSignatures, availableSignatures[i])
-		weight += sc.signingPolicy.voters.VoterWeight(availableSignatures[i].index)
+		weight += sc.signingPolicy.Voters.VoterWeight(availableSignatures[i].index)
 		if weight > sc.threshold {
 			break
 		}
@@ -62,7 +64,7 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(relayFunctionSelector)
-	buffer.Write(fr.signingPolicy.rawBytes)
+	buffer.Write(fr.signingPolicy.RawBytes())
 	buffer.Write(fr.message)
 
 	encodedSignatures, err := encodeSignatures(fr.signatures)

@@ -4,12 +4,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"flare-fsc/client/shared"
-	"flare-fsc/client/shared/voters"
 	"flare-fsc/utils"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/voters"
 )
 
 // payloadMessage is a general structure that is used in the submit calls to the chain.
@@ -103,7 +104,7 @@ func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) e
 }
 
 // AddSigner calculates the public key of the signer from the signature and messageHash and adds its voterIndex and weight (if the signer is in the votingSet) to the submitSignaturesPayload.
-func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.VoterSet) error {
+func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.Set) error {
 	transformedSignature := utils.TransformSignatureVRStoRSV(pld.signature)
 
 	pk, err := crypto.SigToPub(messageHash, transformedSignature)

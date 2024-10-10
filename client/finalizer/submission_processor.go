@@ -68,8 +68,8 @@ func (c *finalizerClient) ProcessSubmissionData(payloads []*submitSignaturesPayl
 		}
 		sp, threshold := c.signingPolicyData(payloadItem.votingRoundID)
 		if sp == nil {
-			first := c.signingPolicyStorage.First()
-			if first != nil && payloadItem.votingRoundID < first.startVotingRoundID {
+			oldestSP := c.signingPolicyStorage.OldestStored()
+			if oldestSP != nil && payloadItem.votingRoundID < oldestSP.StartVotingRoundID {
 				// This is a submission for an old voting round, skip it
 				logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - before policy startVotingRoundID", payloadItem.votingRoundID, payloadItem.protocolID)
 				continue
@@ -85,7 +85,7 @@ func (c *finalizerClient) ProcessSubmissionData(payloads []*submitSignaturesPayl
 
 		if finalizationReady.thresholdReached {
 			logger.Infof("Threshold reached for protocol %d in voting round %d", finalizationReady.protocolID, finalizationReady.votingRoundID)
-			c.queueProcessor.Add(&finalizationReady, sp.seed)
+			c.queueProcessor.Add(&finalizationReady, sp.Seed)
 
 			//clean old rounds
 			if finalizationReady.votingRoundID > minRoundsStored {

@@ -182,6 +182,16 @@ gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010085831-8b0bf5ae2d37 
 gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010085831-8b0bf5ae2d37/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
 gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010114454-b24b60b2e269 h1:vExWmTK9q+feDfOYX9b/Zua5Nap/RvocQPptpPwygT4=
 gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010114454-b24b60b2e269/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010135719-b59cd9a76b83 h1:9+zpU267jPseGe1eK9z0tu+4lfyszj/Vmi+hySpFi4o=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010135719-b59cd9a76b83/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010140433-a17c9cd7fc28 h1:0Jn/uYZ8N1yQuQ0In8Gk9hIlyN5sZNKiKEJP/AXzZb0=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010140433-a17c9cd7fc28/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010141604-8ef191fc8fe7 h1:Wq90x8yrmvrK9BpkikE+L/Qunb/2NA/oKth2nrrLh3c=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010141604-8ef191fc8fe7/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010141816-9c958ff117d5 h1:sBQHbGXKF24SSgthuzXHinyTrzw/hjEbzn3oooN++5s=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010141816-9c958ff117d5/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010142030-53d2d121c47c h1:W8jKb31mznyKG/bRPv/6D4rYSGdE5wO1AeDmMQXhc2o=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010142030-53d2d121c47c/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=

@@ -21,6 +21,7 @@ import (
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/policy"
 )
 
 const (
@@ -111,7 +112,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 	client := &finalizerClient{
 		db:                   db,
 		relayClient:          relayClient,
-		signingPolicyStorage: newSigningPolicyStorage(),
+		signingPolicyStorage: policy.NewStorage(),
 		finalizationStorage:  finalizationStorage,
 		submissionListener:   NewSubmissionListener(submissionContractAddress),
 		queueProcessor: newFinalizerQueueProcessor(

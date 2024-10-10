@@ -1,10 +1,8 @@
 package voters
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
-	"flare-fsc/client/shared"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -144,12 +142,6 @@ func (vs *VoterSet) VoterWeight(index int) uint16 {
 // Count returns the number of voters.
 func (vs *VoterSet) Count() int {
 	return len(vs.voters)
-}
-
-func (vs *VoterSet) WriteVoterRaw(buffer *bytes.Buffer, i int) {
-	weightBytes := shared.Uint16toBytes(vs.weights[i])
-	buffer.Write(vs.voters[i].Bytes())
-	buffer.Write(weightBytes[:])
 }
 
 // VoterIndex returns the signing policy index of the signingPolicy address.

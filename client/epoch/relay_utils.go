@@ -4,7 +4,6 @@ import (
 	"flare-fsc/client/shared"
 	"flare-fsc/utils"
 	"flare-fsc/utils/chain"
-	"flare-fsc/utils/contracts/relay"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +11,8 @@ import (
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
 )
 
 type relayContractClient interface {

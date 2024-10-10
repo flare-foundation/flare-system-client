@@ -6,7 +6,6 @@ import (
 	"flare-fsc/client/config"
 	"flare-fsc/client/shared"
 	"flare-fsc/utils/chain"
-	"flare-fsc/utils/contracts/relay"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
 )
 
 const (

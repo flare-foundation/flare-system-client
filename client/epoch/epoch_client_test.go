@@ -4,7 +4,6 @@ import (
 	"context"
 	"flare-fsc/client/shared"
 	"flare-fsc/utils"
-	"flare-fsc/utils/contracts/relay"
 	"flare-fsc/utils/contracts/system"
 	"math/big"
 	"os"
@@ -16,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 )

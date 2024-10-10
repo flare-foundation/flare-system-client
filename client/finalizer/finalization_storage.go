@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/policy"
 )
 
 type signaturesCollection struct {
@@ -15,7 +16,7 @@ type signaturesCollection struct {
 	signatures       [][]byte
 	weight           uint16
 	thresholdReached bool
-	signingPolicy    *signingPolicy
+	signingPolicy    *policy.SigningPolicy
 	threshold        uint16
 }
 
@@ -24,7 +25,7 @@ type protocolCollection struct {
 	messageChosenHash   common.Hash
 	signatureCollection map[common.Hash]*signaturesCollection
 	unprocessedPayloads []*submitSignaturesPayload
-	signingPolicy       *signingPolicy
+	signingPolicy       *policy.SigningPolicy
 	threshold           uint16
 }
 
@@ -48,10 +49,10 @@ type FinalizationReady struct {
 	msgHash          common.Hash
 }
 
-func NewSignatureCollection(message shared.Message, signingPolicy *signingPolicy, threshold uint16) *signaturesCollection {
+func NewSignatureCollection(message shared.Message, signingPolicy *policy.SigningPolicy, threshold uint16) *signaturesCollection {
 	return &signaturesCollection{
 		message:       message,
-		signatures:    make([][]byte, signingPolicy.voters.Count()),
+		signatures:    make([][]byte, signingPolicy.Voters.Count()),
 		signingPolicy: signingPolicy,
 		threshold:     threshold,
 	}
@@ -136,7 +137,7 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 		return false, common.Hash{}, fmt.Errorf("unexpected behavior, no message")
 	}
 
-	err := payload.AddSigner(msgHash, sigCollection.signingPolicy.voters)
+	err := payload.AddSigner(msgHash, sigCollection.signingPolicy.Voters)
 	if err != nil {
 		return false, common.Hash{}, fmt.Errorf("adding payload, %v", err)
 	}
@@ -155,7 +156,7 @@ func newFinalizationStorage() *finalizationStorage {
 // addPayload adds a submitSignature payload to the finalizationStorage.
 // The payload is added to the protocolCollection for the protocolID and roundID of the payload.
 // An indicator whether the addition has made the protocol reach the threshold for the round is returned.
-func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPolicy *signingPolicy, threshold uint16) (FinalizationReady, error) {
+func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPolicy *policy.SigningPolicy, threshold uint16) (FinalizationReady, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -189,7 +190,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 // AddMessage adds a protocol message to the finalizationStorage for the respective protocol and round, and adds all unprocessedPayloads for the respective round and protocol.
 // An indicator whether the additions have made the protocol reach the threshold for the round is returned.
-func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolicy *signingPolicy, threshold uint16) (FinalizationReady, error) {
+func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolicy *policy.SigningPolicy, threshold uint16) (FinalizationReady, error) {
 	s.Lock()
 	defer s.Unlock()
 

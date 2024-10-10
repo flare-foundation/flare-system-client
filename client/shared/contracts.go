@@ -1,10 +1,10 @@
 package shared
 
 import (
-	"flare-fsc/utils/contracts/relay"
-
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/events"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
 )
 
 func ParseSigningPolicyInitializedEvent(relay *relay.Relay, dbLog database.Log) (*relay.RelaySigningPolicyInitialized, error) {
