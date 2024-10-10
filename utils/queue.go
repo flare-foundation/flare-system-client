@@ -1,9 +1,10 @@
 package utils
 
 import (
-	"flare-fsc/logger"
 	"sync"
 	"time"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type QueueProcessorFunc[T any] func([]T) error
@@ -52,7 +53,7 @@ func (l *DelayedQueueManager[T]) createTimer(t time.Time) {
 		<-timer.C
 		items := l.Get(t)
 		if err := l.processor(items); err != nil {
-			logger.Error("DelayedQueueManager processor error: %s", err)
+			logger.Errorf("DelayedQueueManager processor error: %s", err)
 		}
 	}()
 }

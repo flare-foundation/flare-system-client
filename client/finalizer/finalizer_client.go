@@ -5,7 +5,6 @@ import (
 	clientContext "flare-fsc/client/context"
 	"flare-fsc/client/shared"
 	"flare-fsc/config"
-	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/relay"
 	"flare-fsc/utils/credentials"
 	"fmt"
@@ -13,6 +12,8 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 const minRoundsStored uint32 = 10
@@ -128,7 +129,7 @@ func (c *finalizerClient) fetchExistingSigningPolicies(
 			return startTime, err
 		}
 	}
-	logger.Info("Added %d signing policies", len(spList))
+	logger.Infof("Added %d signing policies", len(spList))
 
 	if len(spList) > 0 {
 		return time.Unix(spList[len(spList)-1].timestamp, 0), nil
@@ -144,7 +145,7 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 		select {
 		case dbPolicy = <-spListener:
 		case <-ctx.Done():
-			logger.Info("Signing policy initialized listener stopped")
+			logger.Infof("Signing policy initialized listener stopped")
 			return ctx.Err()
 		}
 
@@ -153,9 +154,9 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 			continue
 		}
 		if err := c.signingPolicyStorage.Add(policy); err != nil {
-			logger.Warn("Error adding signing policy %v", err)
+			logger.Warnf("Error adding signing policy %v", err)
 		}
-		logger.Info("New signing policy received for epoch %v", policy.rewardEpochID)
+		logger.Infof("New signing policy received for epoch %v", policy.rewardEpochID)
 		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.lowestRoundStored) // remove signingPolicies that will never be used again
 	}
 }
@@ -194,7 +195,7 @@ func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
 		select {
 		case protocolMessage = <-c.messages:
 		case <-ctx.Done():
-			logger.Info("Message Channel Listener stopped")
+			logger.Infof("Message Channel Listener stopped")
 			return ctx.Err()
 		}
 
@@ -205,7 +206,7 @@ func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
 			first := c.signingPolicyStorage.First()
 			if first != nil && protocolMessage.VotingRoundID < first.startVotingRoundID {
 				// This is a submission for an old voting round, skip it
-				logger.Debug("Ignoring message for voting round %d, protocolID  %d - before policy startVotingRoundID", protocolMessage.VotingRoundID, protocolMessage.ProtocolID)
+				logger.Debugf("Ignoring message for voting round %d, protocolID  %d - before policy startVotingRoundID", protocolMessage.VotingRoundID, protocolMessage.ProtocolID)
 				continue
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", protocolMessage.VotingRoundID) // should this really return?
@@ -213,12 +214,12 @@ func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
 		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp, threshold)
 
 		if err != nil {
-			logger.Debug("Ignoring submitted message for protocol %d, round %d: %v", protocolMessage.ProtocolID, protocolMessage.VotingRoundID, err)
+			logger.Debugf("Ignoring submitted message for protocol %d, round %d: %v", protocolMessage.ProtocolID, protocolMessage.VotingRoundID, err)
 			continue
 		}
 
 		if finalizationReady.thresholdReached {
-			logger.Info("Threshold reached for protocol %d in voting round %d with hash %v", finalizationReady.protocolID, finalizationReady.votingRoundID)
+			logger.Infof("Threshold reached for protocol %d in voting round %d with hash %v", finalizationReady.protocolID, finalizationReady.votingRoundID)
 			c.queueProcessor.Add(&finalizationReady, sp.seed)
 		}
 	}

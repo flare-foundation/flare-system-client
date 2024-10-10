@@ -180,6 +180,8 @@ github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010085831-8b0bf5ae2d37 h1:uRwyYhdqJ2NAHvaG8Jk2wi60wO4gIKoqZHJdkQ7J6gs=
 gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010085831-8b0bf5ae2d37/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010114454-b24b60b2e269 h1:vExWmTK9q+feDfOYX9b/Zua5Nap/RvocQPptpPwygT4=
+gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010114454-b24b60b2e269/go.mod h1:NDYj1SfTeXILD79DaEKwDPs9LSsKyzayB3ABB+JBudc=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=

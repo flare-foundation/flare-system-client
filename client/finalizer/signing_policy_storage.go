@@ -5,12 +5,13 @@ import (
 	"cmp"
 	"flare-fsc/client/shared"
 	"flare-fsc/client/shared/voters"
-	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/relay"
 	"fmt"
 	"math/big"
 	"sort"
 	"sync"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 // Duplicates relay.RelaySigningPolicyInitialized but with different fields and
@@ -118,7 +119,7 @@ func (s *signingPolicyStorage) RemoveBefore(votingRoundID uint32) {
 	defer s.Unlock()
 
 	for len(s.spList) > 1 && s.spList[1].startVotingRoundID < votingRoundID {
-		logger.Debug("Removing signing policy for reward epoch %d", s.spList[0].rewardEpochID)
+		logger.Debugf("Removing signing policy for reward epoch %d", s.spList[0].rewardEpochID)
 		s.spList[0] = nil
 		s.spList = s.spList[1:]
 	}

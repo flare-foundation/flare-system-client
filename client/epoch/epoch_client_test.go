@@ -3,8 +3,6 @@ package epoch
 import (
 	"context"
 	"flare-fsc/client/shared"
-	"flare-fsc/config"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/relay"
 	"flare-fsc/utils/contracts/system"
@@ -23,11 +21,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	logger.Configure(config.LoggerConfig{
-		Level:   "DEBUG",
-		Console: true,
-	})
-
 	os.Exit(m.Run())
 }
 
@@ -321,7 +314,7 @@ func (c testSystemsManagerClient) SignNewSigningPolicy(
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
+func (c testSystemsManagerClient) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {
 	return shared.ExecuteWithRetry(func() (*big.Int, error) {
 		if c.rewardEpochErr != nil {
 			return nil, c.rewardEpochErr

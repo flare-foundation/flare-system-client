@@ -2,11 +2,12 @@ package finalizer
 
 import (
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"fmt"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type signaturesCollection struct {
@@ -96,12 +97,11 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	for _, up := range pc.unprocessedPayloads {
 		tr, msgHashCheck, err := pc.addPayload(up)
 		if err != nil {
-			logger.Debug("%v", err)
+			logger.Error("Adding payload after message error:", err)
 		}
 		if msgHashCheck != msgHsh {
-			logger.Debug("unexpected behavior, hashes should match")
+			logger.Debug("Unexpected behavior, hashes should match")
 		}
-
 		if tr {
 			thresholdReached = true
 		}
@@ -255,7 +255,7 @@ func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
 		defer fs.Unlock()
 
 		for i := fs.lowestRoundStored; i < votingRoundID; i++ {
-			logger.Info("deleting round %d", i)
+			logger.Infof("Deleting round %d in finalization storage", i)
 			delete(fs.stg, i)
 		}
 

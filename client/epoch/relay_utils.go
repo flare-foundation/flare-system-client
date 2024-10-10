@@ -2,7 +2,6 @@ package epoch
 
 import (
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/chain"
 	"flare-fsc/utils/contracts/relay"
@@ -12,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type relayContractClient interface {
@@ -56,13 +56,13 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClien
 			now := time.Now().Unix()
 			logs, err := db.FetchLogsByAddressAndTopic0(r.address, topic0, eventRangeStart, now)
 			if err != nil {
-				logger.Error("Error fetching logs %v", err)
+				logger.Errorf("Error fetching logs %v", err)
 				continue
 			}
 			if len(logs) > 0 {
 				policyData, err := r.parseSigningPolicyInitializedEvent(logs[len(logs)-1])
 				if err != nil {
-					logger.Error("Error parsing SigningPolicyInitialized event %v", err)
+					logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)
 					continue
 				}
 				out <- policyData

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	clientConfig "flare-fsc/client/config"
 	"flare-fsc/client/shared"
-	"flare-fsc/config"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"net"
 	"net/http"
@@ -23,6 +21,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 const (
@@ -31,11 +31,6 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	logger.Configure(config.LoggerConfig{
-		Level:   "DEBUG",
-		Console: true,
-	})
-
 	os.Exit(m.Run())
 }
 
@@ -268,7 +263,7 @@ func (ep *testAPIEndpoint) Run(ctx context.Context) error {
 }
 
 func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger.Info("test: handling API request: %+v", r)
+	logger.Infof("test: handling API request: %+v", r)
 
 	if ep.errorStatus != nil {
 		http.Error(w, "test: error", *ep.errorStatus)
@@ -283,14 +278,14 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	data, err := json.Marshal(rsp)
 	if err != nil {
-		logger.Error("test: failed to marshal response: %v", err)
+		logger.Errorf("test: failed to marshal response: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	_, err = w.Write(data)
 	if err != nil {
-		logger.Error("test: failed to write response: %v", err)
+		logger.Errorf("test: failed to write response: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

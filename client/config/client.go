@@ -8,13 +8,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type ClientConfig struct {
-	DB      database.Config     `toml:"db"`
-	Logger  config.LoggerConfig `toml:"logger"`
-	Chain   config.ChainConfig  `toml:"chain"`
-	Metrics MetricsConfig       `toml:"metrics"`
+	DB      database.Config    `toml:"db"`
+	Logger  logger.Config      `toml:"logger"`
+	Chain   config.ChainConfig `toml:"chain"`
+	Metrics MetricsConfig      `toml:"metrics"`
 
 	Clients ClientsConfig `toml:"clients"`
 
@@ -149,7 +150,7 @@ func newConfig() *ClientConfig {
 	}
 }
 
-func (c ClientConfig) LoggerConfig() config.LoggerConfig {
+func (c ClientConfig) LoggerConfig() logger.Config {
 	return c.Logger
 }
 

@@ -5,7 +5,6 @@ import (
 	clientConfig "flare-fsc/client/config"
 	flarectx "flare-fsc/client/context"
 	"flare-fsc/config"
-	"flare-fsc/logger"
 	"flare-fsc/utils/chain"
 	"flare-fsc/utils/contracts/relay"
 	"flare-fsc/utils/contracts/system"
@@ -14,6 +13,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 // EpochClient performs reward epoch registration and signing actions, triggered on SystemsManager contract events:
@@ -94,7 +95,7 @@ func NewEpochClient(ctx flarectx.ClientContext) (*EpochClient, error) {
 	if identityAddress == chain.EmptyAddress {
 		return nil, errors.New("no identity address provided")
 	}
-	logger.Debug("Identity addr %v", identityAddress)
+	logger.Debugf("Identity address %v", identityAddress)
 
 	db := epochClientDBGorm{db: ctx.DB()}
 	return &EpochClient{
@@ -142,16 +143,16 @@ func (c *EpochClient) Run(ctx context.Context) error {
 	for {
 		select {
 		case powerBlockData := <-vpbsListener:
-			logger.Debug("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
+			logger.Debugf("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
 			c.registerVoter(powerBlockData.RewardEpochId)
 		case signingPolicy := <-policyListener:
-			logger.Debug("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
+			logger.Debugf("SigningPolicyInitialized event emitted for epoch %v", signingPolicy.RewardEpochId)
 			c.signPolicy(signingPolicy.RewardEpochId, signingPolicy.SigningPolicyBytes)
 		case uptimeVoteEnabled := <-uptimeEnabledListener:
-			logger.Debug("SignUptimeVoteEnabled event emitted for epoch %v", uptimeVoteEnabled.RewardEpochId)
+			logger.Debugf("SignUptimeVoteEnabled event emitted for epoch %v", uptimeVoteEnabled.RewardEpochId)
 			c.signUptimeVote(uptimeVoteEnabled.RewardEpochId)
 		case uptimeVoteSigned := <-uptimeSignedListener:
-			logger.Info("Uptime vote threshold reached for epoch %v, signing rewards", uptimeVoteSigned.RewardEpochId)
+			logger.Infof("Uptime vote threshold reached for epoch %v, signing rewards", uptimeVoteSigned.RewardEpochId)
 			c.signRewards(uptimeVoteSigned.RewardEpochId)
 
 		case <-ctx.Done():
@@ -160,73 +161,73 @@ func (c *EpochClient) Run(ctx context.Context) error {
 	}
 }
 
-func (c *EpochClient) registerVoter(epochId *big.Int) {
-	if !c.isFutureEpoch(epochId) {
-		logger.Debug("Skipping registration process for old epoch %v", epochId)
+func (c *EpochClient) registerVoter(epochID *big.Int) {
+	if !c.isFutureEpoch(epochID) {
+		logger.Debugf("Skipping registration process for old epoch %v", epochID)
 		return
 	}
 
-	logger.Info("VotePowerBlockSelected event emitted for next epoch %v, starting registration", epochId)
-	registerResult := <-c.registryClient.RegisterVoter(epochId, c.identityAddress)
+	logger.Info("VotePowerBlockSelected event emitted for next epoch %v, starting registration", epochID)
+	registerResult := <-c.registryClient.RegisterVoter(epochID, c.identityAddress)
 	if registerResult.Success {
 		logger.Info("RegisterVoter success")
 	} else {
-		logger.Error("RegisterVoter failed %s", registerResult.Message)
+		logger.Errorf("RegisterVoter failed %s", registerResult.Message)
 	}
 }
 
-func (c *EpochClient) signPolicy(epochId *big.Int, policy []byte) {
-	if !c.isFutureEpoch(epochId) {
-		logger.Debug("Skipping policy signing for old epoch %v", epochId)
+func (c *EpochClient) signPolicy(epochID *big.Int, policy []byte) {
+	if !c.isFutureEpoch(epochID) {
+		logger.Debugf("Skipping policy signing for old epoch %v", epochID)
 		return
 	}
 
-	logger.Info("SigningPolicyInitialized event emitted for next epoch %v, signing new policy", epochId)
-	signingResult := <-c.systemsManagerClient.SignNewSigningPolicy(epochId, policy)
+	logger.Info("SigningPolicyInitialized event emitted for next epoch %v, signing new policy", epochID)
+	signingResult := <-c.systemsManagerClient.SignNewSigningPolicy(epochID, policy)
 	if signingResult.Success {
 		logger.Info("SignNewSigningPolicy success")
 	} else {
-		logger.Error("SignNewSigningPolicy failed %s", signingResult.Message)
+		logger.Errorf("SignNewSigningPolicy failed %s", signingResult.Message)
 		return
 	}
 }
 
-func (c *EpochClient) signUptimeVote(epochId *big.Int) {
-	logger.Info("SignUptimeVoteEnabled event emitted for epoch %v, signing uptime vote", epochId)
-	signUptimeVoteResult := <-c.systemsManagerClient.SignUptimeVote(epochId)
+func (c *EpochClient) signUptimeVote(epochID *big.Int) {
+	logger.Info("SignUptimeVoteEnabled event emitted for epoch %v, signing uptime vote", epochID)
+	signUptimeVoteResult := <-c.systemsManagerClient.SignUptimeVote(epochID)
 	if signUptimeVoteResult.Success {
 		logger.Info("SignUptimeVote completed")
 	} else {
-		logger.Error("SignUptimeVote failed %s", signUptimeVoteResult.Message)
+		logger.Errorf("SignUptimeVote failed %s", signUptimeVoteResult.Message)
 		return
 	}
 }
 
-func (c *EpochClient) isFutureEpoch(epochId *big.Int) bool {
-	epochIdResult := <-c.systemsManagerClient.GetCurrentRewardEpochId()
-	if !epochIdResult.Success {
-		logger.Error("GetCurrentRewardEpochId failed %s", epochIdResult.Message)
+func (c *EpochClient) isFutureEpoch(epochID *big.Int) bool {
+	epochIDResult := <-c.systemsManagerClient.GetCurrentRewardEpochID()
+	if !epochIDResult.Success {
+		logger.Errorf("GetCurrentRewardEpochId failed %s", epochIDResult.Message)
 		return false
 	}
-	currentEpochId := epochIdResult.Value
-	if epochId.Cmp(currentEpochId) <= 0 {
-		logger.Debug("Epoch in the past: current %v >= next %v", currentEpochId, epochId)
+	currentEpochId := epochIDResult.Value
+	if epochID.Cmp(currentEpochId) <= 0 {
+		logger.Debugf("Epoch in the past: current %v >= next %v", currentEpochId, epochID)
 		return false
 	}
 	return true
 }
 
 func (c *EpochClient) signRewards(epochId *big.Int) {
-	logger.Info("Signing rewards for epoch %v", epochId)
+	logger.Infof("Signing rewards for epoch %v", epochId)
 	hash, weightClaims, err := getRewardsHash(epochId, c.rewardsConfig)
 	if err != nil {
-		logger.Error("error obtaining reward hash data for epoch %v, restart client to retry: %s", epochId, err)
+		logger.Errorf("error obtaining reward hash data for epoch %v, restart client to retry: %s", epochId, err)
 		return
 	}
 	signingResult := <-c.systemsManagerClient.SignRewards(epochId, hash, weightClaims)
 	if signingResult.Success {
 		logger.Info("SignRewards completed")
 	} else {
-		logger.Error("SignRewards failed %s", signingResult.Message)
+		logger.Errorf("SignRewards failed %s", signingResult.Message)
 	}
 }

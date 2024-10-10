@@ -2,9 +2,10 @@ package cronjob
 
 import (
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"time"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type Cronjob interface {
@@ -22,18 +23,18 @@ type Cronjob interface {
 
 func RunCronjob(c Cronjob) {
 	if !c.Enabled() {
-		logger.Debug("%s cronjob disabled", c.Name())
+		logger.Debugf("%s cronjob disabled", c.Name())
 		c.UpdateCronjobStatus(shared.HealthStatusOk)
 		return
 	}
 
 	err := c.OnStart()
 	if err != nil {
-		logger.Error("%s cronjob on start error %v", c.Name(), err)
+		logger.Errorf("%s cronjob on start error %v", c.Name(), err)
 		return
 	}
 
-	logger.Debug("starting %s cronjob", c.Name())
+	logger.Debugf("starting %s cronjob", c.Name())
 
 	ticker := utils.NewRandomizedTicker(c.Timeout(), c.RandomTimeoutDelta())
 	for {
@@ -43,7 +44,7 @@ func RunCronjob(c Cronjob) {
 		if err == nil {
 			c.UpdateCronjobStatus(shared.HealthStatusOk)
 		} else {
-			logger.Error("%s cronjob error %s", c.Name(), err.Error())
+			logger.Errorf("%s cronjob error %s", c.Name(), err.Error())
 			c.UpdateCronjobStatus(shared.HealthStatusError)
 		}
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flare-fsc/client/config"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/system"
 	"fmt"
 	"io"
@@ -20,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type rewardsHash struct {
@@ -105,7 +106,7 @@ func fetchRewardsHashBytes(path string) ([]byte, error) {
 	var data []byte
 	_, isUrl := parseUrl(path)
 	if isUrl {
-		logger.Info("Fetching rewards hash from URL: %s", path)
+		logger.Infof("Fetching rewards hash from URL: %s", path)
 		result := <-shared.ExecuteWithRetry(func() ([]byte, error) {
 			resp, err := http.Get(path)
 			if err != nil {
@@ -124,7 +125,7 @@ func fetchRewardsHashBytes(path string) ([]byte, error) {
 		}
 		data = result.Value
 	} else {
-		logger.Info("Fetching rewards hash from disk: %s", path)
+		logger.Infof("Fetching rewards hash from disk: %s", path)
 		file, err := os.Open(path)
 		if err != nil {
 			return nil, errors.Wrap(err, "error opening reward hash file")

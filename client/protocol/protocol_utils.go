@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flare-fsc/client/config"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"fmt"
 	"io"
 	"math"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type DataVerifier func(*SubProtocolResponse) error
@@ -55,7 +55,7 @@ func (sp *SubProtocol) fetchData(votingRound int64, endpoint string, submitAddre
 		return nil, errors.Wrap(err, "error getting url")
 	}
 
-	logger.Info("Calling protocol client API: %s", url.String())
+	logger.Infof("Calling protocol client API: %s", url.String())
 	client := http.Client{
 		Timeout: timeout,
 	}
@@ -127,7 +127,7 @@ func (sp *SubProtocol) fetchDataWithRetry(
 			err = dataVerifier(data)
 		}
 		if err != nil {
-			logger.Error("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
+			logger.Errorf("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
 				sp.ID, sp.APIUrl, votingRound, err)
 			return nil, err
 		}

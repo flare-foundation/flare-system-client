@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"flare-fsc/client/config"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils/chain"
 	"flare-fsc/utils/contracts/relay"
 	"time"
@@ -13,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 const (
@@ -105,7 +106,7 @@ func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int6
 	for _, log := range logs {
 		policyData, err := shared.ParseSigningPolicyInitializedEvent(r.relay, log)
 		if err != nil {
-			logger.Error("Error parsing SigningPolicyInitialized event %v", err)
+			logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)
 			return nil, err
 		}
 		result = append(result, signingPolicyListenerResponse{policyData, int64(log.Timestamp)})
@@ -123,13 +124,13 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 			now := time.Now().Unix()
 			logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, eventRangeStart, now)
 			if err != nil {
-				logger.Error("Error fetching logs %v", err)
+				logger.Errorf("Error fetching logs %v", err)
 				continue
 			}
 			for _, log := range logs {
 				policyData, err := shared.ParseSigningPolicyInitializedEvent(r.relay, log)
 				if err != nil {
-					logger.Error("Error parsing SigningPolicyInitialized event %v", err)
+					logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)
 					break
 				}
 				out <- signingPolicyListenerResponse{policyData, int64(log.Timestamp)}
@@ -152,7 +153,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		err := r.ethClient.SendRawTx(r.privateKey, r.address, input, dryRun)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
-				logger.Info("Non fatal error sending relay tx: %v", err)
+				logger.Infof("Non fatal error sending relay tx: %v", err)
 			} else {
 				return nil, errors.Wrap(err, "Error sending relay tx")
 			}

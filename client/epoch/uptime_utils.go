@@ -3,7 +3,6 @@ package epoch
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/system"
 	"math/big"
 
@@ -12,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 var (
@@ -31,7 +32,7 @@ var (
 )
 
 func getUptimeSignature(rewardEpochId *big.Int, privateKey *ecdsa.PrivateKey) (common.Hash, *system.IFlareSystemsManagerSignature, error) {
-	logger.Info("Signing uptime vote for epoch %v: zero hash %s", rewardEpochId, hex.EncodeToString(zeroHash[:]))
+	logger.Infof("Signing uptime vote for epoch %v: zero hash %s", rewardEpochId, hex.EncodeToString(zeroHash[:]))
 
 	toSign, err := uptimeVoteArguments.Pack(rewardEpochId.Int64(), zeroHash)
 	if err != nil {

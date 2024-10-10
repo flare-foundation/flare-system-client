@@ -3,13 +3,14 @@ package finalizer
 import (
 	"context"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils/contracts/submission"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type submissionListener struct {
@@ -49,7 +50,7 @@ func (s *submissionListener) SubmissionTxListen(
 		}
 		txs, err = db.FetchTransactionsByAddressAndSelector(s.address, selector, startTime.Unix(), time.Now().Unix())
 		if err != nil {
-			logger.Error("Error fetching transactions %v", err)
+			logger.Errorf("Error fetching transactions %v", err)
 		}
 		if len(txs) > 0 {
 			break
@@ -59,7 +60,7 @@ func (s *submissionListener) SubmissionTxListen(
 	for _, tx := range txs {
 		err := processor.ProcessTransaction(tx)
 		if err != nil {
-			logger.Warn("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
+			logger.Warnf("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
 		}
 
 		if tx.BlockNumber > uint64(lastBlockChecked) {
@@ -78,13 +79,13 @@ func (s *submissionListener) SubmissionTxListen(
 
 		txs, err := db.FetchTransactionsByAddressAndSelectorFromBlockNumber(s.address, selector, int64(lastBlockChecked))
 		if err != nil {
-			logger.Error("Error fetching transactions %v", err)
+			logger.Errorf("Error fetching transactions %v", err)
 			continue
 		}
 		for _, tx := range txs {
 			err := processor.ProcessTransaction(tx)
 			if err != nil {
-				logger.Warn("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
+				logger.Warnf("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
 			}
 			if tx.BlockNumber > uint64(lastBlockChecked) {
 				lastBlockChecked = tx.BlockNumber

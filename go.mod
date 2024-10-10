@@ -12,7 +12,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.3
 	github.com/stretchr/testify v1.9.0
-	gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010085831-8b0bf5ae2d37
+	gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010114454-b24b60b2e269
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.8.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1

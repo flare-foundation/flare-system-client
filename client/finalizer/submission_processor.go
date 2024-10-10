@@ -2,10 +2,10 @@ package finalizer
 
 import (
 	"encoding/hex"
-	"flare-fsc/logger"
 	"fmt"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type submissionProcessor interface {
@@ -20,12 +20,12 @@ type submissionProcessor interface {
 func (c *finalizerClient) ProcessTransaction(tx database.Transaction) error {
 	inputBytes, err := hex.DecodeString(tx.Input)
 	if err != nil {
-		logger.Info("Invalid submitSignatures tx sent by %s: %v, skipping", tx.FromAddress, err)
+		logger.Infof("Invalid submitSignatures tx sent by %s: %v, skipping", tx.FromAddress, err)
 	}
 	payloads, err := ExtractPayloads(inputBytes)
 	if err != nil {
 		// if input cannot be decoded, it is not a valid submission and should be skipped
-		logger.Info("Invalid submitSignatures input sent by %s: %v, skipping", tx.FromAddress, err)
+		logger.Infof("Invalid submitSignatures input sent by %s: %v, skipping", tx.FromAddress, err)
 	}
 
 	signaturePayloads := []*submitSignaturesPayload{}
@@ -34,7 +34,7 @@ func (c *finalizerClient) ProcessTransaction(tx database.Transaction) error {
 		err := signaturePayload.FromSignedPayload(payloads[i])
 		if err != nil {
 			// if input cannot be decoded, it is not a valid submission and should be skipped
-			logger.Info("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
+			logger.Infof("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
 
 		}
 		signaturePayloads = append(signaturePayloads, signaturePayload)
@@ -56,13 +56,13 @@ func (c *finalizerClient) ProcessTransaction(tx database.Transaction) error {
 func (c *finalizerClient) ProcessSubmissionData(payloads []*submitSignaturesPayload) error {
 	for _, payloadItem := range payloads {
 		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
-			logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - before startingVotingRound %d", payloadItem.votingRoundID, payloadItem.protocolID, c.finalizerContext.startingVotingRound)
+			logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - before startingVotingRound %d", payloadItem.votingRoundID, payloadItem.protocolID, c.finalizerContext.startingVotingRound)
 			continue
 		}
 
 		// Skip if voting round is in the future
 		if !c.checkVotingRoundTime(payloadItem.votingRoundID) {
-			logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - round not started yet", payloadItem.votingRoundID, payloadItem.protocolID)
+			logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - round not started yet", payloadItem.votingRoundID, payloadItem.protocolID)
 
 			continue
 		}
@@ -71,7 +71,7 @@ func (c *finalizerClient) ProcessSubmissionData(payloads []*submitSignaturesPayl
 			first := c.signingPolicyStorage.First()
 			if first != nil && payloadItem.votingRoundID < first.startVotingRoundID {
 				// This is a submission for an old voting round, skip it
-				logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - before policy startVotingRoundID", payloadItem.votingRoundID, payloadItem.protocolID)
+				logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - before policy startVotingRoundID", payloadItem.votingRoundID, payloadItem.protocolID)
 				continue
 			}
 			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundID)
@@ -79,12 +79,12 @@ func (c *finalizerClient) ProcessSubmissionData(payloads []*submitSignaturesPayl
 		finalizationReady, err := c.finalizationStorage.addPayload(payloadItem, sp, threshold)
 		if err != nil {
 			// Error is non-fatal, skip this submission
-			logger.Debug("Ignoring submitted signature for voting round %d, protocolID  %d - %v", payloadItem.votingRoundID, payloadItem.protocolID, err)
+			logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - %v", payloadItem.votingRoundID, payloadItem.protocolID, err)
 			continue
 		}
 
 		if finalizationReady.thresholdReached {
-			logger.Info("Threshold reached for protocol %d in voting round %d", finalizationReady.protocolID, finalizationReady.votingRoundID)
+			logger.Infof("Threshold reached for protocol %d in voting round %d", finalizationReady.protocolID, finalizationReady.votingRoundID)
 			c.queueProcessor.Add(&finalizationReady, sp.seed)
 
 			//clean old rounds

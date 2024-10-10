@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"flare-fsc/client/config"
-	"flare-fsc/logger"
 	"math/big"
 	"time"
 
@@ -18,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 const (
@@ -134,7 +135,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 
 	baseFeePerGas, err := baseFee(context.Background(), client)
 	if err != nil {
-		logger.Debug("ERROR, %v", err)
+		logger.Errorf("Error getting baseFee, %v", err)
 		return err
 	}
 
@@ -167,7 +168,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 		return err
 	}
 
-	logger.Debug("Sending signed tx: %s", signedTx.Hash().Hex())
+	logger.Debugf("Sending signed tx: %s", signedTx.Hash().Hex())
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		return err
@@ -181,12 +182,12 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 		return err
 	}
 
-	logger.Debug("Tx mined, getting receipt %s", signedTx.Hash().Hex())
+	logger.Debugf("Tx mined, getting receipt %s", signedTx.Hash().Hex())
 	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
 	if err != nil {
 		return err
 	}
-	logger.Debug("Receipt status: %v", rec.Status)
+	logger.Debugf("Receipt status: %v", rec.Status)
 	return nil
 }
 
@@ -237,7 +238,7 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 		return err
 	}
 
-	logger.Debug("Sending signed tx: %s", signedTx.Hash().Hex())
+	logger.Debugf("Sending signed tx: %s", signedTx.Hash().Hex())
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		return err
@@ -245,18 +246,18 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 
 	verifier := NewTxVerifier(client)
 
-	logger.Debug("Waiting for tx to be mined...")
+	logger.Debugf("Waiting for tx to be mined...")
 	err = verifier.WaitUntilMined(fromAddress, signedTx, DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
 
-	logger.Debug("Tx mined, getting receipt %s", signedTx.Hash().Hex())
+	logger.Debugf("Tx mined, getting receipt %s", signedTx.Hash().Hex())
 	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
 	if err != nil {
 		return err
 	}
-	logger.Debug("Receipt status: %v", rec.Status)
+	logger.Debugf("Receipt status: %v", rec.Status)
 	return nil
 }
 
@@ -281,10 +282,10 @@ func getGasLimit(gasConfig *config.GasConfig, client *ethclient.Client, fromAddr
 			Data:  data,
 		})
 		if err != nil {
-			logger.Warn("Unable to estimate gas: %v, using default gas limit: %d", err, DefaultGasLimit)
+			logger.Warnf("Unable to estimate gas: %v, using default gas limit: %d", err, DefaultGasLimit)
 			gasLimit = DefaultGasLimit
 		} else {
-			logger.Debug("Estimated gas: %d", estimatedGas)
+			logger.Debugf("Estimated gas: %d", estimatedGas)
 			gasLimit = estimatedGas
 		}
 	} else {

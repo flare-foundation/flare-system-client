@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"flare-fsc/client/config"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/chain"
 	"fmt"
@@ -16,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type SubmitterBase struct {
@@ -73,7 +74,7 @@ func (s *SubmitterBase) submit(payload []byte) bool {
 		return nil, nil
 	}, s.submitRetries, shared.TxRetryInterval)
 	if sendResult.Success {
-		logger.Info("Submitter %s successfully sent tx", s.name)
+		logger.Infof("Submitter %s successfully sent tx", s.name)
 	}
 	return sendResult.Success
 }
@@ -128,7 +129,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 	for _, channel := range channels {
 		data := <-channel
 		if !data.Success || data.Value.Status != "OK" {
-			logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
+			logger.Errorf("Error getting data for submitter %s: %s", s.name, data.Message)
 			continue
 		}
 		dataReceived = true
@@ -143,18 +144,18 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 }
 
 func (s *Submitter) RunEpoch(currentEpoch int64) {
-	logger.Info("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
+	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
 
 	payload, err := s.GetPayload(currentEpoch)
 
 	if err != nil {
-		logger.Error("Error getting payload for submitter %s: %v", s.name, err)
+		logger.Errorf("Error getting payload for submitter %s: %v", s.name, err)
 		return
 	}
 	if payload != nil {
 		s.submit(payload)
 	} else {
-		logger.Info("Submitter %s did not get any data, skipping submission", s.name)
+		logger.Infof("Submitter %s did not get any data, skipping submission", s.name)
 	}
 }
 
@@ -295,12 +296,12 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 
 			data := <-channels[i]
 			if !data.Success {
-				logger.Error("Error getting data for submitter %s: %s", s.name, data.Message)
+				logger.Errorf("Error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
 			err := s.WritePayload(buffer, currentEpoch, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
 			if err != nil {
-				logger.Error("Error writing payload for submitter %s: %v", s.name, err)
+				logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
 				continue
 			}
 
@@ -316,7 +317,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 				}
 			}
 		} else {
-			logger.Info("Submitter %s did not get any new data", s.name)
+			logger.Infof("Submitter %s did not get any new data", s.name)
 		}
 	}
 }

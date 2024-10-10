@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/relay"
 	"math/big"
@@ -21,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 const (
@@ -336,7 +336,7 @@ func signMessage(message []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
 		return nil, err
 	}
 
-	logger.Info("signature: %x", signature)
+	logger.Infof("signature: %x", signature)
 
 	return utils.TransformSignatureRSVtoVRS(signature), nil
 }
@@ -373,7 +373,7 @@ func (db *testDB) FetchTransactionsByAddressAndSelector(
 		return nil, db.fetchTxsErr
 	}
 
-	logger.Debug("fetching transactions from db: address=%s, selector=%x", address.Hex(), selector)
+	logger.Debugf("fetching transactions from db: address=%s, selector=%x", address.Hex(), selector)
 	if address != submissionContractAddress {
 		return nil, errors.New("unknown address")
 	}
@@ -403,7 +403,7 @@ func (db *testDB) FetchTransactionsByAddressAndSelectorFromBlockNumber(
 		return nil, db.fetchTxsErr
 	}
 
-	logger.Debug("fetching transactions from db: address=%s, selector=%x", address.Hex(), selector)
+	logger.Debugf("fetching transactions from db: address=%s, selector=%x", address.Hex(), selector)
 	if address != submissionContractAddress {
 		return nil, errors.New("unknown address")
 	}
@@ -430,7 +430,7 @@ func (db *testDB) FetchLogsByAddressAndTopic0(
 		return nil, db.fetchLogsErr
 	}
 
-	logger.Debug("fetching logs from db: address=%s, topic=%s", address.Hex(), topic)
+	logger.Debugf("fetching logs from db: address=%s, topic=%s", address.Hex(), topic)
 	if topic.Hex() != topicSPIHex {
 		return nil, errors.New("unknown topic")
 	}

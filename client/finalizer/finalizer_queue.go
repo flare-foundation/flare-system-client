@@ -2,7 +2,6 @@ package finalizer
 
 import (
 	"context"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/relay"
 	"fmt"
@@ -11,6 +10,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 var relayFunctionSelector []byte
@@ -129,21 +130,21 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		}
 
 		if p.isVoterForCurrentEpoch(item) {
-			logger.Info("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
+			logger.Infof("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
 
 			p.processItem(ctx, item, false)
 		} else {
-			logger.Info("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
+			logger.Infof("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
 
 			_, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
 			if exists {
 				// Finalization for a votingRoundID should happen in the following voting round votingRoundID + 1
 				votingRoundStartTime := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundID + 1))
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
-				logger.Info("Finalizer will send item %v at %v", item, st)
+				logger.Infof("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
 			} else {
-				logger.Error("Finalizer missing finalization data for protocol %v in votingRound %v", item.protocolID, item.votingRoundID)
+				logger.Errorf("Finalizer missing finalization data for protocol %v in votingRound %v", item.protocolID, item.votingRoundID)
 			}
 		}
 	}
@@ -164,7 +165,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 		return false
 	}
 
-	logger.Debug("Finalizer voters for item %v: %v", item, voters)
+	logger.Debugf("Finalizer voters for item %v: %v", item, voters)
 
 	return voters[p.relayClient.senderAddress]
 }
@@ -176,23 +177,23 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 
 	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
 	if !exists {
-		logger.Warn("finalization data for protocol %d for round %d missing", item.protocolID, item.votingRoundID)
+		logger.Warnf("finalization data for protocol %d for round %d missing", item.protocolID, item.votingRoundID)
 		return
 	}
 
 	finalizationData, err := PrepareFinalizationResults(data)
 	if err != nil {
-		logger.Warn("finalization data preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
+		logger.Warnf("finalization data preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return
 	}
 
 	txInput, err := finalizationData.PrepareFinalizationTxInput()
 	if err != nil {
-		logger.Warn("finalization tx input preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
+		logger.Warnf("finalization tx input preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return
 	}
 
-	logger.Info("Relaying for round %d for protocol %d", item.votingRoundID, item.protocolID)
+	logger.Infof("Relaying for round %d for protocol %d", item.votingRoundID, item.protocolID)
 	p.relayClient.SubmitPayloads(ctx, txInput, isDelayed)
 }
 
@@ -210,7 +211,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error 
 		if relayedItems[*item] {
 			continue
 		}
-		logger.Info("Finalizer processes delayed queue item %v", item)
+		logger.Infof("Finalizer processes delayed queue item %v", item)
 		p.processItem(context.TODO(), item, true)
 	}
 	return nil

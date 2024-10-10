@@ -2,8 +2,6 @@ package finalizer
 
 import (
 	"context"
-	"flare-fsc/config"
-	"flare-fsc/logger"
 	"os"
 	"testing"
 	"time"
@@ -15,11 +13,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	logger.Configure(config.LoggerConfig{
-		Level:   "DEBUG",
-		Console: true,
-	})
-
 	os.Exit(m.Run())
 }
 

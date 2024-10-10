@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/kelseyhightower/envconfig"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 const (
@@ -24,17 +25,8 @@ var (
 )
 
 type GlobalConfig interface {
-	LoggerConfig() LoggerConfig
+	LoggerConfig() logger.Config
 	ChainConfig() ChainConfig
-}
-
-type LoggerLevel string
-
-type LoggerConfig struct {
-	Level       string `toml:"level"` // valid values are: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL (zap)
-	File        string `toml:"file"`
-	MaxFileSize int    `toml:"max_file_size"` // In megabytes
-	Console     bool   `toml:"console"`
 }
 
 type ChainConfig struct {

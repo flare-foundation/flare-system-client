@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"flare-fsc/client/config"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils/chain"
 	"flare-fsc/utils/contracts/registry"
 	"math/big"
@@ -16,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 var (
@@ -97,7 +98,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 
 	gasPrice, err := chain.GetGasPrice(r.gasCfg, r.ethClient)
 	if err != nil {
-		logger.Warn("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
+		logger.Warnf("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
 		gasPrice = fallbackGasPrice
 	}
 
@@ -113,7 +114,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 	if err != nil {
 		return err
 	}
-	logger.Info("Voter %s registered for epoch %v", address, nextRewardEpochId)
+	logger.Infof("Voter %s registered for epoch %v", address, nextRewardEpochId)
 	return nil
 }
 

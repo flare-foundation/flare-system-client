@@ -1,9 +1,10 @@
 package shared
 
 import (
-	"flare-fsc/logger"
 	"strings"
 	"time"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type ExecuteStatus[T any] struct {
@@ -21,7 +22,7 @@ func ExecuteWithRetry[T any](f func() (T, error), maxRetries int, delay time.Dur
 				out <- ExecuteStatus[T]{Success: true, Value: result}
 				return
 			} else {
-				logger.Error("error executing in retry no. %d: %v", ri, err)
+				logger.Errorf("error executing in retry no. %d: %v", ri, err)
 			}
 			time.Sleep(delay)
 		}

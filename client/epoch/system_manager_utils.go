@@ -3,7 +3,6 @@ package epoch
 import (
 	"crypto/ecdsa"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/chain"
 	"flare-fsc/utils/contracts/system"
@@ -19,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 var (
@@ -45,7 +45,7 @@ type systemsManagerContractClient interface {
 	UptimeVoteSignedListener(epochClientDB, *utils.EpochConfig, int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned
 	SignRewards(*big.Int, *common.Hash, int) <-chan shared.ExecuteStatus[any]
 
-	GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int]
+	GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int]
 }
 
 type systemsManagerContractClientImpl struct {
@@ -99,7 +99,7 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 	tx, err := s.flareSystemsManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
-			logger.Info("Non fatal error sending sign new signing policy: %v", err)
+			logger.Infof("Non fatal error sending sign new signing policy: %v", err)
 			return nil
 		}
 		return err
@@ -108,7 +108,7 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 	if err != nil {
 		return err
 	}
-	logger.Info("New signing policy sent for epoch %v", rewardEpochId)
+	logger.Infof("New signing policy sent for epoch %v", rewardEpochId)
 	return nil
 }
 
@@ -123,7 +123,7 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 	return hash
 }
 
-func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
+func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {
 	return shared.ExecuteWithRetry(func() (*big.Int, error) {
 		id, err := s.flareSystemsManager.GetCurrentRewardEpochId(nil)
 		if err != nil {
@@ -149,13 +149,13 @@ func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epo
 			now := time.Now().Unix()
 			logs, err := db.FetchLogsByAddressAndTopic0(s.address, topic0, eventRangeStart, now)
 			if err != nil {
-				logger.Error("Error fetching logs %v", err)
+				logger.Errorf("Error fetching logs %v", err)
 				continue
 			}
 			if len(logs) > 0 {
 				powerBlockData, err := s.parseVotePowerBlockSelectedEvent(logs[len(logs)-1])
 				if err != nil {
-					logger.Error("Error parsing VotePowerBlockSelected event %v", err)
+					logger.Errorf("Error parsing VotePowerBlockSelected event %v", err)
 					continue
 				}
 				out <- powerBlockData
@@ -190,19 +190,19 @@ func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epoc
 		ticker := time.NewTicker(shared.EventListenerInterval)
 		currentEpoch := epoch.EpochIndex(time.Now())
 		eventRangeStart := epoch.StartTime(currentEpoch - window + 1).Unix()
-		logger.Info("Current epoch %d", currentEpoch)
+		logger.Infof("Current epoch %d", currentEpoch)
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
 			logs, err := db.FetchLogsByAddressAndTopic0(s.address, topic0, eventRangeStart, now)
 			if err != nil {
-				logger.Error("Error fetching logs %v", err)
+				logger.Errorf("Error fetching logs %v", err)
 				continue
 			}
 			for _, log := range logs {
 				uptimeVoteEnabled, err := s.parseSignUptimeVoteEnabledEvent(log)
 				if err != nil {
-					logger.Error("Error parsing SignUptimeVoteEnabled event %v", err)
+					logger.Errorf("Error parsing SignUptimeVoteEnabled event %v", err)
 					continue
 				}
 				if uptimeVoteEnabled.RewardEpochId.Int64() >= (currentEpoch - window) {
@@ -242,7 +242,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, hash, *signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
-			logger.Info("Non fatal error sending sign uptime vote: %v", err)
+			logger.Infof("Non fatal error sending sign uptime vote: %v", err)
 			return nil
 		}
 		return err
@@ -251,7 +251,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	if err != nil {
 		return err
 	}
-	logger.Info("Uptime vote sent for epoch %v", rewardEpochId)
+	logger.Infof("Uptime vote sent for epoch %v", rewardEpochId)
 	return nil
 }
 
@@ -272,19 +272,19 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 			now := time.Now().Unix()
 			logs, err := db.FetchLogsByAddressAndTopic0(s.address, topic0, eventRangeStart, now)
 			if err != nil {
-				logger.Error("Error fetching logs %v", err)
+				logger.Errorf("Error fetching logs %v", err)
 				continue
 			}
 
 			for _, log := range logs {
 				contractLog, err := shared.ConvertDatabaseLogToChainLog(log)
 				if err != nil {
-					logger.Error("Error parsing UptimeVoteSigned database log %v", err)
+					logger.Errorf("Error parsing UptimeVoteSigned database log %v", err)
 					continue
 				}
 				uptimeVoteSigned, err := s.flareSystemsManager.FlareSystemsManagerFilterer.ParseUptimeVoteSigned(*contractLog)
 				if err != nil {
-					logger.Error("Error parsing UptimeVoteSigned event %v", err)
+					logger.Errorf("Error parsing UptimeVoteSigned event %v", err)
 					continue
 				}
 				if uptimeVoteSigned.ThresholdReached && uptimeVoteSigned.RewardEpochId.Int64() >= (currentEpoch-window) {
@@ -308,7 +308,7 @@ func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardH
 }
 
 func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
-	logger.Info("Signing rewards for epoch %v, hash: %s", epochId, rewardHash.Hex())
+	logger.Infof("Signing rewards for epoch %v, hash: %s", epochId, rewardHash.Hex())
 	packed := encodeRewardsData(epochId, s.chainId, rewardHash, weightClaims)
 
 	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(packed)), s.signerPrivateKey)
@@ -330,7 +330,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 	}, *rewardHash, signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
-			logger.Info("Non fatal error sending reward signature: %v", err)
+			logger.Infof("Non fatal error sending reward signature: %v", err)
 			return nil
 		}
 		return err
@@ -339,7 +339,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 	if err != nil {
 		return err
 	}
-	logger.Info("Rewards signed for epoch %v", epochId)
+	logger.Infof("Rewards signed for epoch %v", epochId)
 
 	return nil
 }

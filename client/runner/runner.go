@@ -8,9 +8,10 @@ import (
 	"flare-fsc/client/finalizer"
 	"flare-fsc/client/protocol"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"reflect"
 	"sync"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type Runner interface {
@@ -28,7 +29,7 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 		defer wg.Done()
 		err := r.Run(ctx)
 		if err != nil && !errors.Is(err, context.Canceled) {
-			logger.Error("Unexpected error, terminating: %v", err)
+			logger.Errorf("Unexpected error, terminating: %v", err)
 			cancel()
 		}
 	}()
@@ -38,18 +39,18 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientContext.ClientContext) *sync.WaitGroup {
 	registrationClient, err := epoch.NewEpochClient(clientCtx)
 	if err != nil {
-		logger.Fatal("Error creating registration client: %v", err)
+		logger.Fatalf("Error creating registration client: %v", err)
 	}
 
 	messageChannel := make(chan shared.ProtocolMessage, 2*len(clientCtx.Config().Protocol)) // twice just to be on the save side
 
 	protocolClient, err := protocol.NewProtocolClient(clientCtx, messageChannel)
 	if err != nil {
-		logger.Fatal("Error creating protocol client: %v", err)
+		logger.Fatalf("Error creating protocol client: %v", err)
 	}
 	finalizerClient, err := finalizer.NewFinalizerClient(clientCtx, messageChannel)
 	if err != nil {
-		logger.Fatal("Error creating finalizer client: %v", err)
+		logger.Fatalf("Error creating finalizer client: %v", err)
 	}
 
 	wg := sync.WaitGroup{}

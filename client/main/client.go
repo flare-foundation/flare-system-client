@@ -5,11 +5,12 @@ import (
 	clientContext "flare-fsc/client/context"
 	"flare-fsc/client/runner"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 func main() {
@@ -29,7 +30,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		sig := <-signalChan
-		logger.Info("Received %v signal, attempting graceful shutdown", sig)
+		logger.Infof("Received %v signal, attempting graceful shutdown", sig)
 		cancel()
 	}()
 

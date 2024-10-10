@@ -4,7 +4,6 @@ import (
 	"context"
 	clientContext "flare-fsc/client/context"
 	"flare-fsc/client/shared"
-	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/registry"
 	"flare-fsc/utils/contracts/system"
@@ -17,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type ProtocolClient struct {
