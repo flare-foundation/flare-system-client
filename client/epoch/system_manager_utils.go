@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/events"
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
@@ -167,7 +168,7 @@ func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epo
 }
 
 func (s *systemsManagerContractClientImpl) parseVotePowerBlockSelectedEvent(dbLog database.Log) (*system.FlareSystemsManagerVotePowerBlockSelected, error) {
-	contractLog, err := shared.ConvertDatabaseLogToChainLog(dbLog)
+	contractLog, err := events.ConvertDatabaseLogToChainLog(dbLog)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +217,7 @@ func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epoc
 }
 
 func (s *systemsManagerContractClientImpl) parseSignUptimeVoteEnabledEvent(dbLog database.Log) (*system.FlareSystemsManagerSignUptimeVoteEnabled, error) {
-	contractLog, err := shared.ConvertDatabaseLogToChainLog(dbLog)
+	contractLog, err := events.ConvertDatabaseLogToChainLog(dbLog)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +278,7 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 			}
 
 			for _, log := range logs {
-				contractLog, err := shared.ConvertDatabaseLogToChainLog(log)
+				contractLog, err := events.ConvertDatabaseLogToChainLog(log)
 				if err != nil {
 					logger.Errorf("Error parsing UptimeVoteSigned database log %v", err)
 					continue
