@@ -3,7 +3,6 @@ package epoch
 import (
 	"crypto/ecdsa"
 	"flare-fsc/client/shared"
-	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/chain"
@@ -18,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 )
 
 var (

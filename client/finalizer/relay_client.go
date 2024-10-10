@@ -33,9 +33,9 @@ type relayContractClient struct {
 	privateKey    *ecdsa.PrivateKey
 	senderAddress common.Address
 
-	relaySelector []byte // for relay method
-	topic0SPI     string // for SigningPolicyInitialized event
-	topic0PMR     string // for ProtocolMessageRelayed event
+	relaySelector []byte      // for relay method
+	topic0SPI     common.Hash // for SigningPolicyInitialized event
+	topic0PMR     common.Hash // for ProtocolMessageRelayed event
 }
 
 type relayEthClient interface {

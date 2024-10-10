@@ -2,9 +2,10 @@ package finalizer
 
 import (
 	"encoding/hex"
-	"flare-fsc/database"
 	"flare-fsc/logger"
 	"fmt"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 )
 
 type submissionProcessor interface {

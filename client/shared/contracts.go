@@ -2,11 +2,12 @@ package shared
 
 import (
 	"encoding/hex"
-	"flare-fsc/database"
 	"flare-fsc/utils/contracts/relay"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 )
 
 // DBLogToChainLog converts a database log to a chain log for use in the log decoder.

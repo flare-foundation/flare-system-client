@@ -2,7 +2,6 @@ package epoch
 
 import (
 	"flare-fsc/client/shared"
-	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/chain"
@@ -11,6 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 )
 
 type relayContractClient interface {

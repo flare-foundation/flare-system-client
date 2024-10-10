@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 )
 
 type ClientConfig struct {
-	DB      config.DBConfig     `toml:"db"`
+	DB      database.Config     `toml:"db"`
 	Logger  config.LoggerConfig `toml:"logger"`
 	Chain   config.ChainConfig  `toml:"chain"`
 	Metrics MetricsConfig       `toml:"metrics"`

@@ -4,7 +4,8 @@ import (
 	"flag"
 	"flare-fsc/client/config"
 	globalConfig "flare-fsc/config"
-	"flare-fsc/database"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 
 	"gorm.io/gorm"
 )

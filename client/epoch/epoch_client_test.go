@@ -4,7 +4,6 @@ import (
 	"context"
 	"flare-fsc/client/shared"
 	"flare-fsc/config"
-	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/relay"
@@ -19,6 +18,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 )
 
 func TestMain(m *testing.M) {
@@ -262,7 +263,7 @@ func TestEpochClientRegisterErr(t *testing.T) {
 type testDB struct{}
 
 func (db testDB) FetchLogsByAddressAndTopic0(
-	address common.Address, topic0 string, from, to int64,
+	address common.Address, topic0 common.Hash, from, to int64,
 ) ([]database.Log, error) {
 	return nil, errors.New("not implemented")
 }

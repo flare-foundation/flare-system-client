@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"flare-fsc/client/shared"
-	"flare-fsc/database"
 	"flare-fsc/logger"
 	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/relay"
@@ -20,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 )
 
 const (
@@ -420,7 +421,7 @@ func (db *testDB) FetchTransactionsByAddressAndSelectorFromBlockNumber(
 }
 
 func (db *testDB) FetchLogsByAddressAndTopic0(
-	address common.Address, topic string, from, to int64,
+	address common.Address, topic common.Hash, from, to int64,
 ) ([]database.Log, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -430,7 +431,7 @@ func (db *testDB) FetchLogsByAddressAndTopic0(
 	}
 
 	logger.Debug("fetching logs from db: address=%s, topic=%s", address.Hex(), topic)
-	if topic != topicSPIHex {
+	if topic.Hex() != topicSPIHex {
 		return nil, errors.New("unknown topic")
 	}
 
