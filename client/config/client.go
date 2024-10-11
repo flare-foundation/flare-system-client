@@ -116,6 +116,7 @@ type GasConfig struct {
 	GasLimit           int      `toml:"gas_limit"`
 
 	MaxPriorityFeePerGas *big.Int `toml:"max_priority_fee_per_gas"`
+	BaseFeePerGasCap     *big.Int `toml:"base_fee_per_gas_cap"`
 }
 
 type UptimeConfig struct {

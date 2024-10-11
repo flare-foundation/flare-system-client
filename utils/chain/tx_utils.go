@@ -133,13 +133,17 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
 	}
 
-	baseFeePerGas, err := baseFee(context.Background(), client)
-	if err != nil {
-		logger.Errorf("Error getting baseFee, %v", err)
-		return err
+	gasFeeCap := new(big.Int)
+	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) != 1 {
+		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
+	} else {
+		baseFeePerGas, err := baseFee(context.Background(), client)
+		if err != nil {
+			logger.Debug("Error getting baseFee, %v", err)
+			return err
+		}
+		gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(3))
 	}
-
-	gasFeeCap := baseFeePerGas.Mul(baseFeePerGas, big.NewInt(3))
 
 	if gasConfig.MaxPriorityFeePerGas != nil {
 		tipCap.Set(gasConfig.MaxPriorityFeePerGas)
