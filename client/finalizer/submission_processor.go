@@ -17,7 +17,7 @@ type submissionProcessor interface {
 }
 
 // ProcessTransaction
-func (c *finalizerClient) ProcessTransaction(tx database.Transaction) error {
+func (c *client) ProcessTransaction(tx database.Transaction) error {
 	inputBytes, err := hex.DecodeString(tx.Input)
 	if err != nil {
 		logger.Infof("Invalid submitSignatures tx sent by %s: %v, skipping", tx.FromAddress, err)
@@ -53,7 +53,7 @@ func (c *finalizerClient) ProcessTransaction(tx database.Transaction) error {
 	return nil
 }
 
-func (c *finalizerClient) ProcessSubmissionData(payloads []*submitSignaturesPayload) error {
+func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) error {
 	for _, payloadItem := range payloads {
 		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
 			logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - before startingVotingRound %d", payloadItem.votingRoundID, payloadItem.protocolID, c.finalizerContext.startingVotingRound)

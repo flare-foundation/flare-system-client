@@ -3,13 +3,13 @@ package finalizer
 import (
 	"context"
 	"flare-fsc/client/shared"
-	"flare-fsc/utils/contracts/submission"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
 
+	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/submission"
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 

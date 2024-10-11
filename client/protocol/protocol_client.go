@@ -20,7 +20,8 @@ import (
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
-type ProtocolClient struct {
+// client manages fetching data from subProtocol providers and posting them on submission contract.
+type client struct {
 	subProtocols []*SubProtocol
 	eth          *ethclient.Client
 
@@ -52,7 +53,10 @@ func (r voterRegistryImpl) IsVoterRegistered(
 	return r.registry.IsVoterRegistered(&bind.CallOpts{Context: ctx}, address, big.NewInt(epoch))
 }
 
-func NewProtocolClient(ctx clientContext.ClientContext, messageChannel chan<- shared.ProtocolMessage) (*ProtocolClient, error) {
+// NewClient creates new Client that manages fetching data from subProtocol providers and posting them on submission contract.
+//
+// messageChannel is used to provider messages from submitSignature to the finalizer.Client.
+func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.ProtocolMessage) (*client, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EnabledProtocolVoting {
 		return nil, nil
@@ -94,7 +98,7 @@ func NewProtocolClient(ctx clientContext.ClientContext, messageChannel chan<- sh
 		return nil, err
 	}
 
-	pc := &ProtocolClient{
+	pc := &client{
 		eth:             cl,
 		protocolContext: protocolContext,
 		subProtocols:    subProtocols,
@@ -128,7 +132,8 @@ func NewProtocolClient(ctx clientContext.ClientContext, messageChannel chan<- sh
 	return pc, nil
 }
 
-func (c *ProtocolClient) Run(ctx context.Context) error {
+// Run runs the client. Should be called in a goroutine.
+func (c *client) Run(ctx context.Context) error {
 	if err := c.waitUntilRegistered(ctx); err != nil {
 		return err
 	}
@@ -188,7 +193,7 @@ L:
 	return nil
 }
 
-func (c *ProtocolClient) waitUntilRegistered(ctx context.Context) error {
+func (c *client) waitUntilRegistered(ctx context.Context) error {
 	for {
 		currentEpoch := c.rewardEpoch.EpochIndex(time.Now())
 
@@ -209,7 +214,7 @@ func (c *ProtocolClient) waitUntilRegistered(ctx context.Context) error {
 
 const registerCheckTimeout = 5 * time.Second
 
-func (c *ProtocolClient) isRegistered(ctx context.Context, epoch int64) (bool, error) {
+func (c *client) isRegistered(ctx context.Context, epoch int64) (bool, error) {
 	bOff := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
 	var registered bool
 
@@ -235,7 +240,7 @@ func (c *ProtocolClient) isRegistered(ctx context.Context, epoch int64) (bool, e
 	return registered, err
 }
 
-func (c *ProtocolClient) waitForNextRewardEpoch(ctx context.Context, currentEpoch int64) error {
+func (c *client) waitForNextRewardEpoch(ctx context.Context, currentEpoch int64) error {
 	nextEpochStart := c.rewardEpoch.StartTime(currentEpoch + 1)
 	now := time.Now()
 

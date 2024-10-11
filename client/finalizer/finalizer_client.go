@@ -20,7 +20,10 @@ import (
 
 const minRoundsStored uint32 = 10
 
-type finalizerClient struct {
+// client manages finalization tasks:
+//   - collects messages and signatures
+//   - prepares and submits finalization transactions
+type client struct {
 	db finalizerDB
 
 	relayClient          *relayContractClient          // reading and writing to the relay contract for the finalization
@@ -33,7 +36,10 @@ type finalizerClient struct {
 	finalizerContext *finalizerContext
 }
 
-func NewFinalizerClient(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage) (*finalizerClient, error) {
+// NewClient creates a new client that manages finalizations.
+//
+// messageChannel is used to receive messages from protocol.client.
+func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage) (*client, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EnabledFinalizer {
 		return nil, nil
@@ -77,7 +83,7 @@ func NewFinalizerClient(ctx clientContext.ClientContext, messageChannel <-chan s
 
 	db := finalizerDBImpl{client: ctx.DB()}
 
-	return &finalizerClient{
+	return &client{
 		db:                   db,
 		relayClient:          relayClient,
 		signingPolicyStorage: policy.NewStorage(),
@@ -89,7 +95,8 @@ func NewFinalizerClient(ctx clientContext.ClientContext, messageChannel <-chan s
 	}, nil
 }
 
-func (c *finalizerClient) Run(ctx context.Context) error {
+// Run runs the client. Should be called in a goroutine.
+func (c *client) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	startTime := time.Now().Add(-c.finalizerContext.startTimeOffset)
@@ -114,7 +121,7 @@ func (c *finalizerClient) Run(ctx context.Context) error {
 	return eg.Wait()
 }
 
-func (c *finalizerClient) fetchExistingSigningPolicies(
+func (c *client) fetchExistingSigningPolicies(
 	_ context.Context, startTime time.Time,
 ) (time.Time, error) {
 	// Read current signing policies from the database and add them to the storage
@@ -140,7 +147,7 @@ func (c *finalizerClient) fetchExistingSigningPolicies(
 	return startTime, nil
 }
 
-func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
+func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
 	spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
 	for {
 		var dbPolicy signingPolicyListenerResponse
@@ -166,7 +173,7 @@ func (c *finalizerClient) runSigningPolicyInitializedListener(ctx context.Contex
 // signingPolicyData returns signing policy and voting threshold for the given votingRoundID.
 //
 // If the signing policy was expected to end before votingRoundID but it was prolonged, the threshold is raised to 60% of total weight.
-func (c *finalizerClient) signingPolicyData(votingRoundID uint32) (*policy.SigningPolicy, uint16) {
+func (c *client) signingPolicyData(votingRoundID uint32) (*policy.SigningPolicy, uint16) {
 	sp, last := c.signingPolicyStorage.ForVotingRound(votingRoundID)
 	if sp == nil {
 		return nil, 0
@@ -184,13 +191,13 @@ func (c *finalizerClient) signingPolicyData(votingRoundID uint32) (*policy.Signi
 }
 
 // checkVotingRoundTime returns true if votingRoundID is not in the future, i.e., is <= the current voting round
-func (c *finalizerClient) checkVotingRoundTime(votingRoundID uint32) bool {
+func (c *client) checkVotingRoundTime(votingRoundID uint32) bool {
 	currentEpochID := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
 	return votingRoundID <= uint32(currentEpochID)
 }
 
 // messagesChannelListener listens to the messages from the protocol message channel and adds them to the finalizationStorage.
-func (c *finalizerClient) messagesChannelListener(ctx context.Context) error {
+func (c *client) messagesChannelListener(ctx context.Context) error {
 	for {
 		var protocolMessage shared.ProtocolMessage
 

@@ -1,7 +1,0 @@
-([]common.Hash) (len=5) {
-  (common.Hash) (len=32) 0x525876128d9eb0ad1b9e0d64c9c51b1cd33790861c401ad2e3df0f670ce6a2a4,
-  (common.Hash) (len=32) 0x7b492a5431c35eebd2d53bbba9fa01228c2ad4e37faaa64b09192cff0a7eca98,
-  (common.Hash) (len=32) 0xbd049ce6f822dc587975fa50fb693abdd9beec06337b4384e2ee77b32ff4b4d1,
-  (common.Hash) (len=32) 0x37a1fe13b54b53195e99caa786411507850b6d41cc63bd0d388d4f9d42e7d1ba,
-  (common.Hash) (len=32) 0x4366419808169075e2c58f60f2bcf8dc744cc994eeb5ee1e4c74d63bf5ada4f8
-}

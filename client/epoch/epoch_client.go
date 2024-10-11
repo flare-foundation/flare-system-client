@@ -18,12 +18,12 @@ import (
 	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
 )
 
-// EpochClient performs reward epoch registration and signing actions, triggered on SystemsManager contract events:
+// client performs reward epoch registration and signing actions, triggered on SystemsManager contract events:
 //   - Voter registration (on VoterPowerBlockSelected)
 //   - Signing new signing policy (on SigningPolicyInitialized)
 //   - Signing uptime vote (on SignUptimeVoteEnabled)
 //   - Signing rewards (on UptimeVoteSigned with threshold reached)
-type EpochClient struct {
+type client struct {
 	db epochClientDB
 
 	systemsManagerClient systemsManagerContractClient
@@ -40,7 +40,8 @@ type EpochClient struct {
 	uptimeConfig  *clientConfig.UptimeConfig
 }
 
-func NewEpochClient(ctx flarectx.ClientContext) (*EpochClient, error) {
+// NewClient creates a client that manages reward epoch tasks.
+func NewClient(ctx flarectx.ClientContext) (*client, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EpochClientEnabled() {
 		return nil, nil
@@ -99,7 +100,7 @@ func NewEpochClient(ctx flarectx.ClientContext) (*EpochClient, error) {
 	logger.Debugf("Identity address %v", identityAddress)
 
 	db := epochClientDBGorm{db: ctx.DB()}
-	return &EpochClient{
+	return &client{
 		db:                    db,
 		systemsManagerClient:  systemsManagerClient,
 		relayClient:           relayClient,
@@ -114,7 +115,7 @@ func NewEpochClient(ctx flarectx.ClientContext) (*EpochClient, error) {
 }
 
 // Run runs the client. Should be called in a goroutine.
-func (c *EpochClient) Run(ctx context.Context) error {
+func (c *client) Run(ctx context.Context) error {
 	logger.Info("Starting reward epoch client")
 
 	epoch, err := c.systemsManagerClient.RewardEpochFromChain()
@@ -162,7 +163,7 @@ func (c *EpochClient) Run(ctx context.Context) error {
 	}
 }
 
-func (c *EpochClient) registerVoter(epochID *big.Int) {
+func (c *client) registerVoter(epochID *big.Int) {
 	if !c.isFutureEpoch(epochID) {
 		logger.Debugf("Skipping registration process for old epoch %v", epochID)
 		return
@@ -177,7 +178,7 @@ func (c *EpochClient) registerVoter(epochID *big.Int) {
 	}
 }
 
-func (c *EpochClient) signPolicy(epochID *big.Int, policy []byte) {
+func (c *client) signPolicy(epochID *big.Int, policy []byte) {
 	if !c.isFutureEpoch(epochID) {
 		logger.Debugf("Skipping policy signing for old epoch %v", epochID)
 		return
@@ -193,7 +194,7 @@ func (c *EpochClient) signPolicy(epochID *big.Int, policy []byte) {
 	}
 }
 
-func (c *EpochClient) signUptimeVote(epochID *big.Int) {
+func (c *client) signUptimeVote(epochID *big.Int) {
 	logger.Info("SignUptimeVoteEnabled event emitted for epoch %v, signing uptime vote", epochID)
 	signUptimeVoteResult := <-c.systemsManagerClient.SignUptimeVote(epochID)
 	if signUptimeVoteResult.Success {
@@ -204,7 +205,7 @@ func (c *EpochClient) signUptimeVote(epochID *big.Int) {
 	}
 }
 
-func (c *EpochClient) isFutureEpoch(epochID *big.Int) bool {
+func (c *client) isFutureEpoch(epochID *big.Int) bool {
 	epochIDResult := <-c.systemsManagerClient.GetCurrentRewardEpochID()
 	if !epochIDResult.Success {
 		logger.Errorf("GetCurrentRewardEpochId failed %s", epochIDResult.Message)
@@ -218,7 +219,7 @@ func (c *EpochClient) isFutureEpoch(epochID *big.Int) bool {
 	return true
 }
 
-func (c *EpochClient) signRewards(epochId *big.Int) {
+func (c *client) signRewards(epochId *big.Int) {
 	logger.Infof("Signing rewards for epoch %v", epochId)
 	hash, weightClaims, err := getRewardsHash(epochId, c.rewardsConfig)
 	if err != nil {

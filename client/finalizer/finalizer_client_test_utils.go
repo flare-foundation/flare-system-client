@@ -39,7 +39,7 @@ var (
 type testClients struct {
 	db        *testDB
 	eth       *testEthClient
-	finalizer *finalizerClient
+	finalizer *client
 }
 
 func setupTest(protocolType uint8) (*testClients, error) {
@@ -109,7 +109,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		messagesChannel <- shared.ProtocolMessage{ProtocolID: item.protocolID, VotingRoundID: item.votingRoundID, Message: item.message}
 	}
 
-	client := &finalizerClient{
+	client := &client{
 		db:                   db,
 		relayClient:          relayClient,
 		signingPolicyStorage: policy.NewStorage(),

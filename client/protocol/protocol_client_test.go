@@ -303,7 +303,7 @@ func TestWaitUntilRegistered(t *testing.T) {
 		expectedAddress: identityAddress,
 		registeredEpoch: 3,
 	}
-	client := ProtocolClient{
+	client := client{
 		registry:        &registry,
 		rewardEpoch:     utils.NewEpochConfig(time.Now(), 100*time.Millisecond),
 		identityAddress: identityAddress,
@@ -325,7 +325,7 @@ func TestWaitUntilRegisteredTransientError(t *testing.T) {
 		registeredEpoch:     0,
 		transientErrorCount: 3,
 	}
-	client := ProtocolClient{
+	client := client{
 		registry:        &registry,
 		rewardEpoch:     utils.NewEpochConfig(time.Now(), time.Minute),
 		identityAddress: identityAddress,

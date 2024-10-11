@@ -30,7 +30,7 @@ func TestEpochClientMainline(t *testing.T) {
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -84,7 +84,7 @@ func TestEpochClientInvalidEpoch(t *testing.T) {
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -127,7 +127,7 @@ func TestEpochClientSigningErr(t *testing.T) {
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -178,7 +178,7 @@ func TestEpochClientRewardEpochErr(t *testing.T) {
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -219,7 +219,7 @@ func TestEpochClientRegisterErr(t *testing.T) {
 	registryClient := newTestRegistryClient()
 	registryClient.registerErr = errors.New("register error")
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
