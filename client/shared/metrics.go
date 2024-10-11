@@ -42,7 +42,7 @@ func (m *MetricsBase) SetStatus(status HealthStatus) {
 	m.status.Set(float64(status))
 }
 
-func InitMetricsServer(cfg *config.MetricsConfig) {
+func InitMetricsServer(cfg *config.Metrics) {
 	if len(cfg.PrometheusAddress) == 0 {
 		return
 	}

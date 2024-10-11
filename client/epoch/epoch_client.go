@@ -36,8 +36,8 @@ type client struct {
 	uptimeVotingEnabled   bool
 	rewardsSigningEnabled bool
 
-	rewardsConfig *clientConfig.RewardsConfig
-	uptimeConfig  *clientConfig.UptimeConfig
+	rewardsConfig *clientConfig.Rewards
+	uptimeConfig  *clientConfig.Uptime
 }
 
 // NewClient creates a client that manages reward epoch tasks.

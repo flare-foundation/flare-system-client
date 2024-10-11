@@ -23,7 +23,7 @@ type finalizerContext struct {
 }
 
 // func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
-func newFinalizerContext(cfg *config.ClientConfig, relay *relay.Relay) (*finalizerContext, error) {
+func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerContext, error) {
 	votingEpoch, rewardEpoch, err := shared.EpochsFromChain(relay)
 	if err != nil {
 		return nil, err

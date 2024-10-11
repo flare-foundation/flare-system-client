@@ -11,7 +11,7 @@ import (
 )
 
 type ClientContext interface {
-	Config() *config.ClientConfig
+	Config() *config.Client
 	DB() *gorm.DB
 	Flags() *ClientFlags
 }
@@ -22,14 +22,14 @@ type ClientFlags struct {
 }
 
 type clientContext struct {
-	config *config.ClientConfig
+	config *config.Client
 	db     *gorm.DB
 	flags  *ClientFlags
 }
 
 func BuildContext() (ClientContext, error) {
 	flags := parseFlags()
-	cfg, err := config.BuildConfig(flags.ConfigFileName)
+	cfg, err := config.Build(flags.ConfigFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -47,14 +47,14 @@ func BuildContext() (ClientContext, error) {
 	}, nil
 }
 
-func (c *clientContext) Config() *config.ClientConfig { return c.config }
+func (c *clientContext) Config() *config.Client { return c.config }
 
 func (c *clientContext) DB() *gorm.DB { return c.db }
 
 func (c *clientContext) Flags() *ClientFlags { return c.flags }
 
 func parseFlags() *ClientFlags {
-	cfgFlag := flag.String("config", globalConfig.CONFIG_FILE, "Configuration file (toml format)")
+	cfgFlag := flag.String("config", globalConfig.ConfigFile, "Configuration file (toml format)")
 	flag.Parse()
 
 	return &ClientFlags{

@@ -17,27 +17,27 @@ import (
 )
 
 const (
-	CONFIG_FILE string = "config.toml"
+	ConfigFile string = "config.toml" // name of config file
 )
 
 var (
-	GlobalConfigCallback ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
+	GlobalConfigCallback ConfigCallback[Global] = ConfigCallback[Global]{}
 )
 
-type GlobalConfig interface {
+type Global interface {
 	LoggerConfig() logger.Config
-	ChainConfig() ChainConfig
+	ChainConfig() Chain
 }
 
-type ChainConfig struct {
+type Chain struct {
 	ChainID   int    `toml:"chain_id" envconfig:"CHAIN_ID"`
 	EthRPCURL string `toml:"eth_rpc_url" envconfig:"ETH_RPC_URL"`
 	ApiKey    string `toml:"api_key" envconfig:"API_KEY"`
 }
 
 // Dial the chain node and return an ethclient.Client.
-func (chain *ChainConfig) DialETH() (*ethclient.Client, error) {
-	rpcURL, err := chain.getRPCURL()
+func (cfg *Chain) DialETH() (*ethclient.Client, error) {
+	rpcURL, err := cfg.getRPCURL()
 	if err != nil {
 		return nil, err
 	}
@@ -47,18 +47,18 @@ func (chain *ChainConfig) DialETH() (*ethclient.Client, error) {
 
 // Get the full RPC URL which may be passed to ethclient.Dial.
 // Includes API key as query param if it is configured.
-func (chain *ChainConfig) getRPCURL() (string, error) {
-	u, err := url.Parse(chain.EthRPCURL)
+func (cfg *Chain) getRPCURL() (string, error) {
+	u, err := url.Parse(cfg.EthRPCURL)
 	if err != nil {
 		return "", err
 	}
 
-	if chain.ApiKey == "" {
+	if cfg.ApiKey == "" {
 		return u.String(), nil
 	}
 
 	q := u.Query()
-	q.Set("x-apikey", chain.ApiKey)
+	q.Set("x-apikey", cfg.ApiKey)
 	u.RawQuery = q.Encode()
 
 	return u.String(), nil

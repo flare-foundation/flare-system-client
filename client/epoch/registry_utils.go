@@ -46,14 +46,14 @@ type registryContractClientImpl struct {
 	address          common.Address
 	registry         *registry.Registry
 	senderTxOpts     *bind.TransactOpts
-	gasCfg           *config.GasConfig
+	gasCfg           *config.Gas
 	txVerifier       *chain.TxVerifier
 	signerPrivateKey *ecdsa.PrivateKey
 }
 
 func NewRegistryContractClient(
 	ethClient *ethclient.Client,
-	gasCfg *config.GasConfig,
+	gasCfg *config.Gas,
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPk *ecdsa.PrivateKey,

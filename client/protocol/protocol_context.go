@@ -31,7 +31,7 @@ type contractSelectors struct {
 	submitSignatures []byte
 }
 
-func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
+func newProtocolContext(cfg *config.Client) (*protocolContext, error) {
 	ctx := &protocolContext{}
 
 	var err error

@@ -101,7 +101,7 @@ func baseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 }
 
 // SendRawTypeTx prepares and sends EIP-1559 transaction. The value sent is 0.
-func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.GasConfig) error {
+func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -196,7 +196,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 }
 
 // SendRawTx prepares and sends legacy transaction.
-func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.GasConfig) error {
+func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -276,7 +276,7 @@ func dryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress co
 	return estimatedGas, err
 }
 
-func getGasLimit(gasConfig *config.GasConfig, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) uint64 {
+func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) uint64 {
 	var gasLimit uint64
 	if gasConfig.GasLimit == 0 {
 		estimatedGas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
@@ -298,7 +298,7 @@ func getGasLimit(gasConfig *config.GasConfig, client *ethclient.Client, fromAddr
 	return gasLimit
 }
 
-func GetGasPrice(gasConfig *config.GasConfig, client *ethclient.Client) (*big.Int, error) {
+func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client) (*big.Int, error) {
 	var gasPrice *big.Int
 	if gasConfig.GasPriceFixed.Cmp(common.Big0) != 0 {
 		gasPrice = gasConfig.GasPriceFixed
