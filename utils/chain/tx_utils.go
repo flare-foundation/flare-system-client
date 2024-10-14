@@ -134,7 +134,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	}
 
 	gasFeeCap := new(big.Int)
-	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) != 1 {
+	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
 		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
 	} else {
 		baseFeePerGas, err := baseFee(context.Background(), client)
@@ -145,7 +145,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 		gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(3))
 	}
 
-	if gasConfig.MaxPriorityFeePerGas != nil {
+	if gasConfig.MaxPriorityFeePerGas != nil && gasConfig.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
 		tipCap.Set(gasConfig.MaxPriorityFeePerGas)
 	}
 	gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
