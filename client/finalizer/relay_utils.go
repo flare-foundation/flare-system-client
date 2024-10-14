@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"flare-tlc/client/config"
 	"flare-tlc/client/shared"
+	"flare-tlc/database"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
 	"flare-tlc/utils/contracts/relay"
@@ -99,13 +100,29 @@ func NewRelayContractClient(
 }
 
 func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
+	var allLogs []database.Log
+
+	// TEMP CHANGE for upgrading Relay contract, can be removed after 21 Oct 2024
+
+	// If using new Songbird relay, query the old one as well
+	if r.address == common.HexToAddress("0x0D462d2Fec11554D64F52D7c5A5C269d748037aD") {
+		logsOld, err := db.FetchLogsByAddressAndTopic0(common.HexToAddress("0xbA35e39D01A3f5710d1e43FC61dbb738B68641c4"), r.topic0SPI, from, to)
+		if err != nil {
+			return nil, err
+		}
+		allLogs = append(allLogs, logsOld...)
+	}
+	// END TEMP CHANGE
+
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]signingPolicyListenerResponse, 0, len(logs))
-	for _, log := range logs {
+	allLogs = append(allLogs, logs...)
+
+	result := make([]signingPolicyListenerResponse, 0, len(allLogs))
+	for _, log := range allLogs {
 		policyData, err := shared.ParseSigningPolicyInitializedEvent(r.relay, log)
 		if err != nil {
 			logger.Error("Error parsing SigningPolicyInitialized event %v", err)
