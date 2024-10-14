@@ -156,8 +156,14 @@ func new() *Client {
 	}
 }
 
+// methods to satisfy config.Global interface
+
 func (c Client) ChainConfig() config.Chain {
 	return c.Chain
+}
+
+func (c Client) LoggerConfig() logger.Config {
+	return c.Logger
 }
 
 func Build(cfgFileName string) (*Client, error) {
