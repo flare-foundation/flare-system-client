@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -20,8 +19,8 @@ import (
 )
 
 type SubmitterBase struct {
-	ethClient submitterEthClient
-	gasConfig *config.Gas
+	chainClient chain.Client
+	gasConfig   *config.Gas
 
 	protocolContext *protocolContext
 
@@ -36,19 +35,6 @@ type SubmitterBase struct {
 
 	dataFetchRetries int           // number of retries for fetching data of each provider
 	dataFetchTimeout time.Duration // timeout for fetching data of each provider
-}
-
-type submitterEthClient interface {
-	SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *config.Gas) error
-}
-
-type submitterEthClientImpl struct {
-	ethClient *ethclient.Client
-}
-
-// SendRawTx sends a transaction with payload signed by privateKey to to address.
-func (c submitterEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *config.Gas) error {
-	return chain.SendRawType2Tx(c.ethClient, privateKey, to, payload, true, gasConfig)
 }
 
 type Submitter struct {
@@ -67,7 +53,7 @@ type SignatureSubmitter struct {
 
 func (s *SubmitterBase) submit(payload []byte) bool {
 	sendResult := <-shared.ExecuteWithRetry(func() (any, error) {
-		err := s.ethClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
+		err := s.chainClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
@@ -92,7 +78,7 @@ func newSubmitter(
 ) *Submitter {
 	return &Submitter{
 		SubmitterBase: SubmitterBase{
-			ethClient:        submitterEthClientImpl{ethClient: ethClient},
+			chainClient:      chain.ClientImpl{EthClient: ethClient},
 			gasConfig:        gasCfg,
 			protocolContext:  pc,
 			epoch:            epoch,
@@ -171,7 +157,7 @@ func newSignatureSubmitter(
 ) *SignatureSubmitter {
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
-			ethClient:        submitterEthClientImpl{ethClient: ethClient},
+			chainClient:      chain.ClientImpl{EthClient: ethClient},
 			gasConfig:        gasCfg,
 			protocolContext:  pc,
 			epoch:            epoch,

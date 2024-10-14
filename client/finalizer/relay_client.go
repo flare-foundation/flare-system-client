@@ -30,7 +30,9 @@ var (
 type relayContractClient struct {
 	address common.Address
 
-	ethClient     relayEthClient
+	chainClient chain.Client
+	gasConfig   *config.Gas
+
 	relay         *relay.Relay
 	privateKey    *ecdsa.PrivateKey
 	senderAddress common.Address
@@ -38,18 +40,6 @@ type relayContractClient struct {
 	relaySelector []byte      // for relay method
 	topic0SPI     common.Hash // for SigningPolicyInitialized event
 	topic0PMR     common.Hash // for ProtocolMessageRelayed event
-}
-
-type relayEthClient interface {
-	SendRawTx(*ecdsa.PrivateKey, common.Address, []byte, bool) error
-}
-
-type relayEthClientImpl struct {
-	client *ethclient.Client
-}
-
-func (eth relayEthClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, dryRun bool) error {
-	return chain.SendRawType2Tx(eth.client, privateKey, to, data, dryRun, &config.Gas{GasPriceFixed: common.Big0})
 }
 
 type signingPolicyListenerResponse struct {
@@ -62,6 +52,7 @@ func NewRelayContractClient(
 	address common.Address,
 	privateKey *ecdsa.PrivateKey,
 	senderAddress common.Address,
+	gasConfig *config.Gas,
 ) (*relayContractClient, error) {
 	relayContract, err := relay.NewRelay(address, ethClient)
 	if err != nil {
@@ -86,7 +77,7 @@ func NewRelayContractClient(
 	}
 
 	return &relayContractClient{
-		ethClient:     relayEthClientImpl{client: ethClient},
+		chainClient:   chain.ClientImpl{EthClient: ethClient},
 		address:       address,
 		relay:         relayContract,
 		privateKey:    privateKey,
@@ -94,6 +85,7 @@ func NewRelayContractClient(
 		relaySelector: relaySelectorBytes,
 		topic0SPI:     topic0SPI,
 		topic0PMR:     topic0PMR,
+		gasConfig:     gasConfig,
 	}, nil
 }
 
@@ -151,7 +143,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	}
 
 	execStatusChan := shared.ExecuteWithRetry(func() (any, error) {
-		err := r.ethClient.SendRawTx(r.privateKey, r.address, input, dryRun)
+		err := r.chainClient.SendRawTx(r.privateKey, r.address, input, r.gasConfig)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Infof("Non fatal error sending relay tx: %v", err)

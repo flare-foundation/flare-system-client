@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	tipCap = big.NewInt(DefaultTipPerGasCap)
+	defaultTipCap = big.NewInt(DefaultTipPerGasCap)
 )
 
 type TxVerifier struct {
@@ -145,9 +145,13 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 		gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(3))
 	}
 
+	tipCap := new(big.Int)
 	if gasConfig.MaxPriorityFeePerGas != nil && gasConfig.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
 		tipCap.Set(gasConfig.MaxPriorityFeePerGas)
+	} else {
+		tipCap.Set(defaultTipCap)
 	}
+
 	gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
 
 	chainID, err := client.NetworkID(context.Background())

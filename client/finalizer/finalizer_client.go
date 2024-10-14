@@ -74,6 +74,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 		cfg.ContractAddresses.Relay,
 		senderPk,
 		txOpts.From,
+		&cfg.RelayGas,
 	)
 	if err != nil {
 		return nil, err

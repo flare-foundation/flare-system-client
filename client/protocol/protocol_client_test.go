@@ -58,8 +58,8 @@ func TestSubmitter(t *testing.T) {
 	address := crypto.PubkeyToAddress(privKey.PublicKey)
 
 	base := SubmitterBase{
-		ethClient: &ethClient,
-		gasConfig: &clientConfig.Gas{},
+		chainClient: &ethClient,
+		gasConfig:   &clientConfig.Gas{},
 		protocolContext: &protocolContext{
 			submitPrivateKey:           privKey,
 			signerPrivateKey:           privKey,

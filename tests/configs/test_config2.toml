@@ -1,0 +1,88 @@
+[db]
+host = "localhost"
+port = 3306
+database = "flare_ftso_indexer_system_client_simulation"
+username = "root"
+password = "root"
+log_queries = false
+
+[logger]
+level = "DEBUG"
+file = "./logs/flare-fsc.log"
+console = true
+
+[metrics]
+# prometheus_address = "localhost:2112"
+
+[chain]
+eth_rpc_url = "http://localhost:8545"
+chain_id = 31337
+
+[contract_addresses]
+submission = "0x18b9306737eaf6E8FC8e737F488a1AE077b18053"
+systems_manager = "0xa4bcDF64Cdd5451b6ac3743B414124A6299B65FF"
+voter_registry = "0xB00cC45B4a7d3e1FEE684cFc4417998A1c183e6d"
+relay = "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F"
+
+[identity]
+address = "0x0e0b5a3F244686Cf9E7811754379B9114D42f78B" # identity account not private key
+
+[credentials]
+system_client_sender_private_key_file = "tests/credentials/sender-private-key2.txt"                   # any account
+signing_policy_private_key_file = "tests/credentials/policy-private-key2.txt"                         # for signing and submitting votes
+protocol_manager_submit_private_key_file = "tests/credentials/submit-private-key2.txt"
+protocol_manager_submit_signatures_private_key_file = "tests/credentials/signatures-private-key2.txt"
+
+[clients]
+enabled_registration = false
+enabled_protocol_voting = true
+enabled_finalizer = true
+enabled_reward_signing = false
+[protocol.testFTSO]
+id = 101
+api_url = "http://localhost:3100/"
+type = 0
+
+[submit1]
+enabled = true
+start_offset = "2s"
+tx_submit_retries = 1
+data_fetch_retries = 1
+data_fetch_timeout = "5s"
+
+[submit2]
+enabled = true
+start_offset = "5s"
+tx_submit_retries = 1
+data_fetch_retries = 1
+data_fetch_timeout = "5s"
+
+[submit_signatures]
+enabled = true
+start_offset = "12s"
+tx_submit_retries = 1
+data_fetch_retries = 1
+data_fetch_timeout = "5s"
+max_rounds = 3
+
+[finalizer]
+starting_reward_epoch = 0
+starting_voting_round = 1005
+start_offset = "500s"
+grace_period_end_offset = "17s"
+
+[gas_submit]
+tx_type = 2
+gas_price_multiplier = 1.5
+gas_price_fixed = 0
+gas_limit = 0
+max_priority_fee_per_gas = 20000000000
+base_fee_per_gas_cap = 10
+
+[gas_relay]
+tx_type = 2
+gas_price_multiplier = 1.5
+gas_price_fixed = 0
+gas_limit = 0
+max_priority_fee_per_gas = 20000000000
+base_fee_per_gas_cap = 10

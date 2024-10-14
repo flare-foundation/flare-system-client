@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/hex"
+	"flare-fsc/client/config"
 	"flare-fsc/client/shared"
 	"flare-fsc/utils"
 	"flare-fsc/utils/contracts/relay"
@@ -83,12 +84,13 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		relayContractAddress,
 		privateKey,
 		fromAddress,
+		&config.Gas{},
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	relayClient.ethClient = ethClient
+	relayClient.chainClient = ethClient
 
 	finalizationStorage := newFinalizationStorage()
 
@@ -142,7 +144,7 @@ type sentTxInfo struct {
 	data       []byte
 }
 
-func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, dryRun bool) error {
+func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, _ *config.Gas) error {
 	eth.mu.Lock()
 	defer eth.mu.Unlock()
 

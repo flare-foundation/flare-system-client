@@ -34,6 +34,7 @@ type Client struct {
 
 	SubmitGas   Gas `toml:"gas_submit"`
 	RegisterGas Gas `toml:"gas_register"`
+	RelayGas    Gas `toml:"gas_relay"`
 
 	Uptime  Uptime  `toml:"uptime"`
 	Rewards Rewards `toml:"rewards"`
@@ -192,6 +193,10 @@ func validate(cfg *Client) error {
 	err = validateGas(&cfg.RegisterGas)
 	if err != nil {
 		return fmt.Errorf("validating RegisterGas: %v", err)
+	}
+	err = validateGas(&cfg.RelayGas)
+	if err != nil {
+		return err
 	}
 	return nil
 }
