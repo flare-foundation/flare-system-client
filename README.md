@@ -77,7 +77,7 @@ api_endpoint = "http://localhost:3000/ftso2"
 enabled = true            # (optional) set to false to disable a specific submitter, default: true
 start_offset = "5s"       # start fetching data and submitting txs after this offset from the start of the epoch
 tx_submit_retries = 1     # (optional) number of retries for submitting txs, default: 1
-tx_submit_timeout = "5s"  # (optional) timeout for waiting tx to be mined, default: 5s
+tx_submit_timeout = "10s"  # (optional) timeout for waiting tx to be mined, default: 10s
 data_fetch_retries = 1    # (optional) number of retries for fetching data from the API, default: 1
 data_fetch_timeout = "5s" # (optional) timeout for fetching data from the API, default: 5s
 
@@ -85,7 +85,7 @@ data_fetch_timeout = "5s" # (optional) timeout for fetching data from the API, d
 enabled = true
 start_offset = "15s"      # start fetching data and submitting txs after this offset from the start of the NEXT epoch
 tx_submit_retries = 1
-tx_submit_timeout = "5s"
+tx_submit_timeout = "10s"
 data_fetch_retries = 1
 data_fetch_timeout = "5s"
 
@@ -93,6 +93,7 @@ data_fetch_timeout = "5s"
 enabled = true
 start_offset = "10s"       # start fetching data and submitting txs after this offset from the start of the NEXT epoch
 tx_submit_retries = 3
+tx_submit_timeout = "10s"
 data_fetch_retries = 5
 data_fetch_timeout = "5s"
 max_rounds = 3             # max number of rounds to fetch data and submit signatures
