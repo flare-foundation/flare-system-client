@@ -102,9 +102,10 @@ func NewRelayContractClient(
 func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
 	var allLogs []database.Log
 
-	// TEMP CHANGE for upgrading Relay contract, can be removed after 21 Oct 2024
+	// TEMP CHANGE for upgrading Relay contract, should be removed after 17 Oct 2024
 
-	// If using new Songbird relay, query the old one as well
+	// If using new Songbird Relay, query the old one as well.
+	// Note: this won't have any effect on other networks as we currently have unique Relay addresses for each network.
 	if r.address == common.HexToAddress("0x0D462d2Fec11554D64F52D7c5A5C269d748037aD") {
 		logsOld, err := db.FetchLogsByAddressAndTopic0(common.HexToAddress("0xbA35e39D01A3f5710d1e43FC61dbb738B68641c4"), r.topic0SPI, from, to)
 		if err != nil {
