@@ -7,12 +7,12 @@ require (
 	github.com/bradleyjkemp/cupaloy v2.3.0+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/ethereum/go-ethereum v1.14.8
+	github.com/flare-foundation/go-flare-common v0.1.3
 	github.com/gorilla/mux v1.8.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.3
 	github.com/stretchr/testify v1.9.0
-	gitlab.com/flarenetwork/libs/go-flare-common v0.0.0-20241010142030-53d2d121c47c
 	golang.org/x/sync v0.8.0
 	gorm.io/gorm v1.25.12
 )

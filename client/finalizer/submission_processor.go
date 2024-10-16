@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 type submissionProcessor interface {

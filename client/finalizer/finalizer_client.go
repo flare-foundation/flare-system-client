@@ -12,10 +12,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/policy"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/policy"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 )
 
 const minRoundsStored uint32 = 10

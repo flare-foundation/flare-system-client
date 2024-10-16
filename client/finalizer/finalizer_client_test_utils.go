@@ -20,9 +20,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/policy"
+	"github.com/flare-foundation/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/policy"
 )
 
 const (

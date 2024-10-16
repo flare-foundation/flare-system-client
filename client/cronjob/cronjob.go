@@ -5,7 +5,7 @@ import (
 	"flare-fsc/utils"
 	"time"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 type Cronjob interface {

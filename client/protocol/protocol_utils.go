@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 type DataVerifier func(*SubProtocolResponse) error

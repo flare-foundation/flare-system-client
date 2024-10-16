@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"sync"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 type Runner interface {

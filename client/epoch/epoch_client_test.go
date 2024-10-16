@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/database"
 )
 
 func TestMain(m *testing.M) {

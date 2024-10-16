@@ -5,7 +5,7 @@ import (
 	"flare-fsc/utils/contracts/system"
 	"time"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 )
 
 func RewardEpochFromChain(fsm *system.FlareSystemsManager) (*utils.EpochConfig, error) {

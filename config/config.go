@@ -12,8 +12,8 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/kelseyhightower/envconfig"
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
 )
 
 const (

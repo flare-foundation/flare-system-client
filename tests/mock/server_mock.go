@@ -18,7 +18,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 type dataProviderResponse struct {

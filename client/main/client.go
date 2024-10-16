@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 func main() {

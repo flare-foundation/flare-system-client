@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/voters"
+	"github.com/flare-foundation/go-flare-common/pkg/voters"
 )
 
 // payloadMessage is a general structure that is used in the submit calls to the chain.

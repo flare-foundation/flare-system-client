@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"gorm.io/gorm"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/database"
 )
 
 type epochClientDB interface {

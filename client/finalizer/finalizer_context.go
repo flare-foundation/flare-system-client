@@ -6,7 +6,7 @@ import (
 	"flare-fsc/utils"
 	"time"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 )
 
 // Finalizer client settings

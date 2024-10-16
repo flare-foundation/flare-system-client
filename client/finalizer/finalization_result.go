@@ -7,7 +7,7 @@ import (
 	"math"
 	"slices"
 
-	"gitlab.com/flarenetwork/libs/go-flare-common/pkg/policy"
+	"github.com/flare-foundation/go-flare-common/pkg/policy"
 )
 
 type FinalizationResult struct {
