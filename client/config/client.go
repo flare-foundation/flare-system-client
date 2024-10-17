@@ -196,7 +196,7 @@ func validate(cfg *Client) error {
 	}
 	err = validateGas(&cfg.RelayGas)
 	if err != nil {
-		return err
+		return fmt.Errorf("validating RelayGas: %v", err)
 	}
 	return nil
 }

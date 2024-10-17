@@ -247,13 +247,13 @@ func (c *client) waitForNextRewardEpoch(ctx context.Context, currentEpoch int64)
 	// Edge case if the time passed while checking the registration means
 	// we are already in the next epoch - return immediately in that case.
 	if nextEpochStart.Before(now) {
-		logger.Info("submitter is not registered for voting epoch %d, checking the next epoch", currentEpoch)
+		logger.Infof("submitter is not registered for voting epoch %d, checking the next epoch", currentEpoch)
 		return nil
 	}
 
 	sleepTime := nextEpochStart.Sub(now)
 
-	logger.Info(
+	logger.Infof(
 		"submitter is not registered for voting epoch %d, waiting for %s until the next epoch",
 		currentEpoch,
 		sleepTime,

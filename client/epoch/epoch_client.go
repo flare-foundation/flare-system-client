@@ -169,7 +169,7 @@ func (c *client) registerVoter(epochID *big.Int) {
 		return
 	}
 
-	logger.Info("VotePowerBlockSelected event emitted for next epoch %v, starting registration", epochID)
+	logger.Infof("VotePowerBlockSelected event emitted for next epoch %v, starting registration", epochID)
 	registerResult := <-c.registryClient.RegisterVoter(epochID, c.identityAddress)
 	if registerResult.Success {
 		logger.Info("RegisterVoter success")
@@ -184,7 +184,7 @@ func (c *client) signPolicy(epochID *big.Int, policy []byte) {
 		return
 	}
 
-	logger.Info("SigningPolicyInitialized event emitted for next epoch %v, signing new policy", epochID)
+	logger.Infof("SigningPolicyInitialized event emitted for next epoch %v, signing new policy", epochID)
 	signingResult := <-c.systemsManagerClient.SignNewSigningPolicy(epochID, policy)
 	if signingResult.Success {
 		logger.Info("SignNewSigningPolicy success")
@@ -195,7 +195,7 @@ func (c *client) signPolicy(epochID *big.Int, policy []byte) {
 }
 
 func (c *client) signUptimeVote(epochID *big.Int) {
-	logger.Info("SignUptimeVoteEnabled event emitted for epoch %v, signing uptime vote", epochID)
+	logger.Infof("SignUptimeVoteEnabled event emitted for epoch %v, signing uptime vote", epochID)
 	signUptimeVoteResult := <-c.systemsManagerClient.SignUptimeVote(epochID)
 	if signUptimeVoteResult.Success {
 		logger.Info("SignUptimeVote completed")

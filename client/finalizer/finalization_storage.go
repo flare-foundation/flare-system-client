@@ -1,6 +1,7 @@
 package finalizer
 
 import (
+	"errors"
 	"flare-fsc/client/shared"
 	"fmt"
 	"sync"
@@ -195,7 +196,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	defer s.Unlock()
 
 	if p.VotingRoundID < s.lowestRoundStored {
-		return FinalizationReady{thresholdReached: false}, nil //TODO
+		return FinalizationReady{thresholdReached: false}, errors.New("message for old, already removed round")
 	}
 
 	rc, exists := s.stg[p.VotingRoundID]

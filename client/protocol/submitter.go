@@ -249,7 +249,7 @@ func (s *SignatureSubmitter) WritePayload(
 //
 // Repeat 1 and 2 until all sub-protocol providers give valid answer or we did maxRounds attempts.
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
-	logger.Info("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
+	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
 
 	protocolsToSend := make(map[int]bool)
 	for i := range s.subProtocols {

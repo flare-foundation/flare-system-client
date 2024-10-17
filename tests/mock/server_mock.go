@@ -48,7 +48,7 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		if err != nil {
 			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 		}
-		logger.Info("handled a submit1 request for voting round %d", votingRound)
+		logger.Infof("handled a submit1 request for voting round %d", votingRound)
 	})
 
 	muxRouter.HandleFunc("/submit2/{votingRoundID}/{submitAddress}", func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		if err != nil {
 			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 		}
-		logger.Info("handled a submit2 request for voting round %d", votingRound)
+		logger.Infof("handled a submit2 request for voting round %d", votingRound)
 	})
 
 	muxRouter.HandleFunc("/submitSignatures/{votingRoundID}/{submitAddress}", func(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +81,7 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		if err != nil {
 			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 		}
-		logger.Info("handled a submitSignatures request for voting round %d", votingRound)
+		logger.Infof("handled a submitSignatures request for voting round %d", votingRound)
 	})
 
 	server.Handler = muxRouter
