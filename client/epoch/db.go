@@ -22,7 +22,7 @@ func (g epochClientDBGorm) FetchLogsByAddressAndTopic0Timestamp(
 ) ([]database.Log, error) {
 	return database.FetchLogsByAddressAndTopic0Timestamp(context.TODO(), g.db, database.LogsParams{
 		Address: address,
-		Topic0:  [32]byte{},
+		Topic0:  topic0,
 		From:    fromTimestamp,
 		To:      toTimestamp,
 	})
