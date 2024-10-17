@@ -55,7 +55,7 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClien
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0(r.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(r.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue

@@ -256,7 +256,7 @@ func TestEpochClientRegisterErr(t *testing.T) {
 
 type testDB struct{}
 
-func (db testDB) FetchLogsByAddressAndTopic0(
+func (db testDB) FetchLogsByAddressAndTopic0Timestamp(
 	address common.Address, topic0 common.Hash, from, to int64,
 ) ([]database.Log, error) {
 	return nil, errors.New("not implemented")

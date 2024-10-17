@@ -148,7 +148,7 @@ func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epo
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0(s.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -195,7 +195,7 @@ func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epoc
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0(s.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -271,7 +271,7 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0(s.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
