@@ -2,20 +2,22 @@ package protocol
 
 import (
 	"context"
-	clientContext "flare-fsc/client/context"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils"
-	"flare-fsc/utils/contracts/registry"
-	"flare-fsc/utils/contracts/system"
 	"math/big"
 	"sync"
 	"time"
+
+	clientContext "github.com/flare-foundation/flare-system-client/client/context"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/registry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )

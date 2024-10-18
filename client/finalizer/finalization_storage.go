@@ -2,9 +2,10 @@ package finalizer
 
 import (
 	"errors"
-	"flare-fsc/client/shared"
 	"fmt"
 	"sync"
+
+	"github.com/flare-foundation/flare-system-client/client/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 

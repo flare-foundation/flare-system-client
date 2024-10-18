@@ -1,11 +1,12 @@
 package shared
 
 import (
-	"flare-fsc/utils"
-	"flare-fsc/utils/contracts/system"
 	"time"
 
+	"github.com/flare-foundation/flare-system-client/utils"
+
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 )
 
 func RewardEpochFromChain(fsm *system.FlareSystemsManager) (*utils.EpochConfig, error) {

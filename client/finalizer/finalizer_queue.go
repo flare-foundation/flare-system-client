@@ -2,15 +2,16 @@ package finalizer
 
 import (
 	"context"
-	"flare-fsc/utils"
-	"flare-fsc/utils/contracts/relay"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
+	"github.com/flare-foundation/flare-system-client/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 

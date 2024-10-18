@@ -3,7 +3,6 @@ package epoch
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"flare-fsc/utils/contracts/system"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -12,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 

@@ -1,10 +1,11 @@
 package finalizer
 
 import (
-	"flare-fsc/client/config"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 )

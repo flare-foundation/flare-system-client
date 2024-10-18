@@ -3,7 +3,8 @@ package chain
 import (
 	"crypto/ecdsa"
 	"errors"
-	"flare-fsc/client/config"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"

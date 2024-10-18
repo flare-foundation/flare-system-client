@@ -2,11 +2,11 @@ package epoch
 
 import (
 	"crypto/ecdsa"
-	"flare-fsc/client/config"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils/chain"
-	"flare-fsc/utils/contracts/registry"
 	"math/big"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -17,6 +17,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/registry"
 )
 
 var (

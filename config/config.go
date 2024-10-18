@@ -3,11 +3,12 @@ package config
 import (
 	"crypto/ecdsa"
 	"errors"
-	"flare-fsc/utils/credentials"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/flare-foundation/flare-system-client/utils/credentials"
 
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"

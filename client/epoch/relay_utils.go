@@ -1,10 +1,11 @@
 package epoch
 
 import (
-	"flare-fsc/client/shared"
-	"flare-fsc/utils"
-	"flare-fsc/utils/chain"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"

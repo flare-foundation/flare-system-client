@@ -4,9 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
-	clientConfig "flare-fsc/client/config"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +11,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	clientConfig "github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/bradleyjkemp/cupaloy"
 	"github.com/ethereum/go-ethereum/common"

@@ -3,13 +3,14 @@ package runner
 import (
 	"context"
 	"errors"
-	clientContext "flare-fsc/client/context"
-	"flare-fsc/client/epoch"
-	"flare-fsc/client/finalizer"
-	"flare-fsc/client/protocol"
-	"flare-fsc/client/shared"
 	"reflect"
 	"sync"
+
+	clientContext "github.com/flare-foundation/flare-system-client/client/context"
+	"github.com/flare-foundation/flare-system-client/client/epoch"
+	"github.com/flare-foundation/flare-system-client/client/finalizer"
+	"github.com/flare-foundation/flare-system-client/client/protocol"
+	"github.com/flare-foundation/flare-system-client/client/shared"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )

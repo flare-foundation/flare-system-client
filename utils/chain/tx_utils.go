@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"flare-fsc/client/config"
 	"math/big"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"

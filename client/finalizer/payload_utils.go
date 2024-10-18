@@ -3,9 +3,10 @@ package finalizer
 import (
 	"encoding/binary"
 	"errors"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils"
 	"fmt"
+
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"

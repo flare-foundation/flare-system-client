@@ -2,9 +2,6 @@ package epoch
 
 import (
 	"encoding/json"
-	"flare-fsc/client/config"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils/contracts/system"
 	"fmt"
 	"io"
 	"log"
@@ -14,12 +11,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 

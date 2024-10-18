@@ -3,8 +3,6 @@ package protocol
 import (
 	"encoding/hex"
 	"encoding/json"
-	"flare-fsc/client/config"
-	"flare-fsc/client/shared"
 	"fmt"
 	"io"
 	"math"
@@ -13,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"

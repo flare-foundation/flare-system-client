@@ -3,10 +3,11 @@ package finalizer
 import (
 	"context"
 	"crypto/ecdsa"
-	"flare-fsc/client/config"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils/chain"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"

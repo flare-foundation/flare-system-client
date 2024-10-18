@@ -2,10 +2,11 @@ package config
 
 import (
 	"errors"
-	"flare-fsc/config"
 	"fmt"
 	"math/big"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/database"

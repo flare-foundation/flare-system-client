@@ -2,8 +2,9 @@ package finalizer
 
 import (
 	"context"
-	"flare-fsc/client/shared"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 

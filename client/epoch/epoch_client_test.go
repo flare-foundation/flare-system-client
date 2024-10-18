@@ -2,13 +2,13 @@ package epoch
 
 import (
 	"context"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils"
-	"flare-fsc/utils/contracts/system"
 	"math/big"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/bradleyjkemp/cupaloy"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 )

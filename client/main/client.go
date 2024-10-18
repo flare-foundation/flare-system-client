@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	clientContext "flare-fsc/client/context"
-	"flare-fsc/client/runner"
-	"flare-fsc/client/shared"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	clientContext "github.com/flare-foundation/flare-system-client/client/context"
+	"github.com/flare-foundation/flare-system-client/client/runner"
+	"github.com/flare-foundation/flare-system-client/client/shared"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )

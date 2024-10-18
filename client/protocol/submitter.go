@@ -3,12 +3,13 @@ package protocol
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"flare-fsc/client/config"
-	"flare-fsc/client/shared"
-	"flare-fsc/utils"
-	"flare-fsc/utils/chain"
 	"fmt"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/crypto"

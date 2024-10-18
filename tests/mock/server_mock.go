@@ -12,9 +12,9 @@ import (
 	"net/http"
 	"time"
 
-	"flare-fsc/client/config"
+	"github.com/flare-foundation/flare-system-client/client/config"
 
-	globalConfig "flare-fsc/config"
+	globalConfig "github.com/flare-foundation/flare-system-client/config"
 
 	"github.com/gorilla/mux"
 

@@ -2,8 +2,9 @@ package context
 
 import (
 	"flag"
-	"flare-fsc/client/config"
-	globalConfig "flare-fsc/config"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	globalConfig "github.com/flare-foundation/flare-system-client/config"
 
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 

@@ -3,13 +3,14 @@ package protocol
 import (
 	"crypto/ecdsa"
 
-	"flare-fsc/client/config"
-	globalConfig "flare-fsc/config"
-	"flare-fsc/utils/chain"
-	"flare-fsc/utils/contracts/submission"
+	"github.com/flare-foundation/flare-system-client/client/config"
+	globalConfig "github.com/flare-foundation/flare-system-client/config"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/submission"
 )
 
 // Private keys and addresses needed for protocol voter

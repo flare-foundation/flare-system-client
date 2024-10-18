@@ -1,10 +1,11 @@
 package shared
 
 import (
-	"flare-fsc/client/config"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"

@@ -2,10 +2,11 @@ package finalizer
 
 import (
 	"bytes"
-	"flare-fsc/client/shared"
 	"fmt"
 	"math"
 	"slices"
+
+	"github.com/flare-foundation/flare-system-client/client/shared"
 
 	"github.com/flare-foundation/go-flare-common/pkg/policy"
 )

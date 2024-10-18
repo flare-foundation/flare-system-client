@@ -2,12 +2,13 @@ package finalizer
 
 import (
 	"context"
-	clientContext "flare-fsc/client/context"
-	"flare-fsc/client/shared"
-	"flare-fsc/config"
-	"flare-fsc/utils/credentials"
 	"fmt"
 	"time"
+
+	clientContext "github.com/flare-foundation/flare-system-client/client/context"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/config"
+	"github.com/flare-foundation/flare-system-client/utils/credentials"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
