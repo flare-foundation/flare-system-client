@@ -8,7 +8,7 @@ log_queries = false
 
 [logger]
 level = "DEBUG"
-file = "./logs/flare-fsc.log"
+file = "./logs/fsp.log"
 console = true
 
 [metrics]

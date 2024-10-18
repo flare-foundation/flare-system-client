@@ -12,7 +12,7 @@ password = "P.a.s.s.W.O.R.D"
 
 [logger]
 level = "DEBUG"
-file = "./logs/flare-fsc.log"
+file = "./logs/fsp.log"
 console = true
 
 [metrics]
@@ -75,7 +75,13 @@ start_offset = "500s"
 grace_period_end_offset = "17s"
 
 [gas_submit]
-gas_price_multiplier = 1.5
-gas_price_fixed = 0
-gas_limit = 0
-max_priority_fee_per_gas = 20000000000
+tx_type = 2
+max_priority_fee_per_gas = 25000000000
+
+[gas_register]
+tx_type = 2
+max_priority_fee_per_gas = 25000000000
+
+[gas_relay]
+tx_type = 2
+max_priority_fee_per_gas = 25000000000

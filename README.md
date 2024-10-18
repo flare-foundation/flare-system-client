@@ -22,7 +22,7 @@ log_queries = false  # Log db queries (for debugging)
 
 [logger]
 level = "INFO"      # valid values are: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL (as in zap logger)
-file = "./logs/flare-fsc.log"  # logger file
+file = "./logs/fsp.log"  # logger file
 max_file_size = 10  # max file size before rotating, in MB
 console = true      # also log to console
 
@@ -65,13 +65,13 @@ enabled_finalizer = true        # enable/disable finalizer client
 
 [protocol.ftso1]
 id = 1
-api_endpoint = "http://localhost:3000/ftso1"
+api_url = "http://localhost:3000/ftso1"
 type = 0 # payload type: currently available 0 and 1
 # To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_1 env var
 
 [protocol.ftso2]
 id = 2
-api_endpoint = "http://localhost:3000/ftso2"
+api_url = "http://localhost:3000/ftso2"
 type = 0
 # To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_2 env var
 
@@ -103,16 +103,33 @@ starting_voting_round = 1005
 start_offset = "500s" # how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client default is 7 days
 grace_period_end_offset = "40s"  # Offset from the start of the voting round
 
-[gas_submit]              # applies to all submit1, submit2 and submitSignatures transactions. Note: only one of gas_price_multiplier and gas_price_fixed can be set.
-gas_price_multiplier = 0  # (optional) sets the gas price to be a multiplier of the estimated gas price. Defaults to 0, which will simply use the estimate, OR a fixed gas price if gas_price_fixed is set (!= 0).
-gas_price_fixed = 0       # (optional) sets a fixed gas price for the transaction. Defaults to 0, which will use an estimate OR a multiplier of the estimate if gas_price_multiplier is set (!= 0).
+[gas_submit]              # applies to all submit1, submit2 and submitSignatures transactions.
+tx_type = 0               # 0 for legacy and 2 for eip-1559 transaction
 gas_limit = 0             # (optional) gas limit for transaction. Defaults to 0, which will use gas limit estimates.
+# type 0 settings // Note: only one of gas_price_multiplier and gas_price_fixed can be set.
+gas_price_multiplier = 0  # (optional for type 0 tx) sets the gas price to be a multiplier of the estimated gas price. Defaults to 0, which will simply use the estimate, OR a fixed gas price if gas_price_fixed is set (!= 0).
+gas_price_fixed = 0       # (optional for type 0 tx) sets a fixed gas price for the transaction. Defaults to 0, which will use an estimate OR a multiplier of the estimate if gas_price_multiplier is set (!= 0).
+# type 2 settings
+max_priority_fee_per_gas = 20000000000 # (optional for type 2 tx) sets priority fee per gas for a transaction in wei. Defaults to 20GWei
+base_fee_per_gas_cap = 0 # (optional for type 2 tx) sets base fee per gas cap. Defaults to 3 times estimation of needed base fee to be included in the block.
 
-[gas_register]
-gas_price_multiplier = 0
-gas_price_fixed = 50000000000 # 50 * 1e9
+
+[gas_register] # applies to all voter registration transaction
+tx_type = 0
 gas_limit = 0
+gas_price_multiplier = 0
+gas_price_fixed = 0
 max_priority_fee_per_gas = 20000000000
+base_fee_per_gas_cap = 0
+
+
+[gas_relay] # applies to finalization transaction
+tx_type = 0
+gas_limit = 0
+gas_price_multiplier = 0
+gas_price_fixed = 0
+max_priority_fee_per_gas = 20000000000
+base_fee_per_gas_cap = 0
 
 
 
