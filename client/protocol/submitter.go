@@ -49,7 +49,8 @@ type SignatureSubmitter struct {
 
 	messageChannel chan<- shared.ProtocolMessage
 
-	maxRounds int // number of rounds for sending submitSignatures tx
+	maxRounds int           // number of rounds for sending submitSignatures tx
+	delay     time.Duration // minimal duration of one round
 }
 
 func (s *SubmitterBase) submit(payload []byte) bool {
@@ -172,6 +173,7 @@ func newSignatureSubmitter(
 			dataFetchRetries: submitCfg.DataFetchRetries,
 		},
 		maxRounds:      submitCfg.MaxRounds,
+		delay:          submitCfg.Delay,
 		messageChannel: messageChannel,
 	}
 }
@@ -200,26 +202,28 @@ func (s *SignatureSubmitter) WritePayload(
 	epochBytes := shared.Uint32toBytes(uint32(currentEpoch - 1))
 	lengthBytes := shared.Uint16toBytes(uint16(dataLength + len(data.AdditionalData)))
 
-	err = buffer.WriteByte(protocolID) // Protocol ID (1 byte)
+	tempBuffer := bytes.NewBuffer(nil)
+
+	err = tempBuffer.WriteByte(protocolID) // Protocol ID (1 byte)
 	if err != nil {
 		return errors.Wrap(err, "error writing Payload")
 	}
-	_, err = buffer.Write(epochBytes[:]) // Epoch (4 bytes)
+	_, err = tempBuffer.Write(epochBytes[:]) // Epoch (4 bytes)
 	if err != nil {
 		return errors.Wrap(err, "error writing Payload")
 	}
 
-	_, err = buffer.Write(lengthBytes[:]) // Length (2 bytes)
+	_, err = tempBuffer.Write(lengthBytes[:]) // Length (2 bytes)
 	if err != nil {
 		return errors.Wrap(err, "error writing Payload")
 	}
 
-	err = buffer.WriteByte(protocolType) // Type (1 byte)
+	err = tempBuffer.WriteByte(protocolType) // Type (1 byte)
 	if err != nil {
 		return errors.Wrap(err, "error writing Payload")
 	}
 	if protocolType == 0 {
-		n, err := buffer.Write(data.Data) // Message (38 bytes)
+		n, err := tempBuffer.Write(data.Data) // Message (38 bytes)
 		if err != nil {
 			return errors.Wrap(err, "error writing Payload")
 		}
@@ -231,24 +235,24 @@ func (s *SignatureSubmitter) WritePayload(
 	if len(signature) != 65 {
 		return errors.New("signature sanity check, this should not happen")
 	}
-	_, err = buffer.Write(utils.TransformSignatureRSVtoVRS(signature))
+	_, err = tempBuffer.Write(utils.TransformSignatureRSVtoVRS(signature))
 	if err != nil {
 		return errors.Wrap(err, "error writing Payload")
 	}
 
-	_, err = buffer.Write(data.AdditionalData)
+	_, err = tempBuffer.Write(data.AdditionalData)
 	if err != nil {
 		return errors.Wrap(err, "error writing Payload")
 	}
 
-	return nil
+	_, err = buffer.Write(tempBuffer.Bytes())
+
+	return err
 }
 
 // RunEpoch gets the submitSignature messages from the subprotocols providers.
-//  1. run every sub-protocol provider with delay of 1 second at most five times.
-//  2. repeat 1 for each sub-protocol provider not giving valid answer.
-//
-// Repeat 1 and 2 until all sub-protocol providers give valid answer or we did maxRounds attempts.
+//  1. query every sub-protocol provider at most
+//  2. repeat query for protocols that did not give a valid response at most maxRounds time
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
 
@@ -257,6 +261,9 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 		protocolsToSend[i] = true
 	}
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
+
+	ticker := time.NewTicker(s.delay)
+
 	for i := 0; i < s.maxRounds && len(protocolsToSend) > 0; i++ {
 		for i, protocol := range s.subProtocols {
 			if !protocolsToSend[i] {
@@ -306,5 +313,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 		} else {
 			logger.Infof("Submitter %s did not get any new data", s.name)
 		}
+
+		<-ticker.C
 	}
 }

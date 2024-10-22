@@ -212,7 +212,6 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 
 		sp, threshold := c.signingPolicyData(protocolMessage.VotingRoundID)
 
-		// TODO check this
 		if sp == nil {
 			oldestSP := c.signingPolicyStorage.OldestStored()
 			if oldestSP != nil && protocolMessage.VotingRoundID < oldestSP.StartVotingRoundID {
@@ -220,7 +219,7 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 				logger.Debugf("Ignoring message for voting round %d, protocolID  %d - before policy startVotingRoundID", protocolMessage.VotingRoundID, protocolMessage.ProtocolID)
 				continue
 			}
-			return fmt.Errorf("no signing policy found for voting round %d", protocolMessage.VotingRoundID) // should this really return?
+			return fmt.Errorf("no signing policy found for voting round %d", protocolMessage.VotingRoundID) // this stops the whole fsp client
 		}
 		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp, threshold)
 

@@ -111,7 +111,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 		identityAddress: cfg.Identity.Address,
 	}
 
-	selectors := newContractSelectors()
+	selectors := ContractSelectors()
 
 	if cfg.Submit1.Enabled {
 		pc.submitter1 = newSubmitter(cl, protocolContext, votingEpoch,

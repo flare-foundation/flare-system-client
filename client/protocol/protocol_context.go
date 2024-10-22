@@ -74,7 +74,8 @@ func newProtocolContext(cfg *config.Client) (*protocolContext, error) {
 	return ctx, nil
 }
 
-func newContractSelectors() contractSelectors {
+// ContractSelectors return function selectors for submission contract.
+func ContractSelectors() contractSelectors {
 	submissionABI, err := submission.SubmissionMetaData.GetAbi()
 	if err != nil {
 		// panic, this error is fatal

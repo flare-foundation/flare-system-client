@@ -27,6 +27,8 @@ const (
 	DefaultTxTimeout    = 60 * time.Second
 	DefaultGasLimit     = 2_500_000
 	DefaultTipPerGasCap = 20_000_000_000 //20 GWei
+
+	baseFeeCapMultiplier = 4
 )
 
 var (
@@ -143,7 +145,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 			logger.Debug("Error getting baseFee, %v", err)
 			return err
 		}
-		gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(3))
+		gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
 	}
 
 	tipCap := new(big.Int)
@@ -305,9 +307,10 @@ func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress co
 
 func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client) (*big.Int, error) {
 	var gasPrice *big.Int
-	if gasConfig.GasPriceFixed.Cmp(common.Big0) != 0 {
+	if gasConfig.GasPriceFixed.Cmp(common.Big0) == 1 {
 		gasPrice = gasConfig.GasPriceFixed
 	} else {
+
 		suggestedPrice, err := client.SuggestGasPrice(context.Background())
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to estimate gas price")

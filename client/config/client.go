@@ -84,7 +84,8 @@ type Submit struct {
 type SubmitSignatures struct {
 	Submit
 
-	MaxRounds int `toml:"max_rounds"`
+	MaxRounds int           `toml:"max_rounds"`
+	Delay     time.Duration `toml:"delay"`
 }
 
 type Clients struct {
@@ -116,10 +117,11 @@ type Finalizer struct {
 type Gas struct {
 	TxType uint8 `toml:"tx_type"` // 0 for legacy, 2 for eip-1559
 
+	GasLimit int `toml:"gas_limit"`
+
 	// type 0
 	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
-	GasLimit           int      `toml:"gas_limit"`
 
 	// type 2
 	MaxPriorityFeePerGas *big.Int `toml:"max_priority_fee_per_gas"`

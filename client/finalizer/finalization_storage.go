@@ -15,7 +15,7 @@ import (
 
 type signaturesCollection struct {
 	message          shared.Message
-	signatures       [][]byte
+	signatures       [][]byte // expected to be of length len(voters), i-th entry is the signature of i-th voter
 	weight           uint16
 	thresholdReached bool
 	signingPolicy    *policy.SigningPolicy
@@ -31,7 +31,7 @@ type protocolCollection struct {
 	threshold           uint16
 }
 
-// roundCollection maps protocolID to signatureCollection
+// roundCollection maps protocolID to protocolCollection
 type roundCollection struct {
 	protocolCollections map[uint8]*protocolCollection
 }
