@@ -157,6 +157,13 @@ func newSignatureSubmitter(
 	subProtocols []*SubProtocol,
 	messageChannel chan<- shared.ProtocolMessage,
 ) *SignatureSubmitter {
+
+	delay := submitCfg.Delay
+
+	if delay <= 0 {
+		delay = time.Second
+	}
+
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
 			chainClient:      chain.ClientImpl{EthClient: ethClient},
@@ -173,7 +180,7 @@ func newSignatureSubmitter(
 			dataFetchRetries: submitCfg.DataFetchRetries,
 		},
 		maxRounds:      submitCfg.MaxRounds,
-		delay:          submitCfg.Delay,
+		delay:          delay,
 		messageChannel: messageChannel,
 	}
 }
