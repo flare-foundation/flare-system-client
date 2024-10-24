@@ -194,7 +194,7 @@ func (c *client) signingPolicyData(votingRoundID uint32) (*policy.SigningPolicy,
 
 // checkVotingRoundTime returns true if votingRoundID is not in the future, i.e., is <= the current voting round
 func (c *client) checkVotingRoundTime(votingRoundID uint32) bool {
-	currentEpochID := c.finalizerContext.votingEpoch.EpochIndex(time.Now())
+	currentEpochID := c.finalizerContext.votingRoundTiming.EpochIndex(time.Now())
 	return votingRoundID <= uint32(currentEpochID)
 }
 

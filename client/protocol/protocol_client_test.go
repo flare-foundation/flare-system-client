@@ -70,13 +70,13 @@ func TestSubmitter(t *testing.T) {
 			submitAddress:              address,
 			submitSignaturesAddress:    address,
 		},
-		epoch:            &utils.EpochConfig{Start: time.Unix(0, 0), Period: time.Hour},
-		subProtocols:     []*SubProtocol{subProtocol},
-		submitRetries:    1,
-		dataFetchRetries: 1,
-		dataFetchTimeout: 1 * time.Second,
-		name:             "test",
-		submitPrivateKey: privKey,
+		votingRoundTiming: &utils.EpochTimingConfig{Start: time.Unix(0, 0), Period: time.Hour},
+		subProtocols:      []*SubProtocol{subProtocol},
+		submitRetries:     1,
+		dataFetchRetries:  1,
+		dataFetchTimeout:  1 * time.Second,
+		name:              "test",
+		submitPrivateKey:  privKey,
 	}
 
 	t.Run("Submitter", func(t *testing.T) {
@@ -308,15 +308,15 @@ func TestWaitUntilRegistered(t *testing.T) {
 		registeredEpoch: 3,
 	}
 	client := client{
-		registry:        &registry,
-		rewardEpoch:     utils.NewEpochConfig(time.Now(), 100*time.Millisecond),
-		identityAddress: identityAddress,
+		registry:          &registry,
+		rewardEpochTiming: utils.NewEpochConfig(time.Now(), 100*time.Millisecond),
+		identityAddress:   identityAddress,
 	}
 
 	err := client.waitUntilRegistered(ctx)
 	require.NoError(t, err)
 
-	currentEpoch := client.rewardEpoch.EpochIndex(time.Now())
+	currentEpoch := client.rewardEpochTiming.EpochIndex(time.Now())
 	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
 }
 
@@ -330,15 +330,15 @@ func TestWaitUntilRegisteredTransientError(t *testing.T) {
 		transientErrorCount: 3,
 	}
 	client := client{
-		registry:        &registry,
-		rewardEpoch:     utils.NewEpochConfig(time.Now(), time.Minute),
-		identityAddress: identityAddress,
+		registry:          &registry,
+		rewardEpochTiming: utils.NewEpochConfig(time.Now(), time.Minute),
+		identityAddress:   identityAddress,
 	}
 
 	err := client.waitUntilRegistered(ctx)
 	require.NoError(t, err)
 
-	currentEpoch := client.rewardEpoch.EpochIndex(time.Now())
+	currentEpoch := client.rewardEpochTiming.EpochIndex(time.Now())
 	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
 }
 

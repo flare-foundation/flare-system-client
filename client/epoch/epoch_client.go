@@ -119,7 +119,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 func (c *client) Run(ctx context.Context) error {
 	logger.Info("Starting reward epoch client")
 
-	epoch, err := c.systemsManagerClient.RewardEpochFromChain()
+	rewardEpochTiming, err := c.systemsManagerClient.RewardEpochTimingFromChain()
 	if err != nil {
 		return err
 	}
@@ -131,16 +131,16 @@ func (c *client) Run(ctx context.Context) error {
 
 	if c.registrationEnabled {
 		logger.Info("Waiting for VotePowerBlockSelected event to start registration")
-		vpbsListener = c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, epoch)
-		policyListener = c.relayClient.SigningPolicyInitializedListener(c.db, epoch)
+		vpbsListener = c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, rewardEpochTiming)
+		policyListener = c.relayClient.SigningPolicyInitializedListener(c.db, rewardEpochTiming)
 	}
 	if c.uptimeVotingEnabled {
 		logger.Info("Waiting for SignUptimeVoteEnabled event to start uptime vote signing")
-		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch, c.uptimeConfig.SigningWindow)
+		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, rewardEpochTiming, c.uptimeConfig.SigningWindow)
 	}
 	if c.rewardsSigningEnabled {
 		logger.Info("Waiting for UptimeVoteSigned event to start rewards signing")
-		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch, c.rewardsConfig.SigningWindow)
+		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, rewardEpochTiming, c.rewardsConfig.SigningWindow)
 	}
 
 	for {

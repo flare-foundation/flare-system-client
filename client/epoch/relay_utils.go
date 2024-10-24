@@ -17,7 +17,7 @@ import (
 )
 
 type relayContractClient interface {
-	SigningPolicyInitializedListener(epochClientDB, *utils.EpochConfig) <-chan *relay.RelaySigningPolicyInitialized
+	SigningPolicyInitializedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *relay.RelaySigningPolicyInitialized
 }
 
 type relayContractClientImpl struct {
@@ -41,7 +41,7 @@ func NewRelayContractClient(
 	}, nil
 }
 
-func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClientDB, epoch *utils.EpochConfig) <-chan *relay.RelaySigningPolicyInitialized {
+func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *relay.RelaySigningPolicyInitialized {
 	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal
@@ -52,7 +52,7 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClien
 	go func() {
 		randomDelay()
 		ticker := time.NewTicker(shared.EventListenerInterval)
-		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 1).Unix()
+		eventRangeStart := rewardEpochTiming.StartTime(rewardEpochTiming.EpochIndex(time.Now()) - 1).Unix()
 		for {
 			<-ticker.C
 			now := time.Now().Unix()

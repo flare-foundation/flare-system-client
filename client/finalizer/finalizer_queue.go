@@ -140,7 +140,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 			_, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
 			if exists {
 				// Finalization for a votingRoundID should happen in the following voting round votingRoundID + 1
-				votingRoundStartTime := p.finalizerContext.votingEpoch.StartTime(int64(item.votingRoundID + 1))
+				votingRoundStartTime := p.finalizerContext.votingRoundTiming.StartTime(int64(item.votingRoundID + 1))
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
 				logger.Infof("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
@@ -200,8 +200,8 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 
 func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
 	now := time.Now()
-	currentEpoch := p.finalizerContext.votingEpoch.EpochIndex(now)
-	startTime := p.finalizerContext.votingEpoch.StartTime(currentEpoch)
+	currentEpoch := p.finalizerContext.votingRoundTiming.EpochIndex(now)
+	startTime := p.finalizerContext.votingRoundTiming.StartTime(currentEpoch)
 
 	relayedItems, err := p.relayClient.ProtocolMessageRelayed(p.db, startTime, now)
 	if err != nil {

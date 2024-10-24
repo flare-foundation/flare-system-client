@@ -9,7 +9,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 )
 
-func RewardEpochFromChain(fsm *system.FlareSystemsManager) (*utils.EpochConfig, error) {
+func RewardEpochTimingFromChain(fsm *system.FlareSystemsManager) (*utils.EpochTimingConfig, error) {
 	epochStart, err := fsm.FirstRewardEpochStartTs(nil)
 	if err != nil {
 		return nil, err
@@ -18,13 +18,13 @@ func RewardEpochFromChain(fsm *system.FlareSystemsManager) (*utils.EpochConfig, 
 	if err != nil {
 		return nil, err
 	}
-	return &utils.EpochConfig{
+	return &utils.EpochTimingConfig{
 		Start:  time.Unix(int64(epochStart), 0),
 		Period: time.Duration(epochPeriod) * time.Second,
 	}, nil
 }
 
-func VotingEpochFromChain(fsm *system.FlareSystemsManager) (*utils.EpochConfig, error) {
+func VotingRoundTimingFromChain(fsm *system.FlareSystemsManager) (*utils.EpochTimingConfig, error) {
 	epochStart, err := fsm.FirstVotingRoundStartTs(nil)
 	if err != nil {
 		return nil, err
@@ -39,8 +39,8 @@ func VotingEpochFromChain(fsm *system.FlareSystemsManager) (*utils.EpochConfig, 
 	), nil
 }
 
-// Returns the voting and reward epochs from the relay contract.
-func EpochsFromChain(relay *relay.Relay) (*utils.EpochConfig, *utils.RewardEpochConfig, error) {
+// Returns the voting round timing and reward epochs properties from the relay contract.
+func EpochsFromChain(relay *relay.Relay) (*utils.EpochTimingConfig, *utils.RewardEpochConfig, error) {
 	sd, err := relay.StateData(nil)
 	if err != nil {
 		return nil, nil, err

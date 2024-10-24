@@ -96,7 +96,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 	finalizationStorage := newFinalizationStorage()
 
 	fCtx := &finalizerContext{
-		votingEpoch: &utils.EpochConfig{
+		votingRoundTiming: &utils.EpochTimingConfig{
 			Start:  time.Unix(0, 0),
 			Period: time.Hour,
 		},

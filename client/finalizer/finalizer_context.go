@@ -19,19 +19,19 @@ type finalizerContext struct {
 	voterThresholdBIPS   uint16
 	gracePeriodEndOffset time.Duration
 
-	votingEpoch *utils.EpochConfig
-	rewardEpoch *utils.RewardEpochConfig
+	votingRoundTiming *utils.EpochTimingConfig
+	rewardEpoch       *utils.RewardEpochConfig
 }
 
 // func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
 func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerContext, error) {
-	votingEpoch, rewardEpoch, err := shared.EpochsFromChain(relay)
+	votingRoundTiming, rewardEpoch, err := shared.EpochsFromChain(relay)
 	if err != nil {
 		return nil, err
 	}
 	startingVotingRound := cfg.Finalizer.StartingVotingRound
 	if startingVotingRound == 0 {
-		startingVotingRound = uint32(votingEpoch.EpochIndex(time.Now()))
+		startingVotingRound = uint32(votingRoundTiming.EpochIndex(time.Now()))
 	}
 	return &finalizerContext{
 		startingRewardEpoch:  cfg.Finalizer.StartingRewardEpoch,
@@ -39,7 +39,7 @@ func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerCont
 		startTimeOffset:      cfg.Finalizer.StartOffset,
 		voterThresholdBIPS:   cfg.Finalizer.VoterThresholdBIPS,
 		gracePeriodEndOffset: cfg.Finalizer.GracePeriodEndOffset,
-		votingEpoch:          votingEpoch,
+		votingRoundTiming:    votingRoundTiming,
 		rewardEpoch:          rewardEpoch,
 	}, nil
 }

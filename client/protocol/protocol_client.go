@@ -33,12 +33,12 @@ type client struct {
 	submitter2         *Submitter
 	signatureSubmitter *SignatureSubmitter
 
-	votingEpoch    *utils.EpochConfig
-	systemsManager *system.FlareSystemsManager
+	votingRoundTiming *utils.EpochTimingConfig
+	systemsManager    *system.FlareSystemsManager
 
-	rewardEpoch     *utils.EpochConfig
-	registry        voterRegistry
-	identityAddress common.Address
+	rewardEpochTiming *utils.EpochTimingConfig
+	registry          voterRegistry
+	identityAddress   common.Address
 }
 
 type voterRegistry interface {
@@ -75,9 +75,9 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 		return nil, errors.Wrap(err, "error creating system manager contract")
 	}
 
-	votingEpoch, err := shared.VotingEpochFromChain(systemsManager)
+	votingRoundTiming, err := shared.VotingRoundTimingFromChain(systemsManager)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting voting epoch")
+		return nil, errors.Wrap(err, "error getting voting round timing")
 	}
 
 	protocolContext, err := newProtocolContext(cfg)
@@ -85,7 +85,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 		return nil, err
 	}
 
-	rewardEpoch, err := shared.RewardEpochFromChain(systemsManager)
+	rewardEpochTiming, err := shared.RewardEpochTimingFromChain(systemsManager)
 	if err != nil {
 		return nil, err
 	}
@@ -101,32 +101,32 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 	}
 
 	pc := &client{
-		eth:             cl,
-		protocolContext: protocolContext,
-		subProtocols:    subProtocols,
-		votingEpoch:     votingEpoch,
-		systemsManager:  systemsManager,
-		rewardEpoch:     rewardEpoch,
-		registry:        voterRegistryImpl{registryClient},
-		identityAddress: cfg.Identity.Address,
+		eth:               cl,
+		protocolContext:   protocolContext,
+		subProtocols:      subProtocols,
+		votingRoundTiming: votingRoundTiming,
+		systemsManager:    systemsManager,
+		rewardEpochTiming: rewardEpochTiming,
+		registry:          voterRegistryImpl{registryClient},
+		identityAddress:   cfg.Identity.Address,
 	}
 
 	selectors := ContractSelectors()
 
 	if cfg.Submit1.Enabled {
-		pc.submitter1 = newSubmitter(cl, protocolContext, votingEpoch,
+		pc.submitter1 = newSubmitter(cl, protocolContext, votingRoundTiming,
 			&cfg.Submit1, &cfg.SubmitGas, selectors.submit1, subProtocols, 0, "submit1")
 	} else {
 		logger.Warn("submit1 is disabled")
 	}
 	if cfg.Submit2.Enabled {
-		pc.submitter2 = newSubmitter(cl, protocolContext, votingEpoch,
+		pc.submitter2 = newSubmitter(cl, protocolContext, votingRoundTiming,
 			&cfg.Submit2, &cfg.SubmitGas, selectors.submit2, subProtocols, -1, "submit2")
 	} else {
 		logger.Warn("submit2 is disabled")
 	}
 	if cfg.SubmitSignatures.Enabled {
-		pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingEpoch,
+		pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingRoundTiming,
 			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols, messageChannel)
 	} else {
 		logger.Warn("submitSignatures is disabled")
@@ -144,7 +144,7 @@ func (c *client) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 
 	logger.Info("Starting submitters, waiting for next voting round start.")
-	ticker := utils.NewEpochTicker(c.votingEpoch)
+	ticker := utils.NewEpochTicker(c.votingRoundTiming)
 L:
 	for {
 		select {
@@ -197,7 +197,7 @@ L:
 
 func (c *client) waitUntilRegistered(ctx context.Context) error {
 	for {
-		currentEpoch := c.rewardEpoch.EpochIndex(time.Now())
+		currentEpoch := c.rewardEpochTiming.EpochIndex(time.Now())
 
 		registered, err := c.isRegistered(ctx, currentEpoch)
 		if err != nil {
@@ -243,7 +243,7 @@ func (c *client) isRegistered(ctx context.Context, epoch int64) (bool, error) {
 }
 
 func (c *client) waitForNextRewardEpoch(ctx context.Context, currentEpoch int64) error {
-	nextEpochStart := c.rewardEpoch.StartTime(currentEpoch + 1)
+	nextEpochStart := c.rewardEpochTiming.StartTime(currentEpoch + 1)
 	now := time.Now()
 
 	// Edge case if the time passed while checking the registration means

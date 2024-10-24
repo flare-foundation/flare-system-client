@@ -25,9 +25,9 @@ type SubmitterBase struct {
 
 	protocolContext *protocolContext
 
-	epoch        *utils.EpochConfig
-	selector     []byte
-	subProtocols []*SubProtocol
+	votingRoundTiming *utils.EpochTimingConfig
+	selector          []byte
+	subProtocols      []*SubProtocol
 
 	startOffset      time.Duration
 	submitRetries    int    // number of retries for submitting tx
@@ -70,7 +70,7 @@ func (s *SubmitterBase) submit(payload []byte) bool {
 func newSubmitter(
 	ethClient *ethclient.Client,
 	pc *protocolContext,
-	epoch *utils.EpochConfig,
+	votingRoundTiming *utils.EpochTimingConfig,
 	submitCfg *config.Submit,
 	gasCfg *config.Gas,
 	selector []byte,
@@ -80,18 +80,18 @@ func newSubmitter(
 ) *Submitter {
 	return &Submitter{
 		SubmitterBase: SubmitterBase{
-			chainClient:      chain.ClientImpl{EthClient: ethClient},
-			gasConfig:        gasCfg,
-			protocolContext:  pc,
-			epoch:            epoch,
-			selector:         selector,
-			subProtocols:     subProtocols,
-			startOffset:      submitCfg.StartOffset,
-			submitRetries:    max(1, submitCfg.TxSubmitRetries),
-			name:             name,
-			submitPrivateKey: pc.submitPrivateKey,
-			dataFetchRetries: submitCfg.DataFetchRetries,
-			dataFetchTimeout: submitCfg.DataFetchTimeout,
+			chainClient:       chain.ClientImpl{EthClient: ethClient},
+			gasConfig:         gasCfg,
+			protocolContext:   pc,
+			votingRoundTiming: votingRoundTiming,
+			selector:          selector,
+			subProtocols:      subProtocols,
+			startOffset:       submitCfg.StartOffset,
+			submitRetries:     max(1, submitCfg.TxSubmitRetries),
+			name:              name,
+			submitPrivateKey:  pc.submitPrivateKey,
+			dataFetchRetries:  submitCfg.DataFetchRetries,
+			dataFetchTimeout:  submitCfg.DataFetchTimeout,
 		},
 		epochOffset: epochOffset,
 	}
@@ -132,7 +132,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 }
 
 func (s *Submitter) RunEpoch(currentEpoch int64) {
-	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
+	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.votingRoundTiming.StartTime(currentEpoch), s.votingRoundTiming.EndTime(currentEpoch))
 
 	payload, err := s.GetPayload(currentEpoch)
 
@@ -150,7 +150,7 @@ func (s *Submitter) RunEpoch(currentEpoch int64) {
 func newSignatureSubmitter(
 	ethClient *ethclient.Client,
 	pc *protocolContext,
-	epoch *utils.EpochConfig,
+	votingRoundTiming *utils.EpochTimingConfig,
 	submitCfg *config.SubmitSignatures,
 	gasCfg *config.Gas,
 	selector []byte,
@@ -166,18 +166,18 @@ func newSignatureSubmitter(
 
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
-			chainClient:      chain.ClientImpl{EthClient: ethClient},
-			gasConfig:        gasCfg,
-			protocolContext:  pc,
-			epoch:            epoch,
-			startOffset:      submitCfg.StartOffset,
-			selector:         selector,
-			subProtocols:     subProtocols,
-			submitRetries:    max(1, submitCfg.TxSubmitRetries),
-			name:             "submitSignatures",
-			submitPrivateKey: pc.submitSignaturesPrivateKey,
-			dataFetchTimeout: submitCfg.DataFetchTimeout,
-			dataFetchRetries: submitCfg.DataFetchRetries,
+			chainClient:       chain.ClientImpl{EthClient: ethClient},
+			gasConfig:         gasCfg,
+			protocolContext:   pc,
+			votingRoundTiming: votingRoundTiming,
+			startOffset:       submitCfg.StartOffset,
+			selector:          selector,
+			subProtocols:      subProtocols,
+			submitRetries:     max(1, submitCfg.TxSubmitRetries),
+			name:              "submitSignatures",
+			submitPrivateKey:  pc.submitSignaturesPrivateKey,
+			dataFetchTimeout:  submitCfg.DataFetchTimeout,
+			dataFetchRetries:  submitCfg.DataFetchRetries,
 		},
 		maxRounds:      submitCfg.MaxRounds,
 		delay:          delay,
@@ -211,29 +211,13 @@ func (s *SignatureSubmitter) WritePayload(
 
 	tempBuffer := bytes.NewBuffer(nil)
 
-	err = tempBuffer.WriteByte(protocolID) // Protocol ID (1 byte)
-	if err != nil {
-		return errors.Wrap(err, "error writing Payload")
-	}
-	_, err = tempBuffer.Write(epochBytes[:]) // Epoch (4 bytes)
-	if err != nil {
-		return errors.Wrap(err, "error writing Payload")
-	}
+	tempBuffer.WriteByte(protocolID)   // Protocol ID (1 byte)
+	tempBuffer.Write(epochBytes[:])    // Epoch (4 bytes)
+	tempBuffer.Write(lengthBytes[:])   // Length (2 bytes)
+	tempBuffer.WriteByte(protocolType) // Type (1 byte)
 
-	_, err = tempBuffer.Write(lengthBytes[:]) // Length (2 bytes)
-	if err != nil {
-		return errors.Wrap(err, "error writing Payload")
-	}
-
-	err = tempBuffer.WriteByte(protocolType) // Type (1 byte)
-	if err != nil {
-		return errors.Wrap(err, "error writing Payload")
-	}
 	if protocolType == 0 {
-		n, err := tempBuffer.Write(data.Data) // Message (38 bytes)
-		if err != nil {
-			return errors.Wrap(err, "error writing Payload")
-		}
+		n, _ := tempBuffer.Write(data.Data) // Message (38 bytes)
 		if n != 38 {
 			return errors.New("message not 38 bytes")
 		}
@@ -242,26 +226,19 @@ func (s *SignatureSubmitter) WritePayload(
 	if len(signature) != 65 {
 		return errors.New("signature sanity check, this should not happen")
 	}
-	_, err = tempBuffer.Write(utils.TransformSignatureRSVtoVRS(signature))
-	if err != nil {
-		return errors.Wrap(err, "error writing Payload")
-	}
+	tempBuffer.Write(utils.TransformSignatureRSVtoVRS(signature))
+	tempBuffer.Write(data.AdditionalData)
 
-	_, err = tempBuffer.Write(data.AdditionalData)
-	if err != nil {
-		return errors.Wrap(err, "error writing Payload")
-	}
+	buffer.Write(tempBuffer.Bytes())
 
-	_, err = buffer.Write(tempBuffer.Bytes())
-
-	return err
+	return nil
 }
 
 // RunEpoch gets the submitSignature messages from the subprotocols providers.
 //  1. query every sub-protocol provider at most
 //  2. repeat query for protocols that did not give a valid response at most maxRounds time
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
-	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.epoch.StartTime(currentEpoch), s.epoch.EndTime(currentEpoch))
+	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.votingRoundTiming.StartTime(currentEpoch), s.votingRoundTiming.EndTime(currentEpoch))
 
 	protocolsToSend := make(map[int]bool)
 	for i := range s.subProtocols {
