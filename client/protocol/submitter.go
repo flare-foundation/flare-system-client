@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -12,6 +13,7 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -30,8 +32,9 @@ type SubmitterBase struct {
 	subProtocols      []*SubProtocol
 
 	startOffset      time.Duration
-	submitRetries    int    // number of retries for submitting tx
-	name             string // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
+	submitRetries    int           // number of retries for submitting tx
+	submitTimeout    time.Duration // timeout for waiting for tx to be mined
+	name             string        // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
 	submitPrivateKey *ecdsa.PrivateKey
 
 	dataFetchRetries int           // number of retries for fetching data of each provider
@@ -54,13 +57,15 @@ type SignatureSubmitter struct {
 }
 
 func (s *SubmitterBase) submit(payload []byte) bool {
-	sendResult := <-shared.ExecuteWithRetry(func() (any, error) {
-		err := s.chainClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, s.gasConfig)
+	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (any, error) {
+		gasConfig := gasConfigForAttempt(s.gasConfig, ri)
+		logger.Debug("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
+		err := s.chainClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, gasConfig, s.submitTimeout)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
 		return nil, nil
-	}, s.submitRetries, shared.TxRetryInterval)
+	}, s.submitRetries, 1*time.Second)
 	if sendResult.Success {
 		logger.Infof("Submitter %s successfully sent tx", s.name)
 	}
@@ -88,6 +93,7 @@ func newSubmitter(
 			subProtocols:      subProtocols,
 			startOffset:       submitCfg.StartOffset,
 			submitRetries:     max(1, submitCfg.TxSubmitRetries),
+			submitTimeout:     max(1*time.Second, submitCfg.TxSubmitTimeout),
 			name:              name,
 			submitPrivateKey:  pc.submitPrivateKey,
 			dataFetchRetries:  submitCfg.DataFetchRetries,
@@ -174,6 +180,7 @@ func newSignatureSubmitter(
 			selector:          selector,
 			subProtocols:      subProtocols,
 			submitRetries:     max(1, submitCfg.TxSubmitRetries),
+			submitTimeout:     max(1*time.Second, submitCfg.TxSubmitTimeout),
 			name:              "submitSignatures",
 			submitPrivateKey:  pc.submitSignaturesPrivateKey,
 			dataFetchTimeout:  submitCfg.DataFetchTimeout,
@@ -299,5 +306,23 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 		}
 
 		<-ticker.C
+	}
+}
+
+// gasConfigForAttempt bumps up the gas price multiplier for each retry attempt by 50%,
+// up to a maximum of 10x the original value.
+//
+// Note: If GasPriceFixed is used, the retry multiplier will not be applied.
+func gasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
+	if cfg.GasPriceFixed.Cmp(common.Big0) != 0 {
+		return cfg
+	}
+
+	retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
+
+	return &config.Gas{
+		GasPriceMultiplier: max(1.0, cfg.GasPriceMultiplier) * float32(retryMultiplier),
+		GasPriceFixed:      cfg.GasPriceFixed,
+		GasLimit:           cfg.GasLimit,
 	}
 }

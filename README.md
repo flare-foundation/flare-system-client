@@ -79,6 +79,7 @@ type = 0
 enabled = true            # (optional) set to false to disable a specific submitter, default: true
 start_offset = "5s"       # start fetching data and submitting txs after this offset from the start of the epoch
 tx_submit_retries = 1     # (optional) number of retries for submitting txs, default: 1
+tx_submit_timeout = "5s"  # (optional) timeout for waiting tx to be mined, default: 5s
 data_fetch_retries = 1    # (optional) number of retries for fetching data from the API, default: 1
 data_fetch_timeout = "5s" # (optional) timeout for fetching data from the API, default: 5s
 
@@ -86,6 +87,7 @@ data_fetch_timeout = "5s" # (optional) timeout for fetching data from the API, d
 enabled = true
 start_offset = "15s"      # start fetching data and submitting txs after this offset from the start of the NEXT epoch
 tx_submit_retries = 1
+tx_submit_timeout = "5s"
 data_fetch_retries = 1
 data_fetch_timeout = "5s"
 

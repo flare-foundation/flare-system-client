@@ -69,6 +69,8 @@ type Credentials struct {
 
 var defaultSubmitConfig = Submit{
 	Enabled:          true,
+	TxSubmitRetries:  1,
+	TxSubmitTimeout:  5 * time.Second,
 	DataFetchRetries: 1,
 	DataFetchTimeout: 5 * time.Second,
 }
@@ -77,6 +79,7 @@ type Submit struct {
 	Enabled          bool          `toml:"enabled"`
 	StartOffset      time.Duration `toml:"start_offset"` // offset from the start of the epoch
 	TxSubmitRetries  int           `toml:"tx_submit_retries"`
+	TxSubmitTimeout  time.Duration `toml:"tx_submit_timeout"`
 	DataFetchRetries int           `toml:"data_fetch_retries"`
 	DataFetchTimeout time.Duration `toml:"data_fetch_timeout"`
 }
@@ -151,6 +154,8 @@ func new() *Client {
 		SubmitSignatures: SubmitSignatures{
 			Submit: defaultSubmitConfig,
 		},
+		SubmitGas:   Gas{GasPriceFixed: big.NewInt(0)},
+		RegisterGas: Gas{GasPriceFixed: big.NewInt(0)},
 		Uptime: Uptime{
 			SigningWindow: 2,
 		},
@@ -212,6 +217,9 @@ func validateGas(cfg *Gas) error {
 
 	if cfg.TxType == 0 && cfg.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.GasPriceMultiplier != 0.0 {
 		return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value for type 0 transaction")
+	}
+	if cfg.GasPriceMultiplier != 0.0 && cfg.GasPriceMultiplier < 1 {
+		return errors.New("if set, gas_price_multiplier value cannot be less than 1")
 	}
 	return nil
 }

@@ -49,7 +49,7 @@ func TestSubmitter(t *testing.T) {
 
 	eg.Go(func() error { return apiEndpoint.Run(ctx) })
 
-	ethClient := testEthClient{}
+	chainClient := testChainClient{}
 
 	subProtocol := &SubProtocol{ID: 100, APIUrl: apiEndpointURL, Type: 0}
 
@@ -59,8 +59,8 @@ func TestSubmitter(t *testing.T) {
 	address := crypto.PubkeyToAddress(privKey.PublicKey)
 
 	base := SubmitterBase{
-		chainClient: &ethClient,
-		gasConfig:   &clientConfig.Gas{},
+		chainClient: &chainClient,
+		gasConfig:   &clientConfig.Gas{GasPriceFixed: common.Big0},
 		protocolContext: &protocolContext{
 			submitPrivateKey:           privKey,
 			signerPrivateKey:           privKey,
@@ -73,6 +73,7 @@ func TestSubmitter(t *testing.T) {
 		votingRoundTiming: &utils.EpochTimingConfig{Start: time.Unix(0, 0), Period: time.Hour},
 		subProtocols:      []*SubProtocol{subProtocol},
 		submitRetries:     1,
+		submitTimeout:     1 * time.Second,
 		dataFetchRetries:  1,
 		dataFetchTimeout:  1 * time.Second,
 		name:              "test",
@@ -80,7 +81,7 @@ func TestSubmitter(t *testing.T) {
 	}
 
 	t.Run("Submitter", func(t *testing.T) {
-		defer ethClient.reset()
+		defer chainClient.reset()
 
 		submitter := Submitter{
 			SubmitterBase: base,
@@ -89,13 +90,13 @@ func TestSubmitter(t *testing.T) {
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Len(t, ethClient.sentTxs, 1)
-		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Len(t, chainClient.sentTxs, 1)
+		cupaloy.SnapshotT(t, chainClient.sentTxs[0])
 	})
 
 	t.Run("SubmitterError", func(t *testing.T) {
-		defer ethClient.reset()
+		defer chainClient.reset()
 
 		errorStatus := http.StatusInternalServerError
 		apiEndpoint.errorStatus = &errorStatus
@@ -108,15 +109,15 @@ func TestSubmitter(t *testing.T) {
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Empty(t, ethClient.sentTxs)
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Empty(t, chainClient.sentTxs)
 	})
 
 	t.Run("SignatureSubmitterType0", func(t *testing.T) {
 		msgChan := make(chan<- shared.ProtocolMessage, 10)
 		defer close(msgChan)
 
-		defer ethClient.reset()
+		defer chainClient.reset()
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
@@ -128,17 +129,17 @@ func TestSubmitter(t *testing.T) {
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Len(t, ethClient.sentTxs, 1)
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Len(t, chainClient.sentTxs, 1)
 
-		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+		cupaloy.SnapshotT(t, chainClient.sentTxs[0])
 	})
 
 	t.Run("SignatureSubmitterType1", func(t *testing.T) {
 		msgChan := make(chan<- shared.ProtocolMessage, 10)
 		defer close(msgChan)
 
-		defer ethClient.reset()
+		defer chainClient.reset()
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
@@ -152,17 +153,17 @@ func TestSubmitter(t *testing.T) {
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Len(t, ethClient.sentTxs, 1)
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Len(t, chainClient.sentTxs, 1)
 
-		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+		cupaloy.SnapshotT(t, chainClient.sentTxs[0])
 	})
 
 	t.Run("SignatureSubmitterError", func(t *testing.T) {
 		msgChan := make(chan<- shared.ProtocolMessage, 10)
 		defer close(msgChan)
 
-		defer ethClient.reset()
+		defer chainClient.reset()
 
 		errorStatus := http.StatusInternalServerError
 		apiEndpoint.errorStatus = &errorStatus
@@ -178,8 +179,8 @@ func TestSubmitter(t *testing.T) {
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Empty(t, ethClient.sentTxs)
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Empty(t, chainClient.sentTxs)
 	})
 
 	cancel()
@@ -187,11 +188,11 @@ func TestSubmitter(t *testing.T) {
 	require.True(t, errors.Is(err, context.Canceled))
 }
 
-type testEthClient struct {
+type testChainClient struct {
 	sentTxs []*sentTxInfo
 }
 
-func (c *testEthClient) reset() {
+func (c *testChainClient) reset() {
 	c.sentTxs = nil
 }
 
@@ -201,8 +202,8 @@ type sentTxInfo struct {
 	payload    []byte
 }
 
-func (c *testEthClient) SendRawTx(
-	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, gasConfig *clientConfig.Gas,
+func (c *testChainClient) SendRawTx(
+	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, _ *clientConfig.Gas, _ time.Duration,
 ) error {
 	c.sentTxs = append(c.sentTxs, &sentTxInfo{
 		privateKey: privateKey,

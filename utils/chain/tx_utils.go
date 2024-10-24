@@ -104,7 +104,7 @@ func baseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 }
 
 // SendRawTypeTx prepares and sends EIP-1559 transaction. The value sent is 0.
-func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas) error {
+func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -203,7 +203,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 }
 
 // SendRawTx prepares and sends legacy transaction.
-func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas) error {
+func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -257,8 +257,8 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 
 	verifier := NewTxVerifier(client)
 
-	logger.Debugf("Waiting for tx to be mined...")
-	err = verifier.WaitUntilMined(fromAddress, signedTx, DefaultTxTimeout)
+	logger.Debug("Waiting for tx to be mined...")
+	err = verifier.WaitUntilMined(fromAddress, signedTx, timeout)
 	if err != nil {
 		return err
 	}
