@@ -41,9 +41,13 @@ type dataProviderResponse struct {
 }
 
 func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
+	apiUrl := config.APIUrl
+	if apiUrl == "" {
+		apiUrl = config.APIEndpoint
+	}
 	return &SubProtocol{
 		ID:      config.ID,
-		APIUrl:  config.APIUrl,
+		APIUrl:  apiUrl,
 		XApiKey: config.XApiKey(),
 		Type:    config.Type,
 	}
