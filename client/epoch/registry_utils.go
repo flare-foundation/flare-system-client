@@ -98,7 +98,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 		V: signature[64] + 27,
 	}
 
-	gasPrice, err := chain.GetGasPrice(r.gasCfg, r.ethClient)
+	gasPrice, err := chain.GetGasPrice(r.gasCfg, r.ethClient, chain.DefaultTxTimeout)
 	if err != nil {
 		logger.Warnf("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
 		gasPrice = fallbackGasPrice

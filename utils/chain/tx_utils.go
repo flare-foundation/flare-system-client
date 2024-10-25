@@ -112,7 +112,9 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	}
 
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	nonce, err := client.NonceAt(context.Background(), fromAddress, nil)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	nonce, err := client.NonceAt(ctx, fromAddress, nil)
+	cancelFunc()
 	if err != nil {
 		return err
 	}
@@ -123,24 +125,26 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 
 	if dryRun && gasConfig.GasLimit > 0 {
 		gasLimit = uint64(gasConfig.GasLimit)
-		_, err = dryRunTx(client, fromAddress, toAddress, value, data)
+		_, err = dryRunTx(client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
 	} else if dryRun {
-		gasLimit, err = dryRunTx(client, fromAddress, toAddress, value, data)
+		gasLimit, err = dryRunTx(client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
 	} else {
-		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
+		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data, timeout)
 	}
 
 	gasFeeCap := new(big.Int)
 	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
 		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
 	} else {
-		baseFeePerGas, err := baseFee(context.Background(), client)
+		ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+		baseFeePerGas, err := baseFee(ctx, client)
+		cancelFunc()
 		if err != nil {
 			logger.Debug("Error getting baseFee, %v", err)
 			return err
@@ -157,7 +161,9 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 
 	gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
 
-	chainID, err := client.NetworkID(context.Background())
+	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+	chainID, err := client.NetworkID(ctx)
+	cancelFunc()
 	if err != nil {
 		return err
 	}
@@ -180,7 +186,9 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	}
 
 	logger.Debugf("Sending signed tx: %s", signedTx.Hash().Hex())
-	err = client.SendTransaction(context.Background(), signedTx)
+	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+	err = client.SendTransaction(ctx, signedTx)
+	cancelFunc()
 	if err != nil {
 		return err
 	}
@@ -188,13 +196,15 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	verifier := NewTxVerifier(client)
 
 	logger.Debug("Waiting for tx to be mined...")
-	err = verifier.WaitUntilMined(fromAddress, signedTx, DefaultTxTimeout)
+	err = verifier.WaitUntilMined(fromAddress, signedTx, timeout)
 	if err != nil {
 		return err
 	}
 
 	logger.Debugf("Tx mined, getting receipt %s", signedTx.Hash().Hex())
-	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
+	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+	rec, err := client.TransactionReceipt(ctx, signedTx.Hash())
+	cancelFunc()
 	if err != nil {
 		return err
 	}
@@ -211,7 +221,9 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	}
 
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	nonce, err := client.NonceAt(context.Background(), fromAddress, nil)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	nonce, err := client.NonceAt(ctx, fromAddress, nil)
+	cancelFunc()
 	if err != nil {
 		return err
 	}
@@ -220,26 +232,28 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	var gasLimit uint64
 
 	if dryRun {
-		gasLimit, err = dryRunTx(client, fromAddress, toAddress, value, data)
+		gasLimit, err = dryRunTx(client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
 	} else if gasConfig.GasLimit == 0 {
-		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data)
+		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data, timeout)
 	}
 
 	if gasConfig.GasLimit > 0 {
 		gasLimit = uint64(gasConfig.GasLimit)
 	}
 
-	gasPrice, err := GetGasPrice(gasConfig, client)
+	gasPrice, err := GetGasPrice(gasConfig, client, timeout)
 	if err != nil {
 		return err
 	}
 
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
 
-	chainID, err := client.NetworkID(context.Background())
+	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+	chainID, err := client.NetworkID(ctx)
+	cancelFunc()
 	if err != nil {
 		return err
 	}
@@ -250,7 +264,9 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	}
 
 	logger.Debugf("Sending signed tx: %s", signedTx.Hash().Hex())
-	err = client.SendTransaction(context.Background(), signedTx)
+	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+	err = client.SendTransaction(ctx, signedTx)
+	cancelFunc()
 	if err != nil {
 		return err
 	}
@@ -264,7 +280,9 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	}
 
 	logger.Debugf("Tx mined, getting receipt %s", signedTx.Hash().Hex())
-	rec, err := client.TransactionReceipt(context.Background(), signedTx.Hash())
+	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+	rec, err := client.TransactionReceipt(ctx, signedTx.Hash())
+	cancelFunc()
 	if err != nil {
 		return err
 	}
@@ -273,25 +291,30 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 }
 
 // dryRunTx locally executes a transaction with the current state of blockchain and returns gasUsed and potential errors.
-func dryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) (uint64, error) {
-	estimatedGas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+func dryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (uint64, error) {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	estimatedGas, err := client.EstimateGas(ctx, ethereum.CallMsg{
 		From:  fromAddress,
 		To:    &toAddress,
 		Value: value,
 		Data:  data,
 	})
+	cancelFunc()
+
 	return estimatedGas, err
 }
 
-func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte) uint64 {
+func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) uint64 {
 	var gasLimit uint64
 	if gasConfig.GasLimit == 0 {
-		estimatedGas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+		estimatedGas, err := client.EstimateGas(ctx, ethereum.CallMsg{
 			From:  fromAddress,
 			To:    &toAddress,
 			Value: value,
 			Data:  data,
 		})
+		cancelFunc()
 		if err != nil {
 			logger.Warnf("Unable to estimate gas: %v, using default gas limit: %d", err, DefaultGasLimit)
 			gasLimit = DefaultGasLimit
@@ -305,13 +328,14 @@ func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress co
 	return gasLimit
 }
 
-func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client) (*big.Int, error) {
+func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.Duration) (*big.Int, error) {
 	var gasPrice *big.Int
 	if gasConfig.GasPriceFixed.Cmp(common.Big0) == 1 {
 		gasPrice = gasConfig.GasPriceFixed
 	} else {
-
-		suggestedPrice, err := client.SuggestGasPrice(context.Background())
+		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+		suggestedPrice, err := client.SuggestGasPrice(ctx)
+		cancelFunc()
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to estimate gas price")
 		}

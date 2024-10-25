@@ -40,7 +40,7 @@ func ExecuteWithRetryAttempts[T any](f func(int) (T, error), maxRetries int, del
 				out <- ExecuteStatus[T]{Success: true, Value: result}
 				return
 			} else {
-				logger.Error("error executing in retry no. %d: %v", ri, err)
+				logger.Errorf("error executing in retry no. %d: %v", ri, err)
 			}
 			time.Sleep(delay)
 		}

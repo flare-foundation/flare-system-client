@@ -120,7 +120,7 @@ func main() {
 	protocolID := uint8(101)
 	srv := NewMockServer(port, protocolID)
 
-	logger.Info("Server mocking protocol 100 running on localhost:%d", port)
+	logger.Infof("Server mocking protocol 100 running on localhost:%d", port)
 	err := srv.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
 		logger.Error("Server shutdown failed:", err)
