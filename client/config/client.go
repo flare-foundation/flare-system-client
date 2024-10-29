@@ -70,7 +70,7 @@ type Credentials struct {
 var defaultSubmitConfig = Submit{
 	Enabled:          true,
 	TxSubmitRetries:  1,
-	TxSubmitTimeout:  5 * time.Second,
+	TxSubmitTimeout:  10 * time.Second,
 	DataFetchRetries: 1,
 	DataFetchTimeout: 5 * time.Second,
 }

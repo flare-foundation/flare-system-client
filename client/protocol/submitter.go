@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -309,20 +310,47 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 	}
 }
 
-// gasConfigForAttempt bumps up the gas price multiplier for each retry attempt by 50%,
-// up to a maximum of 10x the original value.
+// gasConfigForAttempt sets gas config for a retry attempt.
 //
-// Note: If GasPriceFixed is used, the retry multiplier will not be applied.
+// For type 0 transaction, it bumps up GasPriceMultiplier for each retry attempt by 50%,
+// up to a maximum of 10x the original value.
+// If GasPriceFixed is used, the retry multiplier will not be applied.
+//
+// For type 2 transaction, MaxPriorityFeePerGas on the n-the attempt is n times the MaxPriorityFeePerGas of the initial attempt.
 func gasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
-	if cfg.GasPriceFixed.Cmp(common.Big0) != 0 {
+	if cfg.TxType == 0 {
+		if cfg.GasPriceFixed.Cmp(common.Big0) != 0 {
+			return cfg
+		}
+
+		retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
+
+		return &config.Gas{
+			TxType:   0,
+			GasLimit: cfg.GasLimit,
+
+			GasPriceMultiplier: max(1.0, cfg.GasPriceMultiplier) * float32(retryMultiplier),
+			GasPriceFixed:      cfg.GasPriceFixed,
+		}
+	} else if cfg.TxType == 2 {
+		tipCap := new(big.Int)
+		if cfg.MaxPriorityFeePerGas != nil && cfg.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
+			tipCap.Set(cfg.MaxPriorityFeePerGas)
+		} else {
+			tipCap.Set(chain.DefaultTipCap)
+		}
+
+		retryMultiplier := int64(1 + ri)
+		tipCap = tipCap.Mul(tipCap, big.NewInt(retryMultiplier))
+
+		return &config.Gas{
+			TxType:   2,
+			GasLimit: cfg.GasLimit,
+
+			MaxPriorityFeePerGas: tipCap,
+			BaseFeePerGasCap:     cfg.BaseFeePerGasCap,
+		}
+	} else {
 		return cfg
-	}
-
-	retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
-
-	return &config.Gas{
-		GasPriceMultiplier: max(1.0, cfg.GasPriceMultiplier) * float32(retryMultiplier),
-		GasPriceFixed:      cfg.GasPriceFixed,
-		GasLimit:           cfg.GasLimit,
 	}
 }
