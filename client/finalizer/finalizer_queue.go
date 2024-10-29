@@ -142,6 +142,12 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 				// Finalization for a votingRoundID should happen in the following voting round votingRoundID + 1
 				votingRoundStartTime := p.finalizerContext.votingRoundTiming.StartTime(int64(item.votingRoundID + 1))
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
+
+				if st.Before(time.Now()) {
+					logger.Infof("Finalizer will send item %v now", item, st)
+					p.processItem(ctx, item, true)
+				}
+
 				logger.Infof("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
 			} else {
