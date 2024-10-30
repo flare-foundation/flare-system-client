@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -117,8 +118,8 @@ func (sp *SubProtocol) fetchData(votingRound int64, endpoint string, submitAddre
 	}, nil
 }
 
-// fetchDataWithRetry
-func (sp *SubProtocol) fetchDataWithRetry(
+// fetchDataWithRetryChan
+func (sp *SubProtocol) fetchDataWithRetryChan(
 	votingRound int64,
 	endpoint string,
 	submitAddress string,
@@ -126,7 +127,7 @@ func (sp *SubProtocol) fetchDataWithRetry(
 	timeout time.Duration,
 	dataVerifier DataVerifier,
 ) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
-	return shared.ExecuteWithRetry(func() (*SubProtocolResponse, error) {
+	return shared.ExecuteWithRetryChan(func() (*SubProtocolResponse, error) {
 		data, err := sp.fetchData(votingRound, endpoint, submitAddress, timeout)
 		if err == nil {
 			err = dataVerifier(data)
@@ -138,6 +139,32 @@ func (sp *SubProtocol) fetchDataWithRetry(
 		}
 		return data, nil
 	}, nRetries, 0)
+}
+
+// fetchDataWithRetry
+func (sp *SubProtocol) fetchDataWithRetry(
+	ctx context.Context,
+	votingRound int64,
+	endpoint string,
+	submitAddress string,
+	timeout time.Duration,
+	dataVerifier DataVerifier,
+	minimalRetryDuration time.Duration,
+) shared.ExecuteStatus[*SubProtocolResponse] {
+	return shared.ExecuteWithRetryWithContext(ctx,
+		func() (*SubProtocolResponse, error) {
+			data, err := sp.fetchData(votingRound, endpoint, submitAddress, timeout)
+			if err == nil {
+				err = dataVerifier(data)
+			}
+			if err != nil {
+				logger.Errorf("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
+					sp.ID, sp.APIUrl, votingRound, err)
+				return nil, err
+			}
+			return data, nil
+		},
+		minimalRetryDuration)
 }
 
 func SignatureSubmitterDataVerifier(data *SubProtocolResponse) error {

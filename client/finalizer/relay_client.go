@@ -143,7 +143,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		return
 	}
 
-	execStatusChan := shared.ExecuteWithRetry(func() (any, error) {
+	execStatusChan := shared.ExecuteWithRetryChan(func() (any, error) {
 		err := r.chainClient.SendRawTx(r.privateKey, r.address, input, r.gasConfig, chain.DefaultTxTimeout)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {

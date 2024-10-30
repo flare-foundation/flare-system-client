@@ -87,8 +87,10 @@ type Submit struct {
 type SubmitSignatures struct {
 	Submit
 
-	MaxRounds int           `toml:"max_rounds"`
-	Delay     time.Duration `toml:"delay"`
+	Deadline time.Duration `toml:"deadline"` // from the start of the epoch, recommended to be before the end of the grace period
+
+	MaxCycles     int           `toml:"max_cycles"`     // maximal number of query cycles after the deadline
+	CycleDuration time.Duration `toml:"cycle_duration"` // minimal duration of a cycle after the deadline
 }
 
 type Clients struct {

@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"math"
@@ -53,8 +54,11 @@ type SignatureSubmitter struct {
 
 	messageChannel chan<- shared.ProtocolMessage
 
-	maxRounds int           // number of rounds for sending submitSignatures tx
-	delay     time.Duration // minimal duration of one round
+	deadline time.Duration // deadline for sending submitSignatures tx before end of the grace period
+
+	// config for sending after the deadline
+	maxCycles     int           // number of cycles for sending submitSignature transaction after the deadline
+	cycleDuration time.Duration // minimal duration of one cycle
 }
 
 func (s *SubmitterBase) submit(payload []byte) bool {
@@ -107,7 +111,7 @@ func newSubmitter(
 func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 	for i, protocol := range s.subProtocols {
-		channels[i] = protocol.fetchDataWithRetry(
+		channels[i] = protocol.fetchDataWithRetryChan(
 			currentEpoch+s.epochOffset,
 			s.name,
 			s.protocolContext.submitAddress.Hex(),
@@ -165,8 +169,12 @@ func newSignatureSubmitter(
 	messageChannel chan<- shared.ProtocolMessage,
 ) *SignatureSubmitter {
 
-	delay := submitCfg.Delay
+	deadline := submitCfg.Deadline - submitCfg.StartOffset
+	if deadline <= 0 {
+		deadline = 0
+	}
 
+	delay := submitCfg.CycleDuration
 	if delay <= 0 {
 		delay = time.Second
 	}
@@ -187,14 +195,16 @@ func newSignatureSubmitter(
 			dataFetchTimeout:  submitCfg.DataFetchTimeout,
 			dataFetchRetries:  submitCfg.DataFetchRetries,
 		},
-		maxRounds:      submitCfg.MaxRounds,
-		delay:          delay,
+		maxCycles:      submitCfg.MaxCycles,
+		cycleDuration:  delay,
 		messageChannel: messageChannel,
+		deadline:       deadline,
 	}
 }
 
 // WritePayload encodes payload to buffer.
-// Payload data should be valid (data length 38, additional data length <= maxuint16 - 66)
+// Payload data should be valid (data length 38, additional data length <= maxuint16 - 66).
+// If an error is returned, the buffer is unchanged.
 func (s *SignatureSubmitter) WritePayload(
 	buffer *bytes.Buffer, currentEpoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
 ) error {
@@ -242,26 +252,128 @@ func (s *SignatureSubmitter) WritePayload(
 	return nil
 }
 
-// RunEpoch gets the submitSignature messages from the subprotocols providers.
-//  1. query every sub-protocol provider at most
-//  2. repeat query for protocols that did not give a valid response at most maxRounds time
+// RunEpoch gets the submitSignature messages from the subprotocols providers, relays them to the finalizer, aggregated them and submits them to submission contract.
+//
+// The first cycle of queries happens before the deadline:
+// Each subprotocol is repeatedly queried until success or deadline.
+// The successful queries are included in the payloads of the transaction.
+// The transaction with payloads is sent once all queries are successful or at the deadline (whichever happens first).
+//
+// After the first cycle, if not all subprotocols are queried successfully, there is another cycle.
+// In this cycle, the not yet successful queries are retried at most dataFetchRetries times.
+// If any subprotocols are queried successfully, their payload is submitted at the end of the cycle.
+// The processes is repeated until all subprotocols are queried successfully or at most maxCycles of times.
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
-	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.votingRoundTiming.StartTime(currentEpoch), s.votingRoundTiming.EndTime(currentEpoch))
 
-	protocolsToSend := make(map[int]bool)
-	for i := range s.subProtocols {
-		protocolsToSend[i] = true
+	protocolsToRetry, err := s.RunEpochBeforeDeadline(currentEpoch, s.deadline)
+
+	if err != nil {
+		logger.Errorf("error before Deadline %v", err)
 	}
-	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 
-	ticker := time.NewTicker(s.delay)
+	s.RunEpochAfterDeadline(currentEpoch, protocolsToRetry)
+}
 
-	for i := 0; i < s.maxRounds && len(protocolsToSend) > 0; i++ {
+func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline time.Duration) (map[int]bool, error) {
+	protocolsToQuery := make(map[int]bool)
+
+	results := make([]*SubProtocolResponse, len(s.subProtocols))
+
+	finished := make(chan int, len(s.subProtocols))
+
+	ctx, cancel := context.WithTimeout(context.Background(), deadline)
+
+	for i, protocol := range s.subProtocols {
+		protocolsToQuery[i] = true
+
+		go func() {
+			response := protocol.fetchDataWithRetry(
+				ctx,
+				currentEpoch-1,
+				"submitSignatures",
+				s.protocolContext.submitSignaturesAddress.Hex(),
+				s.dataFetchTimeout,
+				SignatureSubmitterDataVerifier,
+				time.Second, // TODO make it configurable
+			)
+
+			if response.Success {
+				results[i] = response.Value
+				// send message to finalizer
+				finished <- i
+			}
+			// what to do otherwise
+		}()
+
+	}
+	buffer := bytes.NewBuffer(nil)
+	buffer.Write(s.selector)
+
+	protocolsDone := 0
+	readyToSend := false
+
+	for {
+		select {
+		case i := <-finished:
+			err := s.WritePayload(buffer, currentEpoch, results[i], s.subProtocols[i].ID, s.subProtocols[i].Type)
+			if err != nil {
+				logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
+			} else {
+				s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: results[i].Data}
+				delete(protocolsToQuery, i)
+			}
+
+			protocolsDone++
+			if protocolsDone == len(s.subProtocols) {
+				readyToSend = true
+			}
+		default: // TODO: reduce duplicated code
+			select {
+			case <-ctx.Done():
+				readyToSend = true
+			case i := <-finished:
+				err := s.WritePayload(buffer, currentEpoch, results[i], s.subProtocols[i].ID, s.subProtocols[i].Type)
+				if err != nil {
+					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
+				} else {
+					delete(protocolsToQuery, i)
+				}
+
+				protocolsDone++
+				if protocolsDone == len(s.subProtocols) {
+					readyToSend = true
+				}
+			}
+
+		}
+		if readyToSend {
+			cancel()
+			if protocolsDone > 0 {
+				txSent := s.submit(buffer.Bytes())
+				if !txSent {
+					for i := range s.subProtocols {
+						protocolsToQuery[i] = true
+					}
+					return protocolsToQuery, errors.Errorf("submitSignatures tx failed") // TODO
+				}
+			}
+			return protocolsToQuery, nil
+		}
+	}
+}
+
+func (s *SignatureSubmitter) RunEpochAfterDeadline(currentEpoch int64, protocolsToQuery map[int]bool) {
+
+	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(protocolsToQuery))
+
+	ticker := time.NewTicker(s.cycleDuration)
+
+	for i := 0; i < s.maxCycles && len(protocolsToQuery) > 0; i++ {
 		for i, protocol := range s.subProtocols {
-			if !protocolsToSend[i] {
+			if !protocolsToQuery[i] {
 				continue
 			}
-			channels[i] = protocol.fetchDataWithRetry(
+			channels[i] = protocol.fetchDataWithRetryChan(
 				currentEpoch-1,
 				"submitSignatures",
 				s.protocolContext.submitSignaturesAddress.Hex(),
@@ -276,7 +388,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 		buffer := bytes.NewBuffer(nil)
 		buffer.Write(s.selector)
 		for i := range s.subProtocols {
-			if !protocolsToSend[i] {
+			if !protocolsToQuery[i] {
 				continue
 			}
 
@@ -299,7 +411,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 		if len(protocolsSent) > 0 {
 			if s.submit(buffer.Bytes()) {
 				for _, i := range protocolsSent {
-					delete(protocolsToSend, i)
+					delete(protocolsToQuery, i)
 				}
 			}
 		} else {

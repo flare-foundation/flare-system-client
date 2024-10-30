@@ -108,7 +108,7 @@ func fetchRewardsHashBytes(path string) ([]byte, error) {
 	_, isUrl := parseUrl(path)
 	if isUrl {
 		logger.Infof("Fetching rewards hash from URL: %s", path)
-		result := <-shared.ExecuteWithRetry(func() ([]byte, error) {
+		result := <-shared.ExecuteWithRetryChan(func() ([]byte, error) {
 			resp, err := http.Get(path)
 			if err != nil {
 				return nil, err

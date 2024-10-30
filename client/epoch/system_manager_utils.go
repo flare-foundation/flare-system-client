@@ -76,7 +76,7 @@ func NewSystemsManagerClient(ethClient *ethclient.Client, address common.Address
 }
 
 func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignNewSigningPolicy(rewardEpochId, signingPolicy)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign new signing policy")
@@ -126,7 +126,7 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 }
 
 func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {
-	return shared.ExecuteWithRetry(func() (*big.Int, error) {
+	return shared.ExecuteWithRetryChan(func() (*big.Int, error) {
 		id, err := s.flareSystemsManager.GetCurrentRewardEpochId(nil)
 		if err != nil {
 			return nil, err
@@ -226,7 +226,7 @@ func (s *systemsManagerContractClientImpl) parseSignUptimeVoteEnabledEvent(dbLog
 }
 
 func (s *systemsManagerContractClientImpl) SignUptimeVote(rewardEpochId *big.Int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignUptimeVote(rewardEpochId)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign uptime vote")
@@ -300,7 +300,7 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 }
 
 func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignRewards(epochId, rewardHash, weightClaims)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign rewards")

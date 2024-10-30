@@ -77,7 +77,7 @@ func NewRegistryContractClient(
 }
 
 func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := r.sendRegisterVoter(nextRewardEpochId, address)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending register voter")
