@@ -34,7 +34,6 @@ func ExecuteWithRetryChan[T any](f func() (T, error), maxRetries int, delay time
 
 // ExecuteWithRetryWithContext retries function f until success or ctx is canceled. Between each retries there is at least minimalDuration time.
 func ExecuteWithRetryWithContext[T any](ctx context.Context, f func() (T, error), minimalDuration time.Duration) ExecuteStatus[T] {
-	attempt := 0
 	for {
 		timer := time.NewTimer(minimalDuration)
 
@@ -48,10 +47,8 @@ func ExecuteWithRetryWithContext[T any](ctx context.Context, f func() (T, error)
 		if err == nil {
 			return ExecuteStatus[T]{Success: true, Value: result}
 		} else {
-			logger.Errorf("error executing in retry no. %d: %v", attempt, err)
+			<-timer.C
 		}
-		attempt++
-		<-timer.C
 	}
 }
 

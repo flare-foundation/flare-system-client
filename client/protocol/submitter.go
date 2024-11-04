@@ -307,6 +307,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 				time.Second, // TODO make it configurable
 			)
 
+			logger.Debugf("%s received data for round %d for protocol %d with status", s.name, currentEpoch-1, protocol.ID, response.Value.Status)
 			if response.Success {
 				results[i] = response.Value
 				// send message to finalizer
