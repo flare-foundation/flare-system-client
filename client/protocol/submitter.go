@@ -265,8 +265,8 @@ func (s *SignatureSubmitter) WritePayload(
 // If any subprotocols are queried successfully, their payload is submitted at the end of the cycle.
 // The processes is repeated until all subprotocols are queried successfully or at most maxCycles of times.
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
-	logger.Info("%s fetching data for %d", s.name, currentEpoch-1)
-	logger.Debug("deadline in %v", s.deadline)
+	logger.Infof("%s fetching data for %d", s.name, currentEpoch-1)
+	logger.Debugf("deadline in %v", s.deadline)
 	protocolsToRetry, err := s.RunEpochBeforeDeadline(currentEpoch, s.deadline)
 
 	if err != nil {
@@ -274,7 +274,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 	}
 
 	if len(protocolsToRetry) > 0 {
-		logger.Debug("running %s for %v after deadline", s.name, currentEpoch-1)
+		logger.Debugf("running %s for %v after deadline", s.name, currentEpoch-1)
 		s.RunEpochAfterDeadline(currentEpoch, protocolsToRetry)
 	}
 }
@@ -307,7 +307,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 				time.Second, // TODO make it configurable
 			)
 
-			logger.Debugf("%s received data for round %d for protocol %d with status", s.name, currentEpoch-1, protocol.ID, response.Value.Status)
+			logger.Debugf("%s received data for round %d for protocol %d with status", s.name, currentEpoch-1, protocol.ID, response.Success)
 			if response.Success {
 				results[i] = response.Value
 				// send message to finalizer
