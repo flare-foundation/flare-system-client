@@ -137,7 +137,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 	return out
 }
 
-// SubmitPayloads sends a transaction with input relay contract.
+// SubmitPayloads sends a transaction with input to Relay contract.
 func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool) {
 	if len(input) == 0 {
 		return

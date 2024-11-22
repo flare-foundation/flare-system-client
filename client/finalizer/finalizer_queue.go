@@ -144,7 +144,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
 
 				if st.Before(time.Now()) {
-					logger.Infof("Finalizer will send item %v now", item, st)
+					logger.Infof("Finalizer will send item %v now", item)
 					p.processItem(ctx, item, true)
 				}
 
@@ -171,8 +171,6 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	if err != nil {
 		return false
 	}
-
-	logger.Debugf("Finalizer voters for item %v: %v", item, voters)
 
 	return voters[p.relayClient.senderAddress]
 }

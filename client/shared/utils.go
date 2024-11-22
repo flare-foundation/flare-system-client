@@ -14,6 +14,7 @@ type ExecuteStatus[T any] struct {
 	Value   T
 }
 
+// ExecuteWithRetryChan executes function with retry until success or maxRetries. Between each retries there is a delay.
 func ExecuteWithRetryChan[T any](f func() (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
 	out := make(chan ExecuteStatus[T])
 	go func() {
