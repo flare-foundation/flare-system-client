@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 
+	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
@@ -91,13 +92,38 @@ func NewRelayContractClient(
 }
 
 func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
+	var allLogs []database.Log
+
+	// TEMP CHANGE for upgrading Relay contract, should be removed after 17 Oct 2024
+
+	// If using new Songbird Relay, query the old one as well.
+	// Note: this won't have any effect on other networks as we currently have unique Relay addresses for each network.
+	if r.address == common.HexToAddress("0x67a916E175a2aF01369294739AA60dDdE1Fad189") {
+		logsOld, err := db.FetchLogsByAddressAndTopic0(common.HexToAddress("0xbA35e39D01A3f5710d1e43FC61dbb738B68641c4"), r.topic0SPI, from, to)
+		if err != nil {
+			return nil, err
+		}
+		allLogs = append(allLogs, logsOld...)
+	}
+	// If using new Coston Relay, query the old one as well.
+	if r.address == common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7") {
+		logsOld, err := db.FetchLogsByAddressAndTopic0(common.HexToAddress("0xA300E71257547e645CD7241987D3B75f2012E0E3"), r.topic0SPI, from, to)
+		if err != nil {
+			return nil, err
+		}
+		allLogs = append(allLogs, logsOld...)
+	}
+	// END TEMP CHANGE
+
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]signingPolicyListenerResponse, 0, len(logs))
-	for _, log := range logs {
+	allLogs = append(allLogs, logs...)
+
+	result := make([]signingPolicyListenerResponse, 0, len(allLogs))
+	for _, log := range allLogs {
 		policyData, err := shared.ParseSigningPolicyInitializedEvent(r.relay, log)
 		if err != nil {
 			logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)

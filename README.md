@@ -79,7 +79,7 @@ type = 0
 enabled = true            # (optional) set to false to disable a specific submitter, default: true
 start_offset = "5s"       # start fetching data and submitting txs after this offset from the start of the epoch
 tx_submit_retries = 1     # (optional) number of retries for submitting txs, default: 1
-tx_submit_timeout = "5s"  # (optional) timeout for waiting tx to be mined, default: 5s
+tx_submit_timeout = "10s"  # (optional) timeout for waiting tx to be mined, default: 10s
 data_fetch_retries = 1    # (optional) number of retries for fetching data from the API, default: 1
 data_fetch_timeout = "5s" # (optional) timeout for fetching data from the API, default: 5s
 
@@ -87,7 +87,7 @@ data_fetch_timeout = "5s" # (optional) timeout for fetching data from the API, d
 enabled = true
 start_offset = "15s"      # start fetching data and submitting txs after this offset from the start of the NEXT epoch
 tx_submit_retries = 1
-tx_submit_timeout = "5s"
+tx_submit_timeout = "10s"
 data_fetch_retries = 1
 data_fetch_timeout = "5s"
 
@@ -95,6 +95,7 @@ data_fetch_timeout = "5s"
 enabled = true
 start_offset = "10s"       # start fetching data and submitting txs after this offset from the start of the NEXT epoch
 tx_submit_retries = 3
+tx_submit_timeout = "10s"
 data_fetch_retries = 5
 data_fetch_timeout = "5s"
 max_rounds = 3             # max number of rounds to fetch data and submit signatures
@@ -135,23 +136,15 @@ base_fee_per_gas_cap = 0
 
 
 
-[uptime] # uptime vote configuration - clients.enabled_uptime_voting must be set to true
-signing_window = 2 # (optional) how many epochs in the past wße attempt to sign uptime vote for, default: 2.
-
 [rewards] # reward signing configuration - clients.enabled_reward_signing must be set to true
-# Local folder or URL prefix for retrieving rewards hash files.
-# A full path will be constructed by appending the epoch id and expected file name: <path>/<epochId>/rewards-hash.json
+# URL prefix for retrieving reward distribution data. 
+# A full URL will be constructed by appending the epoch id and expected file name: <prefix>/<epochId>/reward-distribution-data.json
 #
-# Example:
-# - URL prefix: "https://example.com/rewards" -> https://example.com/rewards/2939/rewards-hash.json
-# - Folder: "./rewards" -> ./rewards/2939/rewards-hash.json
-#
-# The rewards hash file is expected to have the following structure:
-# {
-#    "rewardEpochId": <epoch id>,
-#    "noOfWeightBasedClaims": <number of weight-based claims>,
-#    "merkleRoot": "<markle root of all claims for the epoch>"
-# }
-hash_path_prefix = ""
-signing_window = 2 # (optional) how many epochs in the past we attempt to sign rewards for, default: 2.
+# For example, if reward data for an epoch can be retrieved at https://raw.githubusercontent.com/flare-foundation/fsp-rewards/refs/heads/main/songbird/240/reward-distribution-data.json,
+# then the url_prefix should be set to "https://raw.githubusercontent.com/flare-foundation/fsp-rewards/refs/heads/main/songbird"
+url_prefix = ""
+min_reward = 0 # minimum acceptable claim amount in wei for the identity address of this provider, default 0.
+max_reward = 0 # (optional) maximum acceptable claim amount in wei for the identity address of this provider. If 0 or not set, no maximum is enforced.
+retries = 8    # (optional) number of retries for fetching and signing reward data, default: 8.
+retry_interval = "6h" # (optional) interval between retries, default: 6 hours.
 ```
