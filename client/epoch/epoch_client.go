@@ -4,6 +4,7 @@ import (
 	"context"
 	clientConfig "flare-tlc/client/config"
 	flarectx "flare-tlc/client/context"
+	"flare-tlc/client/shared"
 	"flare-tlc/config"
 	"flare-tlc/logger"
 	"flare-tlc/utils/chain"
@@ -34,7 +35,6 @@ type EpochClient struct {
 	rewardsSigningEnabled bool
 
 	rewardsConfig *clientConfig.RewardsConfig
-	uptimeConfig  *clientConfig.UptimeConfig
 }
 
 func NewEpochClient(ctx flarectx.ClientContext) (*EpochClient, error) {
@@ -106,7 +106,6 @@ func NewEpochClient(ctx flarectx.ClientContext) (*EpochClient, error) {
 		uptimeVotingEnabled:   cfg.Clients.EnabledUptimeVoting,
 		rewardsSigningEnabled: cfg.Clients.EnabledRewardSigning,
 		rewardsConfig:         &cfg.Rewards,
-		uptimeConfig:          &cfg.Uptime,
 	}, nil
 }
 
@@ -135,11 +134,11 @@ func (c *EpochClient) RunContext(ctx context.Context) error {
 	}
 	if c.uptimeVotingEnabled {
 		logger.Info("Waiting for SignUptimeVoteEnabled event to start uptime vote signing")
-		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch, c.uptimeConfig.SigningWindow)
+		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, epoch)
 	}
 	if c.rewardsSigningEnabled {
 		logger.Info("Waiting for UptimeVoteSigned event to start rewards signing")
-		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch, c.rewardsConfig.SigningWindow)
+		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, epoch)
 	}
 
 	for {
@@ -156,7 +155,6 @@ func (c *EpochClient) RunContext(ctx context.Context) error {
 		case uptimeVoteSigned := <-uptimeSignedListener:
 			logger.Info("Uptime vote threshold reached for epoch %v, signing rewards", uptimeVoteSigned.RewardEpochId)
 			c.signRewards(uptimeVoteSigned.RewardEpochId)
-
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -195,7 +193,6 @@ func (c *EpochClient) signPolicy(epochId *big.Int, policy []byte) {
 }
 
 func (c *EpochClient) signUptimeVote(epochId *big.Int) {
-	logger.Info("SignUptimeVoteEnabled event emitted for epoch %v, signing uptime vote", epochId)
 	signUptimeVoteResult := <-c.systemsManagerClient.SignUptimeVote(epochId)
 	if signUptimeVoteResult.Success {
 		logger.Info("SignUptimeVote completed")
@@ -219,17 +216,54 @@ func (c *EpochClient) isFutureEpoch(epochId *big.Int) bool {
 	return true
 }
 
+// signRewards signs the reward claim merkle root for the given epoch.
+//
+// Once uptime signing is completed, data providers can start signing the reward hash for the epoch.
+// The end goal is that every data provider calculates reward hash by themselves and signs it. While rewarding logic
+// is still in flux, there is an interim solution where reward data is calculated & published centrally, and data
+// providers independently verify and sign the hash.
+//
+// Here signRewards first retrieves the reward claim data file from the configured URL. It verifies the provided
+// merkle root matches the list of claims, checks there is a reward claim for the identity address of this provider,
+// with reward amount within expected bounds.
+//
+// If all checks pass, it signs the merkle root and sends the signature to the SystemsManager contract.
+//
+// Since reward claim data is currently published manually, and it might take a day or so for the data to be available,
+// a retry mechanism is employed with a large retry interval (configurable).
 func (c *EpochClient) signRewards(epochId *big.Int) {
-	logger.Info("Signing rewards for epoch %v", epochId)
-	hash, weightClaims, err := getRewardsHash(epochId, c.rewardsConfig)
-	if err != nil {
-		logger.Error("error obtaining reward hash data for epoch %v, restart client to retry: %s", epochId, err)
-		return
-	}
-	signingResult := <-c.systemsManagerClient.SignRewards(epochId, hash, weightClaims)
-	if signingResult.Success {
-		logger.Info("SignRewards completed")
-	} else {
-		logger.Error("SignRewards failed %s", signingResult.Message)
-	}
+	res := shared.ExecuteWithRetryAttempts(func(i int) (*struct{}, error) {
+		if c.systemsManagerClient.IsRewardHashSigned(epochId) {
+			return nil, nil
+		}
+
+		logger.Info("Signing rewards for epoch %v, attempt %d", epochId, i)
+
+		data, err := fetchRewardData(epochId, c.rewardsConfig)
+		if data == nil {
+			return nil, errors.New("no reward data found")
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to fetch reward data for epoch %d", epochId)
+		}
+		hash, weightClaims, err := verifyRewardData(epochId, c.identityAddress, data, c.rewardsConfig)
+		if err != nil {
+			return nil, errors.Wrapf(err, "reward data verification for epoch %d failed", epochId)
+		}
+		signingResult := <-c.systemsManagerClient.SignRewards(epochId, hash, weightClaims)
+		if !signingResult.Success {
+			return nil, errors.Errorf("unable to send reward signature")
+		}
+		return nil, nil
+	}, c.rewardsConfig.Retries, c.rewardsConfig.RetryInterval)
+
+	// The retry loop may run four hours until the reward data is published, so we don't block for result here.
+	go func() {
+		status := <-res
+		if status.Success {
+			logger.Info("Signing rewards for epoch %v completed", epochId)
+		} else {
+			logger.Info("Signing rewards for epoch %v failed: %s", epochId, status.Message)
+		}
+	}()
 }

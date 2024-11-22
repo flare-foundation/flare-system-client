@@ -32,7 +32,6 @@ type ClientConfig struct {
 	SubmitGas   GasConfig `toml:"gas_submit"`
 	RegisterGas GasConfig `toml:"gas_register"`
 
-	Uptime  UptimeConfig  `toml:"uptime"`
 	Rewards RewardsConfig `toml:"rewards"`
 }
 
@@ -117,13 +116,14 @@ type GasConfig struct {
 	GasLimit           int      `toml:"gas_limit"`
 }
 
-type UptimeConfig struct {
-	SigningWindow int64 `toml:"signing_window"`
-}
-
 type RewardsConfig struct {
-	PathPrefix    string `toml:"hash_path_prefix"`
-	SigningWindow int64  `toml:"signing_window"`
+	UrlPrefix string `toml:"url_prefix"`
+
+	MinRewardWei *big.Int `toml:"min_reward"`
+	MaxRewardWei *big.Int `toml:"max_reward"`
+
+	Retries       int           `toml:"retries"`
+	RetryInterval time.Duration `toml:"retry_interval"`
 }
 
 func newConfig() *ClientConfig {
@@ -142,11 +142,9 @@ func newConfig() *ClientConfig {
 		},
 		SubmitGas:   GasConfig{GasPriceFixed: big.NewInt(0)},
 		RegisterGas: GasConfig{GasPriceFixed: big.NewInt(0)},
-		Uptime: UptimeConfig{
-			SigningWindow: 2,
-		},
 		Rewards: RewardsConfig{
-			SigningWindow: 2,
+			Retries:       8,
+			RetryInterval: 6 * time.Hour,
 		},
 	}
 }

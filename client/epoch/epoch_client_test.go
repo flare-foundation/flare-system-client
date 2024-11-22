@@ -385,7 +385,7 @@ func (c testRegistryClient) RegisterVoter(
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.Epoch, i int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 }
 
@@ -395,7 +395,7 @@ func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.Execu
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.Epoch, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 }
 
@@ -403,4 +403,8 @@ func (c testSystemsManagerClient) SignRewards(b *big.Int, hash *common.Hash, cla
 	return shared.ExecuteWithRetry(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
+}
+
+func (c testSystemsManagerClient) IsRewardHashSigned(b *big.Int) bool {
+	return false
 }
