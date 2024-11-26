@@ -59,11 +59,13 @@ data_fetch_timeout = "5s"
 
 [submit_signatures]
 enabled = true
-start_offset = "12s"
+start_offset = "10s"
 tx_submit_retries = 1
 data_fetch_retries = 1
 data_fetch_timeout = "5s"
-max_rounds = 3
+deadline = "13s"
+max_cycles = 1
+cycle_duration = "1s"
 
 [finalizer]
 starting_reward_epoch = 0

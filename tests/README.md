@@ -9,7 +9,7 @@ found [here](https://gitlab.com/flarenetwork/flare-smart-contracts-v2)
 one can deploy all the Fast Updates contracts
 together with the whole Flare system and voter repository. Git clone
 and navigate to the
-repository and run
+repository. Make sure that the `hardhat` version in `package.json` is at least 2.22.16 and run
 
 ```bash
 yarn install
@@ -49,19 +49,6 @@ go run server_mock.go
 ```
 
 ### Simulate 3 providers running system clients
-
-#### Technical annoyance
-
-To run the simulation one needs to change the `go-ethereum` library version
-since the latest versions do not work well with the hardhat network.
-
-Add in `go.mod` a change of the version with
-
-```bash
-replace github.com/ethereum/go-ethereum v1.14.8 => github.com/ethereum/go-ethereum v1.12.2
-```
-
-and then run `go mod tidy`.
 
 #### Run
 
