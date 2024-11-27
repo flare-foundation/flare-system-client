@@ -74,7 +74,7 @@ var (
 )
 
 func unpackError(result []byte) (string, error) {
-	if !bytes.Equal(result[:4], errorSig) {
+	if len(result) < 4 || !bytes.Equal(result[:4], errorSig) {
 		return "<tx result not Error(string)>", errors.New("tx result not of type Error(string)")
 	}
 	vs, err := abi.Arguments{{Type: abiString}}.UnpackValues(result[4:])
