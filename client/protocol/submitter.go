@@ -324,6 +324,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 	protocolsDone := 0
 	readyToSend := false
 
+	// in case both finished and ctx.Done() are ready we first process finished
 	for {
 		select {
 		case i := <-finished:
@@ -343,18 +344,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 			case <-ctx.Done():
 				readyToSend = true
 			case i := <-finished:
-				err := s.WritePayload(buffer, currentEpoch-1, results[i], s.subProtocols[i].ID, s.subProtocols[i].Type)
-				if err != nil {
-					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
-				} else {
-					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: results[i].Data}
-					delete(protocolsToQuery, i)
-				}
-
-				protocolsDone++
-				if protocolsDone == len(s.subProtocols) {
-					readyToSend = true
-				}
+				finished <- i
 			}
 
 		}
