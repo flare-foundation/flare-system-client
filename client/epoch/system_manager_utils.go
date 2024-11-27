@@ -11,6 +11,7 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,7 +34,18 @@ var (
 	nonFatalSignRewardsErrors = []string{
 		"rewards hash already signed", "voter already signed",
 	}
+
+	flareSystemManagerAbi *abi.ABI
 )
+
+func init() {
+	var err error
+	flareSystemManagerAbi, err = system.FlareSystemsManagerMetaData.GetAbi()
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+}
 
 type systemsManagerContractClient interface {
 	RewardEpochTimingFromChain() (*utils.EpochTimingConfig, error)
@@ -58,6 +70,7 @@ type systemsManagerContractClientImpl struct {
 	txVerifier          *chain.TxVerifier
 	signerPrivateKey    *ecdsa.PrivateKey
 	chainId             int
+	ethClient           *ethclient.Client
 }
 
 func NewSystemsManagerClient(ethClient *ethclient.Client, address common.Address, senderTxOpts *bind.TransactOpts, signerPrivateKey *ecdsa.PrivateKey, chainId int) (*systemsManagerContractClientImpl, error) {
@@ -73,6 +86,7 @@ func NewSystemsManagerClient(ethClient *ethclient.Client, address common.Address
 		txVerifier:          chain.NewTxVerifier(ethClient),
 		signerPrivateKey:    signerPrivateKey,
 		chainId:             chainId,
+		ethClient:           ethClient,
 	}, nil
 }
 
@@ -98,6 +112,28 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 		S: [32]byte(hashSignature[32:64]),
 		V: hashSignature[64] + 27,
 	}
+
+	estimatedGasLimit, err := chain.DryRunTxAbi(
+		s.ethClient,
+		chain.DefaultTxTimeout,
+		s.senderTxOpts.From,
+		s.address,
+		common.Big0,
+		flareSystemManagerAbi,
+		"signNewSigningPolicy",
+		rewardEpochId,
+		[32]byte(newSigningPolicyHash),
+		signature,
+	)
+	if err != nil {
+		if shared.ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
+			logger.Infof("Non fatal error dry run sign new signing policy: %v", err)
+			return nil
+		}
+		logger.Warnf("Dry run fail: %v", err)
+		return err
+	}
+	s.senderTxOpts.GasLimit = estimatedGasLimit
 
 	tx, err := s.flareSystemsManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
@@ -243,6 +279,28 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 		return err
 	}
 
+	estimatedGasLimit, err := chain.DryRunTxAbi(
+		s.ethClient,
+		chain.DefaultTxTimeout,
+		s.senderTxOpts.From,
+		s.address,
+		common.Big0,
+		flareSystemManagerAbi,
+		"signUptimeVote",
+		rewardEpochId,
+		hash,
+		*signature,
+	)
+	if err != nil {
+		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
+			logger.Infof("Non fatal error dryRun sign uptime vote: %v", err)
+			return nil
+		}
+		logger.Warnf("Dry run fail: %v", err)
+		return err
+	}
+	s.senderTxOpts.GasLimit = estimatedGasLimit
+
 	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, hash, *signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
@@ -338,12 +396,37 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 		V: hashSignature[64] + 27,
 	}
 
-	tx, err := s.flareSystemsManager.SignRewards(s.senderTxOpts, epochId, []system.IFlareSystemsManagerNumberOfWeightBasedClaims{
+	numberOfWeightBasedClaims := []system.IFlareSystemsManagerNumberOfWeightBasedClaims{
 		{
 			RewardManagerId:       big.NewInt(int64(s.chainId)),
 			NoOfWeightBasedClaims: big.NewInt(int64(weightClaims)),
 		},
-	}, *rewardHash, signature)
+	}
+
+	estimatedGasLimit, err := chain.DryRunTxAbi(
+		s.ethClient,
+		chain.DefaultTxTimeout,
+		s.senderTxOpts.From,
+		s.address,
+		common.Big0,
+		flareSystemManagerAbi,
+		"signRewards",
+		epochId,
+		numberOfWeightBasedClaims,
+		*rewardHash,
+		signature,
+	)
+	if err != nil {
+		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
+			logger.Infof("Non fatal error dry run reward signature: %v", err)
+			return nil
+		}
+		logger.Warnf("Dry run fail: %v", err)
+		return err
+	}
+	s.senderTxOpts.GasLimit = estimatedGasLimit
+
+	tx, err := s.flareSystemsManager.SignRewards(s.senderTxOpts, epochId, numberOfWeightBasedClaims, *rewardHash, signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
 			logger.Infof("Non fatal error sending reward signature: %v", err)
