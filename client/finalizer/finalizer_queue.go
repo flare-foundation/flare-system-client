@@ -175,6 +175,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	return voters[p.relayClient.senderAddress]
 }
 
+// processItem prepares and sends finalization transaction for item.
 func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueItem, isDelayed bool) {
 	if item == nil {
 		return

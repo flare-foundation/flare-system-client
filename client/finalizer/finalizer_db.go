@@ -23,6 +23,7 @@ type finalizerDBImpl struct {
 	client *gorm.DB
 }
 
+// FetchLogsByAddressAndTopic0 fetches all transactions with selector sent to address in time range (from to].
 func (db finalizerDBImpl) FetchTransactionsByAddressAndSelector(
 	address common.Address, selector []byte, from, to int64,
 ) ([]database.Transaction, error) {
@@ -34,6 +35,7 @@ func (db finalizerDBImpl) FetchTransactionsByAddressAndSelector(
 	})
 }
 
+// FetchLogsByAddressAndTopic0 fetches all transactions with selector sent to address in block range higher than from.
 func (db finalizerDBImpl) FetchTransactionsByAddressAndSelectorFromBlockNumber(
 	address common.Address, selector []byte, from int64,
 ) ([]database.Transaction, error) {
@@ -44,6 +46,7 @@ func (db finalizerDBImpl) FetchTransactionsByAddressAndSelectorFromBlockNumber(
 	})
 }
 
+// FetchLogsByAddressAndTopic0 fetches all logs with topic0 emitted by address in time range (from to].
 func (db finalizerDBImpl) FetchLogsByAddressAndTopic0(
 	address common.Address, topic0 common.Hash, from, to int64,
 ) ([]database.Log, error) {

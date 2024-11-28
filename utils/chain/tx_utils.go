@@ -103,7 +103,7 @@ func baseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	return (*big.Int)(&result), err
 }
 
-// SendRawTypeTx prepares and sends EIP-1559 transaction. The value sent is 0.
+// SendRawType2Tx prepares and sends EIP-1559 transaction. The value sent is 0.
 func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
