@@ -11,6 +11,7 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,7 +34,18 @@ var (
 	nonFatalSignRewardsErrors = []string{
 		"rewards hash already signed", "voter already signed",
 	}
+
+	flareSystemManagerAbi *abi.ABI
 )
+
+func init() {
+	var err error
+	flareSystemManagerAbi, err = system.FlareSystemsManagerMetaData.GetAbi()
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+}
 
 type systemsManagerContractClient interface {
 	RewardEpochTimingFromChain() (*utils.EpochTimingConfig, error)
@@ -41,11 +53,12 @@ type systemsManagerContractClient interface {
 	VotePowerBlockSelectedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
 	SignNewSigningPolicy(*big.Int, []byte) <-chan shared.ExecuteStatus[any]
 
-	SignUptimeVoteEnabledListener(epochClientDB, *utils.EpochTimingConfig, int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
+	SignUptimeVoteEnabledListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
 	SignUptimeVote(*big.Int) <-chan shared.ExecuteStatus[any]
 
-	UptimeVoteSignedListener(epochClientDB, *utils.EpochTimingConfig, int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned
+	UptimeVoteSignedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned
 	SignRewards(*big.Int, *common.Hash, int) <-chan shared.ExecuteStatus[any]
+	IsRewardHashSigned(*big.Int) bool
 
 	GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int]
 }
@@ -57,6 +70,7 @@ type systemsManagerContractClientImpl struct {
 	txVerifier          *chain.TxVerifier
 	signerPrivateKey    *ecdsa.PrivateKey
 	chainId             int
+	ethClient           *ethclient.Client
 }
 
 func NewSystemsManagerClient(ethClient *ethclient.Client, address common.Address, senderTxOpts *bind.TransactOpts, signerPrivateKey *ecdsa.PrivateKey, chainId int) (*systemsManagerContractClientImpl, error) {
@@ -72,11 +86,12 @@ func NewSystemsManagerClient(ethClient *ethclient.Client, address common.Address
 		txVerifier:          chain.NewTxVerifier(ethClient),
 		signerPrivateKey:    signerPrivateKey,
 		chainId:             chainId,
+		ethClient:           ethClient,
 	}, nil
 }
 
 func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignNewSigningPolicy(rewardEpochId, signingPolicy)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign new signing policy")
@@ -97,6 +112,28 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 		S: [32]byte(hashSignature[32:64]),
 		V: hashSignature[64] + 27,
 	}
+
+	estimatedGasLimit, err := chain.DryRunTxAbi(
+		s.ethClient,
+		chain.DefaultTxTimeout,
+		s.senderTxOpts.From,
+		s.address,
+		common.Big0,
+		flareSystemManagerAbi,
+		"signNewSigningPolicy",
+		rewardEpochId,
+		[32]byte(newSigningPolicyHash),
+		signature,
+	)
+	if err != nil {
+		if shared.ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
+			logger.Infof("Non fatal error dry run sign new signing policy: %v", err)
+			return nil
+		}
+		logger.Warnf("Dry run fail: %v", err)
+		return err
+	}
+	s.senderTxOpts.GasLimit = estimatedGasLimit
 
 	tx, err := s.flareSystemsManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
@@ -126,7 +163,7 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 }
 
 func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {
-	return shared.ExecuteWithRetry(func() (*big.Int, error) {
+	return shared.ExecuteWithRetryChan(func() (*big.Int, error) {
 		id, err := s.flareSystemsManager.GetCurrentRewardEpochId(nil)
 		if err != nil {
 			return nil, err
@@ -180,7 +217,7 @@ func (s *systemsManagerContractClientImpl) RewardEpochTimingFromChain() (*utils.
 	return shared.RewardEpochTimingFromChain(s.flareSystemsManager)
 }
 
-func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig, window int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	out := make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "SignUptimeVoteEnabled")
 	if err != nil {
@@ -190,13 +227,14 @@ func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epoc
 	go func() {
 		randomDelay()
 		ticker := time.NewTicker(shared.EventListenerInterval)
-		currentEpoch := rewardEpochTiming.EpochIndex(time.Now())
-		eventRangeStart := rewardEpochTiming.StartTime(currentEpoch - window + 1).Unix()
-		logger.Infof("Current epoch %d", currentEpoch)
+		startEpoch := epoch.EpochIndex(time.Now())
+		eventRangeStart := epoch.StartTime(startEpoch).Unix()
 		for {
 			<-ticker.C
-			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now)
+			now := time.Now()
+			currentEpoch := epoch.EpochIndex(now)
+
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now.Unix())
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -207,7 +245,7 @@ func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epoc
 					logger.Errorf("Error parsing SignUptimeVoteEnabled event %v", err)
 					continue
 				}
-				if uptimeVoteEnabled.RewardEpochId.Int64() >= (currentEpoch - window) {
+				if uptimeVoteEnabled.RewardEpochId.Int64() == currentEpoch-1 {
 					out <- uptimeVoteEnabled
 				}
 				eventRangeStart = int64(uptimeVoteEnabled.Timestamp)
@@ -226,7 +264,7 @@ func (s *systemsManagerContractClientImpl) parseSignUptimeVoteEnabledEvent(dbLog
 }
 
 func (s *systemsManagerContractClientImpl) SignUptimeVote(rewardEpochId *big.Int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignUptimeVote(rewardEpochId)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign uptime vote")
@@ -240,6 +278,28 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	if err != nil {
 		return err
 	}
+
+	estimatedGasLimit, err := chain.DryRunTxAbi(
+		s.ethClient,
+		chain.DefaultTxTimeout,
+		s.senderTxOpts.From,
+		s.address,
+		common.Big0,
+		flareSystemManagerAbi,
+		"signUptimeVote",
+		rewardEpochId,
+		hash,
+		*signature,
+	)
+	if err != nil {
+		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
+			logger.Infof("Non fatal error dryRun sign uptime vote: %v", err)
+			return nil
+		}
+		logger.Warnf("Dry run fail: %v", err)
+		return err
+	}
+	s.senderTxOpts.GasLimit = estimatedGasLimit
 
 	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, hash, *signature)
 	if err != nil {
@@ -257,7 +317,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	return nil
 }
 
-func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	out := make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "UptimeVoteSigned")
 	if err != nil {
@@ -267,12 +327,14 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 	go func() {
 		randomDelay()
 		ticker := time.NewTicker(shared.EventListenerInterval)
-		currentEpoch := rewardEpochTiming.EpochIndex(time.Now())
-		eventRangeStart := rewardEpochTiming.StartTime(currentEpoch - window + 1).Unix()
+		startEpoch := epoch.EpochIndex(time.Now())
+		eventRangeStart := epoch.StartTime(startEpoch).Unix()
 		for {
 			<-ticker.C
-			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now)
+			now := time.Now()
+			currentEpoch := epoch.EpochIndex(now)
+
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now.Unix())
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -289,7 +351,7 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 					logger.Errorf("Error parsing UptimeVoteSigned event %v", err)
 					continue
 				}
-				if uptimeVoteSigned.ThresholdReached && uptimeVoteSigned.RewardEpochId.Int64() >= (currentEpoch-window) {
+				if uptimeVoteSigned.ThresholdReached && uptimeVoteSigned.RewardEpochId.Int64() == currentEpoch-1 {
 					out <- uptimeVoteSigned
 				}
 				eventRangeStart = int64(uptimeVoteSigned.Timestamp)
@@ -299,8 +361,18 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 	return out
 }
 
+func (s *systemsManagerContractClientImpl) IsRewardHashSigned(epochId *big.Int) bool {
+	hash, err := s.flareSystemsManager.RewardsHash(nil, epochId)
+	if err != nil {
+		logger.Warn("Error fetching rewards hash for epoch %v: %v", epochId, err)
+		return false
+	}
+
+	return hash != [32]byte{}
+}
+
 func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignRewards(epochId, rewardHash, weightClaims)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign rewards")
@@ -324,12 +396,37 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 		V: hashSignature[64] + 27,
 	}
 
-	tx, err := s.flareSystemsManager.SignRewards(s.senderTxOpts, epochId, []system.IFlareSystemsManagerNumberOfWeightBasedClaims{
+	numberOfWeightBasedClaims := []system.IFlareSystemsManagerNumberOfWeightBasedClaims{
 		{
 			RewardManagerId:       big.NewInt(int64(s.chainId)),
 			NoOfWeightBasedClaims: big.NewInt(int64(weightClaims)),
 		},
-	}, *rewardHash, signature)
+	}
+
+	estimatedGasLimit, err := chain.DryRunTxAbi(
+		s.ethClient,
+		chain.DefaultTxTimeout,
+		s.senderTxOpts.From,
+		s.address,
+		common.Big0,
+		flareSystemManagerAbi,
+		"signRewards",
+		epochId,
+		numberOfWeightBasedClaims,
+		*rewardHash,
+		signature,
+	)
+	if err != nil {
+		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
+			logger.Infof("Non fatal error dry run reward signature: %v", err)
+			return nil
+		}
+		logger.Warnf("Dry run fail: %v", err)
+		return err
+	}
+	s.senderTxOpts.GasLimit = estimatedGasLimit
+
+	tx, err := s.flareSystemsManager.SignRewards(s.senderTxOpts, epochId, numberOfWeightBasedClaims, *rewardHash, signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
 			logger.Infof("Non fatal error sending reward signature: %v", err)

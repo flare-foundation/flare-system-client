@@ -37,8 +37,7 @@ type Client struct {
 	RegisterGas Gas `toml:"gas_register"`
 	RelayGas    Gas `toml:"gas_relay"`
 
-	Uptime  Uptime  `toml:"uptime"`
-	Rewards Rewards `toml:"rewards"`
+	Rewards RewardsConfig `toml:"rewards"`
 }
 
 type Metrics struct {
@@ -87,8 +86,10 @@ type Submit struct {
 type SubmitSignatures struct {
 	Submit
 
-	MaxRounds int           `toml:"max_rounds"`
-	Delay     time.Duration `toml:"delay"`
+	Deadline time.Duration `toml:"deadline"` // from the start of the epoch, recommended to be before the end of the grace period
+
+	MaxCycles     int           `toml:"max_cycles"`     // maximal number of query cycles after the deadline
+	CycleDuration time.Duration `toml:"cycle_duration"` // minimal duration of a cycle after the deadline
 }
 
 type Clients struct {
@@ -131,13 +132,14 @@ type Gas struct {
 	BaseFeePerGasCap     *big.Int `toml:"base_fee_per_gas_cap"`
 }
 
-type Uptime struct {
-	SigningWindow int64 `toml:"signing_window"`
-}
+type RewardsConfig struct {
+	UrlPrefix string `toml:"url_prefix"`
 
-type Rewards struct {
-	PathPrefix    string `toml:"hash_path_prefix"`
-	SigningWindow int64  `toml:"signing_window"`
+	MinRewardWei *big.Int `toml:"min_reward"`
+	MaxRewardWei *big.Int `toml:"max_reward"`
+
+	Retries       int           `toml:"retries"`
+	RetryInterval time.Duration `toml:"retry_interval"`
 }
 
 func new() *Client {
@@ -156,11 +158,9 @@ func new() *Client {
 		},
 		SubmitGas:   Gas{GasPriceFixed: big.NewInt(0)},
 		RegisterGas: Gas{GasPriceFixed: big.NewInt(0)},
-		Uptime: Uptime{
-			SigningWindow: 2,
-		},
-		Rewards: Rewards{
-			SigningWindow: 2,
+		Rewards: RewardsConfig{
+			Retries:       8,
+			RetryInterval: 6 * time.Hour,
 		},
 	}
 }

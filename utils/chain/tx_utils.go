@@ -84,7 +84,7 @@ var (
 )
 
 func unpackError(result []byte) (string, error) {
-	if !bytes.Equal(result[:4], errorSig) {
+	if len(result) < 4 || !bytes.Equal(result[:4], errorSig) {
 		return "<tx result not Error(string)>", errors.New("tx result not of type Error(string)")
 	}
 	vs, err := abi.Arguments{{Type: abiString}}.UnpackValues(result[4:])
@@ -103,7 +103,7 @@ func baseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	return (*big.Int)(&result), err
 }
 
-// SendRawTypeTx prepares and sends EIP-1559 transaction. The value sent is 0.
+// SendRawType2Tx prepares and sends EIP-1559 transaction. The value sent is 0.
 func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
@@ -125,12 +125,12 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 
 	if dryRun && gasConfig.GasLimit > 0 {
 		gasLimit = uint64(gasConfig.GasLimit)
-		_, err = dryRunTx(client, fromAddress, toAddress, value, data, timeout)
+		_, err = DryRunTx(client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
 	} else if dryRun {
-		gasLimit, err = dryRunTx(client, fromAddress, toAddress, value, data, timeout)
+		gasLimit, err = DryRunTx(client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
@@ -232,7 +232,7 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	var gasLimit uint64
 
 	if dryRun {
-		gasLimit, err = dryRunTx(client, fromAddress, toAddress, value, data, timeout)
+		gasLimit, err = DryRunTx(client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
@@ -290,18 +290,33 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	return nil
 }
 
-// dryRunTx locally executes a transaction with the current state of blockchain and returns gasUsed and potential errors.
-func dryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (uint64, error) {
+// DryRunTx locally executes a transaction with the current state of blockchain and returns estimated Gas multiplied with 1.5 and potential errors.
+func DryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (uint64, error) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-	estimatedGas, err := client.EstimateGas(ctx, ethereum.CallMsg{
-		From:  fromAddress,
-		To:    &toAddress,
+	estimatedGas, err := estimateGas(ctx, client, fromAddress, toAddress, value, data)
+	cancelFunc()
+	return 3 * estimatedGas / 2, err
+}
+
+// DryRunTxAbi locally executes a transaction to method with arguments with the current state of blockchain and returns estimated Gas multiplied with 1.5 and potential errors.
+func DryRunTxAbi(client *ethclient.Client, timeout time.Duration, fromAddress common.Address, toAddress common.Address, value *big.Int, abi *abi.ABI, method string, arguments ...any) (uint64, error) {
+	data, err := abi.Pack(method, arguments...)
+	if err != nil {
+		return 0, errors.Wrap(err, "DryRunTxAbi packing")
+	}
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	estimatedGas, err := estimateGas(ctx, client, fromAddress, toAddress, value, data)
+	cancelFunc()
+	return 3 * estimatedGas / 2, err
+}
+
+func estimateGas(ctx context.Context, client *ethclient.Client, from, to common.Address, value *big.Int, data []byte) (uint64, error) {
+	return client.EstimateGas(ctx, ethereum.CallMsg{
+		From:  from,
+		To:    &to,
 		Value: value,
 		Data:  data,
 	})
-	cancelFunc()
-
-	return estimatedGas, err
 }
 
 func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) uint64 {
@@ -319,8 +334,9 @@ func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress co
 			logger.Warnf("Unable to estimate gas: %v, using default gas limit: %d", err, DefaultGasLimit)
 			gasLimit = DefaultGasLimit
 		} else {
-			logger.Debugf("Estimated gas: %d", estimatedGas)
-			gasLimit = estimatedGas
+			gasLimit = 3 * estimatedGas / 2
+			logger.Debugf("Gas limit: %d", gasLimit)
+
 		}
 	} else {
 		gasLimit = uint64(gasConfig.GasLimit)

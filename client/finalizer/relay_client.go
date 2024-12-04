@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 
+	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
@@ -91,13 +92,17 @@ func NewRelayContractClient(
 }
 
 func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
+	var allLogs []database.Log
+
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]signingPolicyListenerResponse, 0, len(logs))
-	for _, log := range logs {
+	allLogs = append(allLogs, logs...)
+
+	result := make([]signingPolicyListenerResponse, 0, len(allLogs))
+	for _, log := range allLogs {
 		policyData, err := shared.ParseSigningPolicyInitializedEvent(r.relay, log)
 		if err != nil {
 			logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)
@@ -137,13 +142,13 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 	return out
 }
 
-// SubmitPayloads sends a transaction with input relay contract.
+// SubmitPayloads sends a transaction with input to Relay contract.
 func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool) {
 	if len(input) == 0 {
 		return
 	}
 
-	execStatusChan := shared.ExecuteWithRetry(func() (any, error) {
+	execStatusChan := shared.ExecuteWithRetryChan(func() (any, error) {
 		err := r.chainClient.SendRawTx(r.privateKey, r.address, input, r.gasConfig, chain.DefaultTxTimeout)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {

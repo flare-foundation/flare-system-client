@@ -299,7 +299,7 @@ func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
 func (c testSystemsManagerClient) SignNewSigningPolicy(
 	epochID *big.Int, policy []byte,
 ) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		if c.signingErr != nil {
 			return nil, c.signingErr
 		}
@@ -317,7 +317,7 @@ func (c testSystemsManagerClient) SignNewSigningPolicy(
 }
 
 func (c testSystemsManagerClient) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {
-	return shared.ExecuteWithRetry(func() (*big.Int, error) {
+	return shared.ExecuteWithRetryChan(func() (*big.Int, error) {
 		if c.rewardEpochErr != nil {
 			return nil, c.rewardEpochErr
 		}
@@ -360,7 +360,7 @@ func newTestRegistryClient() testRegistryClient {
 func (c testRegistryClient) RegisterVoter(
 	epochID *big.Int, address common.Address,
 ) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		if c.registerErr != nil {
 			return nil, c.registerErr
 		}
@@ -381,22 +381,26 @@ func (c testRegistryClient) RegisterVoter(
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochTimingConfig, i int64) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 }
 
 func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.EpochTimingConfig, window int64) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 }
 
 func (c testSystemsManagerClient) SignRewards(b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
+}
+
+func (c testSystemsManagerClient) IsRewardHashSigned(b *big.Int) bool {
+	return false
 }

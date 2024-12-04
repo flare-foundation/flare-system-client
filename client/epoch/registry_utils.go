@@ -24,11 +24,21 @@ import (
 var (
 	registratorArguments abi.Arguments
 	fallbackGasPrice     = big.NewInt(50 * 1e9)
+	registryAbi          *abi.ABI
 )
 
 func init() {
-	uint32Ty, _ := abi.NewType("uint32", "uint32", nil)
-	addressTy, _ := abi.NewType("address", "address", nil)
+	uint32Ty, err := abi.NewType("uint32", "uint32", nil)
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+
+	addressTy, err := abi.NewType("address", "address", nil)
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
 	registratorArguments = abi.Arguments{
 		{ // nextRewardEpochId
 			Type: uint32Ty,
@@ -37,6 +47,13 @@ func init() {
 			Type: addressTy,
 		},
 	}
+
+	registryAbi, err = registry.RegistryMetaData.GetAbi()
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+
 }
 
 type registryContractClient interface {
@@ -77,7 +94,7 @@ func NewRegistryContractClient(
 }
 
 func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := r.sendRegisterVoter(nextRewardEpochId, address)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending register voter")
@@ -103,11 +120,29 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 		logger.Warnf("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
 		gasPrice = fallbackGasPrice
 	}
+	r.senderTxOpts.GasPrice = gasPrice
 
 	if r.gasCfg.GasLimit != 0 {
 		r.senderTxOpts.GasLimit = uint64(r.gasCfg.GasLimit)
+	} else {
+		estimatedGasLimit, err := chain.DryRunTxAbi(
+			r.ethClient,
+			chain.DefaultTxTimeout,
+			r.senderTxOpts.From,
+			r.address,
+			common.Big0,
+			registryAbi,
+			"registerVoter",
+			address,
+			vrsSignature,
+		)
+		if err != nil {
+			logger.Warnf("Dry run fail: %v", err)
+			return err
+		}
+		r.senderTxOpts.GasLimit = estimatedGasLimit
 	}
-	r.senderTxOpts.GasPrice = gasPrice
+
 	tx, err := r.registry.RegisterVoter(r.senderTxOpts, address, vrsSignature)
 	if err != nil {
 		return err

@@ -60,6 +60,7 @@ func NewSignatureCollection(message shared.Message, signingPolicy *policy.Signin
 	}
 }
 
+// addSignature adds signature to the signatures collection.
 func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, error) {
 	if p.voterIndex < 0 {
 		return false, fmt.Errorf("voter not recognized")

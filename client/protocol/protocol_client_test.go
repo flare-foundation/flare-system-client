@@ -122,8 +122,8 @@ func TestSubmitter(t *testing.T) {
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
 			messageChannel: msgChan,
-			maxRounds:      1,
-			delay:          time.Second,
+			maxCycles:      1,
+			cycleDuration:  time.Second,
 		}
 
 		epochID := int64(1)
@@ -144,8 +144,8 @@ func TestSubmitter(t *testing.T) {
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
 			messageChannel: msgChan,
-			maxRounds:      1,
-			delay:          time.Second,
+			maxCycles:      1,
+			cycleDuration:  time.Second,
 		}
 		subProtocolType1 := &SubProtocol{ID: 100, APIUrl: apiEndpointURL, Type: 1}
 		submitter.SubmitterBase.subProtocols = []*SubProtocol{subProtocolType1}
@@ -172,8 +172,8 @@ func TestSubmitter(t *testing.T) {
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
 			messageChannel: msgChan,
-			maxRounds:      1,
-			delay:          time.Second,
+			maxCycles:      1,
+			cycleDuration:  time.Second,
 		}
 
 		epochID := int64(1)
