@@ -4,10 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
-	clientConfig "flare-tlc/client/config"
-	"flare-tlc/config"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,12 +12,18 @@ import (
 	"testing"
 	"time"
 
+	clientConfig "github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
+
 	"github.com/bradleyjkemp/cupaloy"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 const (
@@ -30,11 +32,6 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	logger.Configure(config.LoggerConfig{
-		Level:   "DEBUG",
-		Console: true,
-	})
-
 	os.Exit(m.Run())
 }
 
@@ -52,9 +49,9 @@ func TestSubmitter(t *testing.T) {
 
 	eg.Go(func() error { return apiEndpoint.Run(ctx) })
 
-	ethClient := testEthClient{}
+	chainClient := testChainClient{}
 
-	subProtocol := &SubProtocol{Id: 100, ApiEndpoint: apiEndpointURL}
+	subProtocol := &SubProtocol{ID: 100, APIUrl: apiEndpointURL, Type: 0}
 
 	privKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)
@@ -62,8 +59,8 @@ func TestSubmitter(t *testing.T) {
 	address := crypto.PubkeyToAddress(privKey.PublicKey)
 
 	base := SubmitterBase{
-		ethClient: &ethClient,
-		gasConfig: &clientConfig.GasConfig{GasPriceFixed: common.Big0},
+		chainClient: &chainClient,
+		gasConfig:   &clientConfig.Gas{GasPriceFixed: common.Big0},
 		protocolContext: &protocolContext{
 			submitPrivateKey:           privKey,
 			signerPrivateKey:           privKey,
@@ -73,18 +70,18 @@ func TestSubmitter(t *testing.T) {
 			submitAddress:              address,
 			submitSignaturesAddress:    address,
 		},
-		epoch:            &utils.Epoch{Start: time.Unix(0, 0), Period: time.Hour},
-		subProtocols:     []*SubProtocol{subProtocol},
-		submitRetries:    1,
-		submitTimeout:    1 * time.Second,
-		dataFetchRetries: 1,
-		dataFetchTimeout: 1 * time.Second,
-		name:             "test",
-		submitPrivateKey: privKey,
+		votingRoundTiming: &utils.EpochTimingConfig{Start: time.Unix(0, 0), Period: time.Hour},
+		subProtocols:      []*SubProtocol{subProtocol},
+		submitRetries:     1,
+		submitTimeout:     1 * time.Second,
+		dataFetchRetries:  1,
+		dataFetchTimeout:  1 * time.Second,
+		name:              "test",
+		submitPrivateKey:  privKey,
 	}
 
 	t.Run("Submitter", func(t *testing.T) {
-		defer ethClient.reset()
+		defer chainClient.reset()
 
 		submitter := Submitter{
 			SubmitterBase: base,
@@ -93,13 +90,13 @@ func TestSubmitter(t *testing.T) {
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Len(t, ethClient.sentTxs, 1)
-		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Len(t, chainClient.sentTxs, 1)
+		cupaloy.SnapshotT(t, chainClient.sentTxs[0])
 	})
 
 	t.Run("SubmitterError", func(t *testing.T) {
-		defer ethClient.reset()
+		defer chainClient.reset()
 
 		errorStatus := http.StatusInternalServerError
 		apiEndpoint.errorStatus = &errorStatus
@@ -112,43 +109,78 @@ func TestSubmitter(t *testing.T) {
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Empty(t, ethClient.sentTxs)
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Empty(t, chainClient.sentTxs)
 	})
 
-	t.Run("SignatureSubmitter", func(t *testing.T) {
-		defer ethClient.reset()
+	t.Run("SignatureSubmitterType0", func(t *testing.T) {
+		msgChan := make(chan<- shared.ProtocolMessage, 10)
+		defer close(msgChan)
+
+		defer chainClient.reset()
 
 		submitter := SignatureSubmitter{
-			SubmitterBase: base,
-			maxRounds:     1,
+			SubmitterBase:  base,
+			messageChannel: msgChan,
+			maxCycles:      1,
+			cycleDuration:  time.Second,
 		}
 
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Len(t, ethClient.sentTxs, 1)
-		cupaloy.SnapshotT(t, ethClient.sentTxs[0])
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Len(t, chainClient.sentTxs, 1)
+
+		cupaloy.SnapshotT(t, chainClient.sentTxs[0])
+	})
+
+	t.Run("SignatureSubmitterType1", func(t *testing.T) {
+		msgChan := make(chan<- shared.ProtocolMessage, 10)
+		defer close(msgChan)
+
+		defer chainClient.reset()
+
+		submitter := SignatureSubmitter{
+			SubmitterBase:  base,
+			messageChannel: msgChan,
+			maxCycles:      1,
+			cycleDuration:  time.Second,
+		}
+		subProtocolType1 := &SubProtocol{ID: 100, APIUrl: apiEndpointURL, Type: 1}
+		submitter.SubmitterBase.subProtocols = []*SubProtocol{subProtocolType1}
+
+		epochID := int64(1)
+		submitter.RunEpoch(epochID)
+
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Len(t, chainClient.sentTxs, 1)
+
+		cupaloy.SnapshotT(t, chainClient.sentTxs[0])
 	})
 
 	t.Run("SignatureSubmitterError", func(t *testing.T) {
-		defer ethClient.reset()
+		msgChan := make(chan<- shared.ProtocolMessage, 10)
+		defer close(msgChan)
+
+		defer chainClient.reset()
 
 		errorStatus := http.StatusInternalServerError
 		apiEndpoint.errorStatus = &errorStatus
 		defer func() { apiEndpoint.errorStatus = nil }()
 
 		submitter := SignatureSubmitter{
-			SubmitterBase: base,
-			maxRounds:     1,
+			SubmitterBase:  base,
+			messageChannel: msgChan,
+			maxCycles:      1,
+			cycleDuration:  time.Second,
 		}
 
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)
 
-		t.Logf("sentTxs: %v", ethClient.sentTxs)
-		require.Empty(t, ethClient.sentTxs)
+		t.Logf("sentTxs: %v", chainClient.sentTxs)
+		require.Empty(t, chainClient.sentTxs)
 	})
 
 	cancel()
@@ -156,11 +188,11 @@ func TestSubmitter(t *testing.T) {
 	require.True(t, errors.Is(err, context.Canceled))
 }
 
-type testEthClient struct {
+type testChainClient struct {
 	sentTxs []*sentTxInfo
 }
 
-func (c *testEthClient) reset() {
+func (c *testChainClient) reset() {
 	c.sentTxs = nil
 }
 
@@ -170,8 +202,8 @@ type sentTxInfo struct {
 	payload    []byte
 }
 
-func (c *testEthClient) SendRawTx(
-	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, _ *clientConfig.GasConfig, _ time.Duration,
+func (c *testChainClient) SendRawTx(
+	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, _ *clientConfig.Gas, _ time.Duration,
 ) error {
 	c.sentTxs = append(c.sentTxs, &sentTxInfo{
 		privateKey: privateKey,
@@ -236,7 +268,7 @@ func (ep *testAPIEndpoint) Run(ctx context.Context) error {
 }
 
 func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger.Info("test: handling API request: %+v", r)
+	logger.Infof("test: handling API request: %+v", r)
 
 	if ep.errorStatus != nil {
 		http.Error(w, "test: error", *ep.errorStatus)
@@ -251,14 +283,14 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	data, err := json.Marshal(rsp)
 	if err != nil {
-		logger.Error("test: failed to marshal response: %v", err)
+		logger.Errorf("test: failed to marshal response: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	_, err = w.Write(data)
 	if err != nil {
-		logger.Error("test: failed to write response: %v", err)
+		logger.Errorf("test: failed to write response: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -276,16 +308,16 @@ func TestWaitUntilRegistered(t *testing.T) {
 		expectedAddress: identityAddress,
 		registeredEpoch: 3,
 	}
-	client := ProtocolClient{
-		registry:        &registry,
-		rewardEpoch:     utils.NewEpoch(time.Now(), 100*time.Millisecond),
-		identityAddress: identityAddress,
+	client := client{
+		registry:          &registry,
+		rewardEpochTiming: utils.NewEpochConfig(time.Now(), 100*time.Millisecond),
+		identityAddress:   identityAddress,
 	}
 
 	err := client.waitUntilRegistered(ctx)
 	require.NoError(t, err)
 
-	currentEpoch := client.rewardEpoch.EpochIndex(time.Now())
+	currentEpoch := client.rewardEpochTiming.EpochIndex(time.Now())
 	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
 }
 
@@ -298,16 +330,16 @@ func TestWaitUntilRegisteredTransientError(t *testing.T) {
 		registeredEpoch:     0,
 		transientErrorCount: 3,
 	}
-	client := ProtocolClient{
-		registry:        &registry,
-		rewardEpoch:     utils.NewEpoch(time.Now(), time.Minute),
-		identityAddress: identityAddress,
+	client := client{
+		registry:          &registry,
+		rewardEpochTiming: utils.NewEpochConfig(time.Now(), time.Minute),
+		identityAddress:   identityAddress,
 	}
 
 	err := client.waitUntilRegistered(ctx)
 	require.NoError(t, err)
 
-	currentEpoch := client.rewardEpoch.EpochIndex(time.Now())
+	currentEpoch := client.rewardEpochTiming.EpochIndex(time.Now())
 	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
 }
 

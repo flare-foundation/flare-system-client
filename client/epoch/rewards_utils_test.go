@@ -2,13 +2,14 @@ package epoch
 
 import (
 	"encoding/hex"
-	"flare-tlc/client/config"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_encodeRewardsData(t *testing.T) {

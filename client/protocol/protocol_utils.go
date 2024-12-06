@@ -1,11 +1,9 @@
 package protocol
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
-	"flare-tlc/client/config"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
 	"fmt"
 	"io"
 	"math"
@@ -15,15 +13,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 )
 
 type DataVerifier func(*SubProtocolResponse) error
 
 type SubProtocol struct {
-	Id          uint8
-	ApiEndpoint string
-	XApiKey     string
+	ID      uint8
+	APIUrl  string
+	XApiKey string
+	Type    uint8 //type of submitSignature payload
 }
 
 type SubProtocolResponse struct {
@@ -39,20 +42,26 @@ type dataProviderResponse struct {
 }
 
 func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
+	apiUrl := config.APIUrl
+	if apiUrl == "" {
+		apiUrl = config.APIEndpoint
+	}
 	return &SubProtocol{
-		Id:          config.Id,
-		ApiEndpoint: config.ApiEndpoint,
-		XApiKey:     config.XApiKey(),
+		ID:      config.ID,
+		APIUrl:  apiUrl,
+		XApiKey: config.XApiKey(),
+		Type:    config.Type,
 	}
 }
 
-func (sp *SubProtocol) getData(votingRound int64, submitName string, submitAddress string, timeout time.Duration) (*SubProtocolResponse, error) {
-	url, err := getUrl(votingRound, sp, submitName, submitAddress)
+// fetchData queries the provider for data for SubProtocol.
+func (sp *SubProtocol) fetchData(votingRound int64, endpoint string, submitAddress string, timeout time.Duration) (*SubProtocolResponse, error) {
+	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting url")
 	}
 
-	logger.Info("Calling protocol client API: %s", url.String())
+	logger.Infof("Calling protocol client API: %s", url.String())
 	client := http.Client{
 		Timeout: timeout,
 	}
@@ -109,7 +118,8 @@ func (sp *SubProtocol) getData(votingRound int64, submitName string, submitAddre
 	}, nil
 }
 
-func (sp *SubProtocol) getDataWithRetry(
+// fetchDataWithRetryChan
+func (sp *SubProtocol) fetchDataWithRetryChan(
 	votingRound int64,
 	endpoint string,
 	submitAddress string,
@@ -117,18 +127,44 @@ func (sp *SubProtocol) getDataWithRetry(
 	timeout time.Duration,
 	dataVerifier DataVerifier,
 ) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
-	return shared.ExecuteWithRetry(func() (*SubProtocolResponse, error) {
-		data, err := sp.getData(votingRound, endpoint, submitAddress, timeout)
+	return shared.ExecuteWithRetryChan(func() (*SubProtocolResponse, error) {
+		data, err := sp.fetchData(votingRound, endpoint, submitAddress, timeout)
 		if err == nil {
 			err = dataVerifier(data)
 		}
 		if err != nil {
-			logger.Error("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
-				sp.Id, sp.ApiEndpoint, votingRound, err)
+			logger.Errorf("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
+				sp.ID, sp.APIUrl, votingRound, err)
 			return nil, err
 		}
 		return data, nil
 	}, nRetries, 0)
+}
+
+// fetchDataWithRetry
+func (sp *SubProtocol) fetchDataWithRetry(
+	ctx context.Context,
+	votingRound int64,
+	endpoint string,
+	submitAddress string,
+	timeout time.Duration,
+	dataVerifier DataVerifier,
+	minimalRetryDuration time.Duration,
+) shared.ExecuteStatus[*SubProtocolResponse] {
+	return shared.ExecuteWithRetryWithContext(ctx,
+		func() (*SubProtocolResponse, error) {
+			data, err := sp.fetchData(votingRound, endpoint, submitAddress, timeout)
+			if err == nil {
+				err = dataVerifier(data)
+			}
+			if err != nil {
+				// logger.Errorf("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
+				// 	sp.ID, sp.APIUrl, votingRound, err)
+				return nil, err
+			}
+			return data, nil
+		},
+		minimalRetryDuration)
 }
 
 func SignatureSubmitterDataVerifier(data *SubProtocolResponse) error {
@@ -150,12 +186,13 @@ func IdentityDataVerifier(data *SubProtocolResponse) error {
 	return nil
 }
 
-func getUrl(votingRound int64, protocol *SubProtocol, endpoint string, signingAddress string) (*url.URL, error) {
+// submitEndpointUrl builds url to be queried for the data for subprotocol for a given votingRound and address.
+func submitEndpointUrl(votingRound int64, apiEndpoint string, endpoint string, address string) (*url.URL, error) {
 	baseURL, err := url.JoinPath(
-		protocol.ApiEndpoint,
+		apiEndpoint,
 		endpoint,
 		strconv.FormatInt(votingRound, 10),
-		signingAddress,
+		address,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating url path")

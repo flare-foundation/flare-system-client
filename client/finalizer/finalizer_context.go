@@ -1,11 +1,13 @@
 package finalizer
 
 import (
-	"flare-tlc/client/config"
-	"flare-tlc/client/shared"
-	"flare-tlc/utils"
-	"flare-tlc/utils/contracts/relay"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 )
 
 // Finalizer client settings
@@ -17,19 +19,19 @@ type finalizerContext struct {
 	voterThresholdBIPS   uint16
 	gracePeriodEndOffset time.Duration
 
-	votingEpoch *utils.Epoch
-	rewardEpoch *utils.IntEpoch
+	votingRoundTiming *utils.EpochTimingConfig
+	rewardEpoch       *utils.RewardEpochConfig
 }
 
 // func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
-func newFinalizerContext(cfg *config.ClientConfig, relay *relay.Relay) (*finalizerContext, error) {
-	votingEpoch, rewardEpoch, err := shared.EpochsFromChain(relay)
+func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerContext, error) {
+	votingRoundTiming, rewardEpoch, err := shared.EpochsFromChain(relay)
 	if err != nil {
 		return nil, err
 	}
 	startingVotingRound := cfg.Finalizer.StartingVotingRound
 	if startingVotingRound == 0 {
-		startingVotingRound = uint32(votingEpoch.EpochIndex(time.Now()))
+		startingVotingRound = uint32(votingRoundTiming.EpochIndex(time.Now()))
 	}
 	return &finalizerContext{
 		startingRewardEpoch:  cfg.Finalizer.StartingRewardEpoch,
@@ -37,7 +39,7 @@ func newFinalizerContext(cfg *config.ClientConfig, relay *relay.Relay) (*finaliz
 		startTimeOffset:      cfg.Finalizer.StartOffset,
 		voterThresholdBIPS:   cfg.Finalizer.VoterThresholdBIPS,
 		gracePeriodEndOffset: cfg.Finalizer.GracePeriodEndOffset,
-		votingEpoch:          votingEpoch,
+		votingRoundTiming:    votingRoundTiming,
 		rewardEpoch:          rewardEpoch,
 	}, nil
 }

@@ -1,0 +1,63 @@
+[indexer]
+start_index = 0               # the number of the block that the indexer will start with
+stop_index = 0                # the number of the block that the indexer will stop with; set 0 or skip to index indefinitely
+num_parallel_req = 10         # the number of threads doing requests to the chain in parallel
+batch_size = 1000             # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
+log_range = 10                # the size of the interval of blocks used to request logs in each request; suggested value is log_range = batch_size / num_parallel_req; note that a blockchain node might have an upper bound on this
+new_block_check_millis = 1000 # interval for checking for new blocks
+
+[[indexer.collect_transactions]]
+contract_address = "0x18b9306737eaf6E8FC8e737F488a1AE077b18053" # Submission
+func_sig = "6c532fae" # submit1
+status = true
+collect_events = true
+
+[[indexer.collect_transactions]]
+contract_address = "0x18b9306737eaf6E8FC8e737F488a1AE077b18053" # Submission
+func_sig = "9d00c9fd"  # submit2
+status = true
+collect_events = true
+
+
+[[indexer.collect_transactions]]
+contract_address = "0x18b9306737eaf6E8FC8e737F488a1AE077b18053" # Submission
+func_sig = "57eed580" # submitSignatures
+status = true
+collect_events = true
+
+[[indexer.collect_logs]]
+contract_address = "0xa4bcDF64Cdd5451b6ac3743B414124A6299B65FF" # FlareSystemsManager
+topic = "undefined"
+
+
+[[indexer.collect_logs]]
+contract_address = "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F" # Relay
+topic = "0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8"
+
+
+[[indexer.collect_logs]]
+contract_address = "0xb682dEEf4f8e298d86bFc3e21f50c675151FB974" # FdcHub
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0xB00cC45B4a7d3e1FEE684cFc4417998A1c183e6d" # VoterRegistry
+topic = "undefined"
+
+[db]
+host = "indexer-db"
+port = 3306
+database = "flare_ftso_indexer_system_client_simulation"
+username = "root"
+password = "root"
+log_queries = false
+drop_table_at_start = true
+history_drop = 0
+
+[logger]
+level = "DEBUG"
+file = "/tmp/flare-ftso-indexer.log"
+console = true
+
+[chain]
+node_url = "http://host.docker.internal:8545/"
+chain_type = 2 # simulation runs on hardhat, i.e. Ethereum based chain

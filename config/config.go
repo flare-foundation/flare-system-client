@@ -3,58 +3,42 @@ package config
 import (
 	"crypto/ecdsa"
 	"errors"
-	"flare-tlc/utils/credentials"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/flare-foundation/flare-system-client/utils/credentials"
+
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/kelseyhightower/envconfig"
 )
 
 const (
-	CONFIG_FILE string = "config.toml"
+	ConfigFile string = "config.toml" // name of config file
 )
 
 var (
-	GlobalConfigCallback ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
+	GlobalConfigCallback ConfigCallback[Global] = ConfigCallback[Global]{}
 )
 
-type GlobalConfig interface {
-	LoggerConfig() LoggerConfig
-	ChainConfig() ChainConfig
+type Global interface {
+	LoggerConfig() logger.Config
+	ChainConfig() Chain
 }
 
-type LoggerLevel string
-
-type LoggerConfig struct {
-	Level       string `toml:"level"` // valid values are: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL (zap)
-	File        string `toml:"file"`
-	MaxFileSize int    `toml:"max_file_size"` // In megabytes
-	Console     bool   `toml:"console"`
-}
-
-type DBConfig struct {
-	Host       string `toml:"host" envconfig:"DB_HOST"`
-	Port       int    `toml:"port" envconfig:"DB_PORT"`
-	Database   string `toml:"database" envconfig:"DB_DATABASE"`
-	Username   string `toml:"username" envconfig:"DB_USERNAME"`
-	Password   string `toml:"password" envconfig:"DB_PASSWORD"`
-	LogQueries bool   `toml:"log_queries"`
-}
-
-type ChainConfig struct {
+type Chain struct {
 	ChainID   int    `toml:"chain_id" envconfig:"CHAIN_ID"`
 	EthRPCURL string `toml:"eth_rpc_url" envconfig:"ETH_RPC_URL"`
 	ApiKey    string `toml:"api_key" envconfig:"API_KEY"`
 }
 
 // Dial the chain node and return an ethclient.Client.
-func (chain *ChainConfig) DialETH() (*ethclient.Client, error) {
-	rpcURL, err := chain.getRPCURL()
+func (cfg *Chain) DialETH() (*ethclient.Client, error) {
+	rpcURL, err := cfg.getRPCURL()
 	if err != nil {
 		return nil, err
 	}
@@ -62,20 +46,20 @@ func (chain *ChainConfig) DialETH() (*ethclient.Client, error) {
 	return ethclient.Dial(rpcURL)
 }
 
-// Get the full RPC URL which may be passed to ethclient.Dial. Includes API key
-// as query param if it is configured.
-func (chain *ChainConfig) getRPCURL() (string, error) {
-	u, err := url.Parse(chain.EthRPCURL)
+// Get the full RPC URL which may be passed to ethclient.Dial.
+// Includes API key as query param if it is configured.
+func (cfg *Chain) getRPCURL() (string, error) {
+	u, err := url.Parse(cfg.EthRPCURL)
 	if err != nil {
 		return "", err
 	}
 
-	if chain.ApiKey == "" {
+	if cfg.ApiKey == "" {
 		return u.String(), nil
 	}
 
 	q := u.Query()
-	q.Set("x-apikey", chain.ApiKey)
+	q.Set("x-apikey", cfg.ApiKey)
 	u.RawQuery = q.Encode()
 
 	return u.String(), nil
@@ -122,7 +106,7 @@ func ReadFileToString(fileName string) (string, error) {
 }
 
 // Read private key from env variable or file if insecure private key handling
-// is enabled (INSECURE_PRIVATE_KEYS)
+// is enabled (INSECURE_PRIVATE_KEYS).
 func PrivateKeyFromConfig(fileName string, envString string) (pk *ecdsa.PrivateKey, err error) {
 	envString = strings.TrimSpace(envString)
 	fileName = strings.TrimSpace(fileName)

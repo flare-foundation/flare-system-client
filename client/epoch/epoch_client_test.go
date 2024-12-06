@@ -2,31 +2,27 @@ package epoch
 
 import (
 	"context"
-	"flare-tlc/client/shared"
-	"flare-tlc/config"
-	"flare-tlc/database"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
-	"flare-tlc/utils/contracts/relay"
-	"flare-tlc/utils/contracts/system"
 	"math/big"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/bradleyjkemp/cupaloy"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
+
+	"github.com/flare-foundation/go-flare-common/pkg/database"
 )
 
 func TestMain(m *testing.M) {
-	logger.Configure(config.LoggerConfig{
-		Level:   "DEBUG",
-		Console: true,
-	})
-
 	os.Exit(m.Run())
 }
 
@@ -35,7 +31,7 @@ func TestEpochClientMainline(t *testing.T) {
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -48,7 +44,7 @@ func TestEpochClientMainline(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(2)
@@ -89,7 +85,7 @@ func TestEpochClientInvalidEpoch(t *testing.T) {
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -102,7 +98,7 @@ func TestEpochClientInvalidEpoch(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(0)
@@ -132,7 +128,7 @@ func TestEpochClientSigningErr(t *testing.T) {
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -145,7 +141,7 @@ func TestEpochClientSigningErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(2)
@@ -183,7 +179,7 @@ func TestEpochClientRewardEpochErr(t *testing.T) {
 	relayClient := newTestRelayClient()
 	registryClient := newTestRegistryClient()
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -196,7 +192,7 @@ func TestEpochClientRewardEpochErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(2)
@@ -224,7 +220,7 @@ func TestEpochClientRegisterErr(t *testing.T) {
 	registryClient := newTestRegistryClient()
 	registryClient.registerErr = errors.New("register error")
 
-	c := &EpochClient{
+	c := &client{
 		db:                   testDB{},
 		systemsManagerClient: systemsManagerClient,
 		relayClient:          relayClient,
@@ -237,7 +233,7 @@ func TestEpochClientRegisterErr(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return c.RunContext(ctx)
+		return c.Run(ctx)
 	})
 
 	rewardEpochID := big.NewInt(2)
@@ -261,14 +257,14 @@ func TestEpochClientRegisterErr(t *testing.T) {
 
 type testDB struct{}
 
-func (db testDB) FetchLogsByAddressAndTopic0(
-	address common.Address, topic0 string, from, to int64,
+func (db testDB) FetchLogsByAddressAndTopic0Timestamp(
+	address common.Address, topic0 common.Hash, from, to int64,
 ) ([]database.Log, error) {
 	return nil, errors.New("not implemented")
 }
 
 type testSystemsManagerClient struct {
-	rewardEpoch    *utils.Epoch
+	rewardEpoch    *utils.EpochTimingConfig
 	rewardEpochErr error
 	vpbsChan       chan *system.FlareSystemsManagerVotePowerBlockSelected
 	signedPolicies map[string][]byte
@@ -277,7 +273,7 @@ type testSystemsManagerClient struct {
 
 func newTestSystemsManagerClient() testSystemsManagerClient {
 	return testSystemsManagerClient{
-		rewardEpoch: &utils.Epoch{
+		rewardEpoch: &utils.EpochTimingConfig{
 			Start:  time.Time{},
 			Period: time.Hour,
 		},
@@ -290,12 +286,12 @@ func (c testSystemsManagerClient) sendTestVPBS(vpbs *system.FlareSystemsManagerV
 	c.vpbsChan <- vpbs
 }
 
-func (c testSystemsManagerClient) RewardEpochFromChain() (*utils.Epoch, error) {
+func (c testSystemsManagerClient) RewardEpochTimingFromChain() (*utils.EpochTimingConfig, error) {
 	return c.rewardEpoch, nil
 }
 
 func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
-	db epochClientDB, epoch *utils.Epoch,
+	db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig,
 ) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
 	return c.vpbsChan
 }
@@ -303,7 +299,7 @@ func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
 func (c testSystemsManagerClient) SignNewSigningPolicy(
 	epochID *big.Int, policy []byte,
 ) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		if c.signingErr != nil {
 			return nil, c.signingErr
 		}
@@ -320,8 +316,8 @@ func (c testSystemsManagerClient) SignNewSigningPolicy(
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) GetCurrentRewardEpochId() <-chan shared.ExecuteStatus[*big.Int] {
-	return shared.ExecuteWithRetry(func() (*big.Int, error) {
+func (c testSystemsManagerClient) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {
+	return shared.ExecuteWithRetryChan(func() (*big.Int, error) {
 		if c.rewardEpochErr != nil {
 			return nil, c.rewardEpochErr
 		}
@@ -345,7 +341,7 @@ func (c testRelayClient) sendTestPolicy(policy *relay.RelaySigningPolicyInitiali
 }
 
 func (c testRelayClient) SigningPolicyInitializedListener(
-	db epochClientDB, epoch *utils.Epoch,
+	db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig,
 ) <-chan *relay.RelaySigningPolicyInitialized {
 	return c.policyChan
 }
@@ -364,7 +360,7 @@ func newTestRegistryClient() testRegistryClient {
 func (c testRegistryClient) RegisterVoter(
 	epochID *big.Int, address common.Address,
 ) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		if c.registerErr != nil {
 			return nil, c.registerErr
 		}
@@ -385,22 +381,22 @@ func (c testRegistryClient) RegisterVoter(
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 }
 
 func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.Epoch) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 }
 
 func (c testSystemsManagerClient) SignRewards(b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetry(func() (any, error) {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }

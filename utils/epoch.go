@@ -2,54 +2,51 @@ package utils
 
 import "time"
 
-type Epoch struct {
-	Start  time.Time
-	Period time.Duration
+type EpochTimingConfig struct {
+	Start  time.Time     // start of the epoch with index 0
+	Period time.Duration // length of one epoch
 }
 
-func NewEpoch(start time.Time, duration time.Duration) *Epoch {
-	return &Epoch{
+func NewEpochConfig(start time.Time, duration time.Duration) *EpochTimingConfig {
+	return &EpochTimingConfig{
 		Start:  start,
 		Period: duration,
 	}
 }
 
-func (e Epoch) EpochIndex(t time.Time) int64 {
+// EpochIndex returns returns the consecutive index of the epoch that takes place at time t.
+func (e EpochTimingConfig) EpochIndex(t time.Time) int64 {
 	return int64(t.Sub(e.Start) / e.Period)
 }
 
-func (e Epoch) StartTime(epoch int64) time.Time {
+// StartTime returns the start time of the epoch.
+func (e EpochTimingConfig) StartTime(epoch int64) time.Time {
 	return e.Start.Add(time.Duration(epoch) * e.Period)
 }
 
-func (e Epoch) EndTime(epoch int64) time.Time {
+// EndTime returns the end time of the epoch.
+func (e EpochTimingConfig) EndTime(epoch int64) time.Time {
 	return e.StartTime(epoch + 1)
 }
 
-func (e Epoch) TimeRange(epoch int64) (time.Time, time.Time) {
-	return e.StartTime(epoch), e.EndTime(epoch)
+type RewardEpochConfig struct {
+	Start  int64 // index of the voting round in which the reward epoch with index 0 starts
+	Period int64 // length of one reward epoch in voting rounds
 }
 
-type IntEpoch struct {
-	Start  int64
-	Period int64
-}
-
-func NewIntEpoch(start int64, period int64) *IntEpoch {
-	return &IntEpoch{
+func NewRewardEpochConfig(start int64, period int64) *RewardEpochConfig {
+	return &RewardEpochConfig{
 		Start:  start,
 		Period: period,
 	}
 }
 
-func (e IntEpoch) EpochIndex(n int64) int64 {
-	return (n - e.Start) / e.Period
+// StartEpoch returns the index of the voting round in which the given reward epoch is expected to start.
+func (e RewardEpochConfig) StartEpoch(rewardEpoch int64) int64 {
+	return e.Start + e.Period*rewardEpoch
 }
 
-func (e IntEpoch) StartEpoch(n int64) int64 {
-	return e.Start + e.Period*e.EpochIndex(n)
-}
-
-func (e IntEpoch) EndEpoch(n int64) int64 {
-	return e.Start + e.Period*(e.EpochIndex(n)+1)
+// EndEpoch returns the index of the voting round in which the given reward epoch is expected to end.
+func (e RewardEpochConfig) EndEpoch(rewardEpoch int64) int64 {
+	return e.Start + e.Period*(rewardEpoch+1)
 }

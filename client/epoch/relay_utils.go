@@ -1,20 +1,23 @@
 package epoch
 
 import (
-	"flare-tlc/client/shared"
-	"flare-tlc/database"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
-	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/relay"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/flare-foundation/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 )
 
 type relayContractClient interface {
-	SigningPolicyInitializedListener(epochClientDB, *utils.Epoch) <-chan *relay.RelaySigningPolicyInitialized
+	SigningPolicyInitializedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *relay.RelaySigningPolicyInitialized
 }
 
 type relayContractClientImpl struct {
@@ -38,7 +41,7 @@ func NewRelayContractClient(
 	}, nil
 }
 
-func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClientDB, epoch *utils.Epoch) <-chan *relay.RelaySigningPolicyInitialized {
+func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *relay.RelaySigningPolicyInitialized {
 	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal
@@ -49,19 +52,19 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClien
 	go func() {
 		randomDelay()
 		ticker := time.NewTicker(shared.EventListenerInterval)
-		eventRangeStart := epoch.StartTime(epoch.EpochIndex(time.Now()) - 1).Unix()
+		eventRangeStart := rewardEpochTiming.StartTime(rewardEpochTiming.EpochIndex(time.Now()) - 1).Unix()
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0(r.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(r.address, topic0, eventRangeStart, now)
 			if err != nil {
-				logger.Error("Error fetching logs %v", err)
+				logger.Errorf("Error fetching logs %v", err)
 				continue
 			}
 			if len(logs) > 0 {
 				policyData, err := r.parseSigningPolicyInitializedEvent(logs[len(logs)-1])
 				if err != nil {
-					logger.Error("Error parsing SigningPolicyInitialized event %v", err)
+					logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)
 					continue
 				}
 				out <- policyData

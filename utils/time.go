@@ -45,7 +45,7 @@ func randomDuration(deltaMs int) time.Duration {
 }
 
 type EpochTicker struct {
-	Epoch        *Epoch
+	Epoch        *EpochTimingConfig
 	timeProvider TimeProvider
 
 	// C is the channel on which the epoch index is sent
@@ -54,7 +54,7 @@ type EpochTicker struct {
 
 // NewEpochTicker creates a ticker that sends the epoch index on the channel C
 // at the start of the epoch
-func NewEpochTicker(epoch *Epoch) *EpochTicker {
+func NewEpochTicker(epoch *EpochTimingConfig) *EpochTicker {
 	c := make(chan int64)
 	ticker := &EpochTicker{
 		Epoch:        epoch,

@@ -3,21 +3,24 @@ package epoch
 import (
 	"bytes"
 	"encoding/json"
-	"flare-tlc/client/config"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
-	"flare-tlc/utils/contracts/system"
-	"flare-tlc/utils/merkle"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 	"io"
 	"log"
 	"math/big"
 	"net/http"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/merkle"
 )
 
 var (
@@ -121,7 +124,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 	url := fmt.Sprintf("%s/%d/reward-distribution-data.json", config.UrlPrefix, epochId)
 
 	logger.Info("Fetching reward data at: %s", url)
-	result := <-shared.ExecuteWithRetry(func() ([]byte, error) {
+	result := <-shared.ExecuteWithRetryChan(func() ([]byte, error) {
 		resp, err := http.Get(url)
 		if err != nil {
 			return nil, err

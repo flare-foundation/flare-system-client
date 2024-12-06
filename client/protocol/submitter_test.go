@@ -1,74 +1,75 @@
 package protocol
 
 import (
-	"flare-tlc/client/config"
 	"math/big"
 	"testing"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
 )
 
 func TestGasConfigForAttempt(t *testing.T) {
 	tests := []struct {
 		name     string
-		cfg      config.GasConfig
+		cfg      config.Gas
 		ri       int
-		expected config.GasConfig
+		expected config.Gas
 	}{
 		{
 			name: "retry 0",
-			cfg: config.GasConfig{
+			cfg: config.Gas{
 				GasPriceFixed:      big.NewInt(0),
 				GasPriceMultiplier: 1.0,
 			},
 			ri: 0,
-			expected: config.GasConfig{
+			expected: config.Gas{
 				GasPriceFixed:      big.NewInt(0),
 				GasPriceMultiplier: 1.0,
 			},
 		},
 		{
 			name: "retry 1",
-			cfg: config.GasConfig{
+			cfg: config.Gas{
 				GasPriceFixed:      big.NewInt(0),
 				GasPriceMultiplier: 1.0,
 			},
 			ri: 1,
-			expected: config.GasConfig{
+			expected: config.Gas{
 				GasPriceFixed:      big.NewInt(0),
 				GasPriceMultiplier: 1.5,
 			},
 		},
 		{
 			name: "retry 1 - no config",
-			cfg: config.GasConfig{
+			cfg: config.Gas{
 				GasPriceFixed:      big.NewInt(0),
 				GasPriceMultiplier: 0,
 			},
 			ri: 1,
-			expected: config.GasConfig{
+			expected: config.Gas{
 				GasPriceFixed:      big.NewInt(0),
 				GasPriceMultiplier: 1.5,
 			},
 		},
 		{
 			name: "retry 2",
-			cfg: config.GasConfig{
+			cfg: config.Gas{
 				GasPriceFixed:      big.NewInt(0),
 				GasPriceMultiplier: 1.0,
 			},
 			ri: 2,
-			expected: config.GasConfig{
+			expected: config.Gas{
 				GasPriceFixed:      big.NewInt(0),
 				GasPriceMultiplier: 2.25,
 			},
 		},
 		{
 			name: "retry 1 - fixed",
-			cfg: config.GasConfig{
+			cfg: config.Gas{
 				GasPriceFixed:      big.NewInt(100),
 				GasPriceMultiplier: 0,
 			},
 			ri: 1,
-			expected: config.GasConfig{
+			expected: config.Gas{
 				GasPriceFixed:      big.NewInt(100),
 				GasPriceMultiplier: 0,
 			},

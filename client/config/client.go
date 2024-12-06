@@ -2,66 +2,71 @@ package config
 
 import (
 	"errors"
-	"flare-tlc/config"
+	"fmt"
 	"math/big"
 	"time"
 
+	"github.com/flare-foundation/flare-system-client/config"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/database"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
-type ClientConfig struct {
-	DB      config.DBConfig     `toml:"db"`
-	Logger  config.LoggerConfig `toml:"logger"`
-	Chain   config.ChainConfig  `toml:"chain"`
-	Metrics MetricsConfig       `toml:"metrics"`
+type Client struct {
+	DB      database.Config `toml:"db"`
+	Logger  logger.Config   `toml:"logger"`
+	Chain   config.Chain    `toml:"chain"`
+	Metrics Metrics         `toml:"metrics"`
 
-	Clients ClientsConfig `toml:"clients"`
+	Clients Clients `toml:"clients"`
 
 	ContractAddresses config.ContractAddresses `toml:"contract_addresses"`
-	Identity          IdentityConfig           `toml:"identity"`
-	Credentials       CredentialsConfig        `toml:"credentials"`
+	Identity          Identity                 `toml:"identity"`
+	Credentials       Credentials              `toml:"credentials"`
 
 	Protocol map[string]ProtocolConfig `toml:"protocol"`
 
-	Submit1          SubmitConfig           `toml:"submit1"`
-	Submit2          SubmitConfig           `toml:"submit2"`
-	SubmitSignatures SubmitSignaturesConfig `toml:"submit_signatures"`
+	Submit1          Submit           `toml:"submit1"`
+	Submit2          Submit           `toml:"submit2"`
+	SubmitSignatures SubmitSignatures `toml:"submit_signatures"`
 
-	Finalizer FinalizerConfig `toml:"finalizer"`
+	Finalizer Finalizer `toml:"finalizer"`
 
-	SubmitGas   GasConfig `toml:"gas_submit"`
-	RegisterGas GasConfig `toml:"gas_register"`
+	SubmitGas   Gas `toml:"gas_submit"`
+	RegisterGas Gas `toml:"gas_register"`
+	RelayGas    Gas `toml:"gas_relay"`
 
 	Rewards RewardsConfig `toml:"rewards"`
 }
 
-type MetricsConfig struct {
+type Metrics struct {
 	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
 }
 
-type IdentityConfig struct {
+type Identity struct {
 	Address common.Address `toml:"address"`
 }
 
-type CredentialsConfig struct {
-	// Sign all data
+type Credentials struct {
+	// Sign all data.
 	SigningPolicyPrivateKeyFile string `toml:"signing_policy_private_key_file"`
 	SigningPolicyPrivateKey     string `toml:"-" envconfig:"SIGNING_POLICY_PRIVATE_KEY"`
 
-	// Send RegisterVoter and SignNewSigningPolicy transactions
+	// Send RegisterVoter and SignNewSigningPolicy transactions.
 	SystemClientSenderPrivateKeyFile string `toml:"system_client_sender_private_key_file"`
 	SystemClientSenderPrivateKey     string `toml:"-" envconfig:"SYSTEM_CLIENT_SENDER_PRIVATE_KEY"`
 
-	// Submit protocol data (submit1, submit2, submit3)
+	// Submit protocol data (submit1, submit2, submit3).
 	ProtocolManagerSubmitPrivateKeyFile string `toml:"protocol_manager_submit_private_key_file"`
 	ProtocolManagerSubmitPrivateKey     string `toml:"-" envconfig:"PROTOCOL_MANAGER_SUBMIT_PRIVATE_KEY"`
 
-	// Submit protocol signatures
+	// Submit protocol signatures.
 	ProtocolManagerSubmitSignaturesPrivateKeyFile string `toml:"protocol_manager_submit_signatures_private_key_file"`
 	ProtocolManagerSubmitSignaturesPrivateKey     string `toml:"-" envconfig:"PROTOCOL_MANAGER_SUBMIT_SIGNATURES_PRIVATE_KEY"`
 }
 
-var defaultSubmitConfig = SubmitConfig{
+var defaultSubmitConfig = Submit{
 	Enabled:          true,
 	TxSubmitRetries:  1,
 	TxSubmitTimeout:  10 * time.Second,
@@ -69,7 +74,7 @@ var defaultSubmitConfig = SubmitConfig{
 	DataFetchTimeout: 5 * time.Second,
 }
 
-type SubmitConfig struct {
+type Submit struct {
 	Enabled          bool          `toml:"enabled"`
 	StartOffset      time.Duration `toml:"start_offset"` // offset from the start of the epoch
 	TxSubmitRetries  int           `toml:"tx_submit_retries"`
@@ -78,13 +83,16 @@ type SubmitConfig struct {
 	DataFetchTimeout time.Duration `toml:"data_fetch_timeout"`
 }
 
-type SubmitSignaturesConfig struct {
-	SubmitConfig
+type SubmitSignatures struct {
+	Submit
 
-	MaxRounds int `toml:"max_rounds"`
+	Deadline time.Duration `toml:"deadline"` // from the start of the epoch, recommended to be before the end of the grace period
+
+	MaxCycles     int           `toml:"max_cycles"`     // maximal number of query cycles after the deadline
+	CycleDuration time.Duration `toml:"cycle_duration"` // minimal duration of a cycle after the deadline
 }
 
-type ClientsConfig struct {
+type Clients struct {
 	EnabledRegistration   bool `toml:"enabled_registration"`
 	EnabledUptimeVoting   bool `toml:"enabled_uptime_voting"`
 	EnabledRewardSigning  bool `toml:"enabled_reward_signing"`
@@ -92,28 +100,36 @@ type ClientsConfig struct {
 	EnabledFinalizer      bool `toml:"enabled_finalizer"`
 }
 
-func (c *ClientsConfig) EpochClientEnabled() bool {
+func (c *Clients) EpochClientEnabled() bool {
 	return c.EnabledRegistration || c.EnabledUptimeVoting || c.EnabledRewardSigning
 }
 
-type FinalizerConfig struct {
+type Finalizer struct {
 	StartingRewardEpoch int64  `toml:"starting_reward_epoch"`
 	StartingVotingRound uint32 `toml:"starting_voting_round"`
 
-	// how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client
-	// default is 7 days
+	// How far in the past we start fetching reward epochs from the indexer at the start of the finalizer client.
+	// Default is 7 days.
 	StartOffset time.Duration `toml:"start_offset"`
 
 	VoterThresholdBIPS uint16 `toml:"voter_threshold_bips"`
 
-	// Offset from the start of the voting round
+	// Offset from the start of the voting round.
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 
-type GasConfig struct {
+type Gas struct {
+	TxType uint8 `toml:"tx_type"` // 0 for legacy, 2 for eip-1559
+
+	GasLimit int `toml:"gas_limit"`
+
+	// type 0
 	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
-	GasLimit           int      `toml:"gas_limit"`
+
+	// type 2
+	MaxPriorityFeePerGas *big.Int `toml:"max_priority_fee_per_gas"`
+	BaseFeePerGasCap     *big.Int `toml:"base_fee_per_gas_cap"`
 }
 
 type RewardsConfig struct {
@@ -126,22 +142,22 @@ type RewardsConfig struct {
 	RetryInterval time.Duration `toml:"retry_interval"`
 }
 
-func newConfig() *ClientConfig {
-	return &ClientConfig{
-		Chain: config.ChainConfig{
+func new() *Client {
+	return &Client{
+		Chain: config.Chain{
 			EthRPCURL: "http://localhost:9650/ext/C/rpc",
 		},
-		Finalizer: FinalizerConfig{
+		Finalizer: Finalizer{
 			StartOffset:        7 * 24 * time.Hour,
 			VoterThresholdBIPS: 500,
 		},
 		Submit1: defaultSubmitConfig,
 		Submit2: defaultSubmitConfig,
-		SubmitSignatures: SubmitSignaturesConfig{
-			SubmitConfig: defaultSubmitConfig,
+		SubmitSignatures: SubmitSignatures{
+			Submit: defaultSubmitConfig,
 		},
-		SubmitGas:   GasConfig{GasPriceFixed: big.NewInt(0)},
-		RegisterGas: GasConfig{GasPriceFixed: big.NewInt(0)},
+		SubmitGas:   Gas{GasPriceFixed: big.NewInt(0)},
+		RegisterGas: Gas{GasPriceFixed: big.NewInt(0)},
 		Rewards: RewardsConfig{
 			Retries:       8,
 			RetryInterval: 6 * time.Hour,
@@ -149,16 +165,18 @@ func newConfig() *ClientConfig {
 	}
 }
 
-func (c ClientConfig) LoggerConfig() config.LoggerConfig {
-	return c.Logger
-}
+// methods to satisfy config.Global interface
 
-func (c ClientConfig) ChainConfig() config.ChainConfig {
+func (c Client) ChainConfig() config.Chain {
 	return c.Chain
 }
 
-func BuildConfig(cfgFileName string) (*ClientConfig, error) {
-	cfg := newConfig()
+func (c Client) LoggerConfig() logger.Config {
+	return c.Logger
+}
+
+func Build(cfgFileName string) (*Client, error) {
+	cfg := new()
 	err := config.ParseConfigFile(cfg, cfgFileName, false)
 	if err != nil {
 		return nil, err
@@ -167,28 +185,38 @@ func BuildConfig(cfgFileName string) (*ClientConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = validateConfig(cfg)
+	err = validate(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return cfg, nil
 }
 
-func validateConfig(cfg *ClientConfig) error {
-	err := validateGasConfig(&cfg.SubmitGas)
+// validate checks consistency of configurations.
+func validate(cfg *Client) error {
+	err := validateGas(&cfg.SubmitGas)
 	if err != nil {
-		return err
+		return fmt.Errorf("validating SubmitGas: %v", err)
 	}
-	err = validateGasConfig(&cfg.RegisterGas)
+	err = validateGas(&cfg.RegisterGas)
 	if err != nil {
-		return err
+		return fmt.Errorf("validating RegisterGas: %v", err)
+	}
+	err = validateGas(&cfg.RelayGas)
+	if err != nil {
+		return fmt.Errorf("validating RelayGas: %v", err)
 	}
 	return nil
 }
 
-func validateGasConfig(cfg *GasConfig) error {
-	if cfg.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.GasPriceMultiplier != 0.0 {
-		return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value")
+// validateGas checks consistency of gas configurations.
+func validateGas(cfg *Gas) error {
+	if cfg.TxType != 0 && cfg.TxType != 2 {
+		return errors.New("unsupported tx_type")
+	}
+
+	if cfg.TxType == 0 && cfg.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.GasPriceMultiplier != 0.0 {
+		return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value for type 0 transaction")
 	}
 	if cfg.GasPriceMultiplier != 0.0 && cfg.GasPriceMultiplier < 1 {
 		return errors.New("if set, gas_price_multiplier value cannot be less than 1")

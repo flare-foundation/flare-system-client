@@ -2,18 +2,20 @@ package main
 
 import (
 	"context"
-	clientContext "flare-tlc/client/context"
-	"flare-tlc/client/runner"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	clientContext "github.com/flare-foundation/flare-system-client/client/context"
+	"github.com/flare-foundation/flare-system-client/client/runner"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 func main() {
-	logger.Info("Starting flare top level client")
+	logger.Info("Starting Flare System client")
 
 	clientCtx, err := clientContext.BuildContext()
 	if err != nil {
@@ -29,11 +31,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		sig := <-signalChan
-		logger.Info("Received %v signal, attempting graceful shutdown", sig)
+		logger.Infof("Received %v signal, attempting graceful shutdown", sig)
 		cancel()
 	}()
 
 	wg := runner.Start(ctx, cancel, clientCtx)
 	wg.Wait()
-	logger.Info("Stopped flare top level client")
+	logger.Info("Stopped Flare System client")
 }

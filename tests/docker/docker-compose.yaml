@@ -1,0 +1,26 @@
+services:
+  indexer-db:
+    container_name: flare-system-client-indexer-db
+    image: "mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+    volumes:
+      - ./c-chain-init.sql:/docker-entrypoint-initdb.d/db_init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent", "--host", "localhost", "-proot"]
+      timeout: 20s
+      retries: 10
+    ports:
+      - "127.0.0.1:3306:3306"
+
+  indexer:
+    container_name: flare-system-client-indexer
+    image: ghcr.io/flare-foundation/flare-system-c-chain-indexer:latest
+    volumes:
+      - ./c-chain-indexer-for-simulation-config.toml:/app/config.toml
+    restart: unless-stopped
+    depends_on:
+      indexer-db:
+        condition: service_healthy
+    extra_hosts:
+    - "host.docker.internal:host-gateway"

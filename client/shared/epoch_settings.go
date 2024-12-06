@@ -1,13 +1,15 @@
 package shared
 
 import (
-	"flare-tlc/utils"
-	"flare-tlc/utils/contracts/relay"
-	"flare-tlc/utils/contracts/system"
 	"time"
+
+	"github.com/flare-foundation/flare-system-client/utils"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 )
 
-func RewardEpochFromChain(fsm *system.FlareSystemsManager) (*utils.Epoch, error) {
+func RewardEpochTimingFromChain(fsm *system.FlareSystemsManager) (*utils.EpochTimingConfig, error) {
 	epochStart, err := fsm.FirstRewardEpochStartTs(nil)
 	if err != nil {
 		return nil, err
@@ -16,13 +18,13 @@ func RewardEpochFromChain(fsm *system.FlareSystemsManager) (*utils.Epoch, error)
 	if err != nil {
 		return nil, err
 	}
-	return &utils.Epoch{
+	return &utils.EpochTimingConfig{
 		Start:  time.Unix(int64(epochStart), 0),
 		Period: time.Duration(epochPeriod) * time.Second,
 	}, nil
 }
 
-func VotingEpochFromChain(fsm *system.FlareSystemsManager) (*utils.Epoch, error) {
+func VotingRoundTimingFromChain(fsm *system.FlareSystemsManager) (*utils.EpochTimingConfig, error) {
 	epochStart, err := fsm.FirstVotingRoundStartTs(nil)
 	if err != nil {
 		return nil, err
@@ -31,22 +33,22 @@ func VotingEpochFromChain(fsm *system.FlareSystemsManager) (*utils.Epoch, error)
 	if err != nil {
 		return nil, err
 	}
-	return utils.NewEpoch(
+	return utils.NewEpochConfig(
 		time.Unix(int64(epochStart), 0),
 		time.Duration(epochPeriod)*time.Second,
 	), nil
 }
 
-// Returns the voting and reward epochs from the relay contract
-func EpochsFromChain(relay *relay.Relay) (*utils.Epoch, *utils.IntEpoch, error) {
+// Returns the voting round timing and reward epochs properties from the relay contract.
+func EpochsFromChain(relay *relay.Relay) (*utils.EpochTimingConfig, *utils.RewardEpochConfig, error) {
 	sd, err := relay.StateData(nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	return utils.NewEpoch(
+	return utils.NewEpochConfig(
 			time.Unix(int64(sd.FirstVotingRoundStartTs), 0),
 			time.Duration(sd.VotingEpochDurationSeconds)*time.Second,
-		), utils.NewIntEpoch(
+		), utils.NewRewardEpochConfig(
 			int64(sd.FirstRewardEpochStartVotingRoundId),
 			int64(sd.RewardEpochDurationInVotingEpochs),
 		), nil

@@ -2,24 +2,28 @@ package protocol
 
 import (
 	"context"
-	clientContext "flare-tlc/client/context"
-	"flare-tlc/client/shared"
-	"flare-tlc/logger"
-	"flare-tlc/utils"
-	"flare-tlc/utils/contracts/registry"
-	"flare-tlc/utils/contracts/system"
 	"math/big"
 	"sync"
 	"time"
+
+	clientContext "github.com/flare-foundation/flare-system-client/client/context"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/registry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
-type ProtocolClient struct {
+// client manages fetching data from subProtocol providers and posting them on submission contract.
+type client struct {
 	subProtocols []*SubProtocol
 	eth          *ethclient.Client
 
@@ -29,12 +33,12 @@ type ProtocolClient struct {
 	submitter2         *Submitter
 	signatureSubmitter *SignatureSubmitter
 
-	votingEpoch    *utils.Epoch
-	systemsManager *system.FlareSystemsManager
+	votingRoundTiming *utils.EpochTimingConfig
+	systemsManager    *system.FlareSystemsManager
 
-	rewardEpoch     *utils.Epoch
-	registry        voterRegistry
-	identityAddress common.Address
+	rewardEpochTiming *utils.EpochTimingConfig
+	registry          voterRegistry
+	identityAddress   common.Address
 }
 
 type voterRegistry interface {
@@ -51,9 +55,11 @@ func (r voterRegistryImpl) IsVoterRegistered(
 	return r.registry.IsVoterRegistered(&bind.CallOpts{Context: ctx}, address, big.NewInt(epoch))
 }
 
-func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error) {
+// NewClient creates new Client that manages fetching data from subProtocol providers and posting them on submission contract.
+//
+// messageChannel is used to provider messages from submitSignature to the finalizer.Client.
+func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.ProtocolMessage) (*client, error) {
 	cfg := ctx.Config()
-
 	if !cfg.Clients.EnabledProtocolVoting {
 		return nil, nil
 	}
@@ -69,9 +75,9 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 		return nil, errors.Wrap(err, "error creating system manager contract")
 	}
 
-	votingEpoch, err := shared.VotingEpochFromChain(systemsManager)
+	votingRoundTiming, err := shared.VotingRoundTimingFromChain(systemsManager)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting voting epoch")
+		return nil, errors.Wrap(err, "error getting voting round timing")
 	}
 
 	protocolContext, err := newProtocolContext(cfg)
@@ -79,7 +85,7 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 		return nil, err
 	}
 
-	rewardEpoch, err := shared.RewardEpochFromChain(systemsManager)
+	rewardEpochTiming, err := shared.RewardEpochTimingFromChain(systemsManager)
 	if err != nil {
 		return nil, err
 	}
@@ -94,41 +100,42 @@ func NewProtocolClient(ctx clientContext.ClientContext) (*ProtocolClient, error)
 		return nil, err
 	}
 
-	pc := &ProtocolClient{
-		eth:             cl,
-		protocolContext: protocolContext,
-		subProtocols:    subProtocols,
-		votingEpoch:     votingEpoch,
-		systemsManager:  systemsManager,
-		rewardEpoch:     rewardEpoch,
-		registry:        voterRegistryImpl{registryClient},
-		identityAddress: cfg.Identity.Address,
+	pc := &client{
+		eth:               cl,
+		protocolContext:   protocolContext,
+		subProtocols:      subProtocols,
+		votingRoundTiming: votingRoundTiming,
+		systemsManager:    systemsManager,
+		rewardEpochTiming: rewardEpochTiming,
+		registry:          voterRegistryImpl{registryClient},
+		identityAddress:   cfg.Identity.Address,
 	}
 
-	selectors := newContractSelectors()
+	selectors := ContractSelectors()
 
 	if cfg.Submit1.Enabled {
-		pc.submitter1 = newSubmitter(cl, protocolContext, votingEpoch,
+		pc.submitter1 = newSubmitter(cl, protocolContext, votingRoundTiming,
 			&cfg.Submit1, &cfg.SubmitGas, selectors.submit1, subProtocols, 0, "submit1")
 	} else {
 		logger.Warn("submit1 is disabled")
 	}
 	if cfg.Submit2.Enabled {
-		pc.submitter2 = newSubmitter(cl, protocolContext, votingEpoch,
+		pc.submitter2 = newSubmitter(cl, protocolContext, votingRoundTiming,
 			&cfg.Submit2, &cfg.SubmitGas, selectors.submit2, subProtocols, -1, "submit2")
 	} else {
 		logger.Warn("submit2 is disabled")
 	}
 	if cfg.SubmitSignatures.Enabled {
-		pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingEpoch,
-			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols)
+		pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingRoundTiming,
+			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols, messageChannel)
 	} else {
 		logger.Warn("submitSignatures is disabled")
 	}
 	return pc, nil
 }
 
-func (c *ProtocolClient) Run(ctx context.Context) error {
+// Run runs the client. Should be called in a goroutine.
+func (c *client) Run(ctx context.Context) error {
 	if err := c.waitUntilRegistered(ctx); err != nil {
 		return err
 	}
@@ -137,7 +144,7 @@ func (c *ProtocolClient) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 
 	logger.Info("Starting submitters, waiting for next voting round start.")
-	ticker := utils.NewEpochTicker(c.votingEpoch)
+	ticker := utils.NewEpochTicker(c.votingRoundTiming)
 L:
 	for {
 		select {
@@ -188,9 +195,9 @@ L:
 	return nil
 }
 
-func (c *ProtocolClient) waitUntilRegistered(ctx context.Context) error {
+func (c *client) waitUntilRegistered(ctx context.Context) error {
 	for {
-		currentEpoch := c.rewardEpoch.EpochIndex(time.Now())
+		currentEpoch := c.rewardEpochTiming.EpochIndex(time.Now())
 
 		registered, err := c.isRegistered(ctx, currentEpoch)
 		if err != nil {
@@ -209,7 +216,7 @@ func (c *ProtocolClient) waitUntilRegistered(ctx context.Context) error {
 
 const registerCheckTimeout = 5 * time.Second
 
-func (c *ProtocolClient) isRegistered(ctx context.Context, epoch int64) (bool, error) {
+func (c *client) isRegistered(ctx context.Context, epoch int64) (bool, error) {
 	bOff := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
 	var registered bool
 
@@ -235,20 +242,20 @@ func (c *ProtocolClient) isRegistered(ctx context.Context, epoch int64) (bool, e
 	return registered, err
 }
 
-func (c *ProtocolClient) waitForNextRewardEpoch(ctx context.Context, currentEpoch int64) error {
-	nextEpochStart := c.rewardEpoch.StartTime(currentEpoch + 1)
+func (c *client) waitForNextRewardEpoch(ctx context.Context, currentEpoch int64) error {
+	nextEpochStart := c.rewardEpochTiming.StartTime(currentEpoch + 1)
 	now := time.Now()
 
 	// Edge case if the time passed while checking the registration means
 	// we are already in the next epoch - return immediately in that case.
 	if nextEpochStart.Before(now) {
-		logger.Info("submitter is not registered for voting epoch %d, checking the next epoch", currentEpoch)
+		logger.Infof("submitter is not registered for voting epoch %d, checking the next epoch", currentEpoch)
 		return nil
 	}
 
 	sleepTime := nextEpochStart.Sub(now)
 
-	logger.Info(
+	logger.Infof(
 		"submitter is not registered for voting epoch %d, waiting for %s until the next epoch",
 		currentEpoch,
 		sleepTime,

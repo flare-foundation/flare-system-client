@@ -3,13 +3,14 @@ package protocol
 import (
 	"crypto/ecdsa"
 
-	"flare-tlc/client/config"
-	globalConfig "flare-tlc/config"
-	"flare-tlc/utils/chain"
-	"flare-tlc/utils/contracts/submission"
+	"github.com/flare-foundation/flare-system-client/client/config"
+	globalConfig "github.com/flare-foundation/flare-system-client/config"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/submission"
 )
 
 // Private keys and addresses needed for protocol voter
@@ -31,7 +32,7 @@ type contractSelectors struct {
 	submitSignatures []byte
 }
 
-func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
+func newProtocolContext(cfg *config.Client) (*protocolContext, error) {
 	ctx := &protocolContext{}
 
 	var err error
@@ -73,7 +74,8 @@ func newProtocolContext(cfg *config.ClientConfig) (*protocolContext, error) {
 	return ctx, nil
 }
 
-func newContractSelectors() contractSelectors {
+// ContractSelectors return function selectors for submission contract.
+func ContractSelectors() contractSelectors {
 	submissionABI, err := submission.SubmissionMetaData.GetAbi()
 	if err != nil {
 		// panic, this error is fatal

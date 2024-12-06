@@ -1,10 +1,11 @@
 package shared
 
 import (
-	"flare-tlc/client/config"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,7 +16,7 @@ import (
 type HealthStatus int
 
 const (
-	HealthStatusInitializing HealthStatus = 0 // Default prometheus Gauge value, thus it indicates that it was not updated yet
+	HealthStatusInitializing HealthStatus = 0 // Default prometheus Gauge value, thus it indicates that it was not updated yet.
 	HealthStatusOk           HealthStatus = 1
 	HealthStatusError        HealthStatus = -1
 	HealthStatusSyncing      HealthStatus = -2
@@ -42,7 +43,7 @@ func (m *MetricsBase) SetStatus(status HealthStatus) {
 	m.status.Set(float64(status))
 }
 
-func InitMetricsServer(cfg *config.MetricsConfig) {
+func InitMetricsServer(cfg *config.Metrics) {
 	if len(cfg.PrometheusAddress) == 0 {
 		return
 	}
