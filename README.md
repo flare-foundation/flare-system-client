@@ -76,68 +76,78 @@ type = 0
 # To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_2 env var
 
 [submit1]
-enabled = true            # (optional) set to false to disable a specific submitter, default: true
-start_offset = "5s"       # start fetching data and submitting txs after this offset from the start of the epoch
-tx_submit_retries = 1     # (optional) number of retries for submitting txs, default: 1
+enabled = true             # (optional) set to false to disable a specific submitter, default: true
+start_offset = "85"        # start fetching data and submitting txs after this offset from the start of the epoch
+tx_submit_retries = 1      # (optional) number of retries for submitting txs, default: 1
 tx_submit_timeout = "10s"  # (optional) timeout for waiting tx to be mined, default: 10s
-data_fetch_retries = 1    # (optional) number of retries for fetching data from the API, default: 1
-data_fetch_timeout = "5s" # (optional) timeout for fetching data from the API, default: 5s
+data_fetch_retries = 1     # (optional) number of retries for fetching data from the API, default: 1
+data_fetch_timeout = "5s"  # (optional) timeout for fetching data from the API, default: 5s
 
 [submit2]
 enabled = true
-start_offset = "15s"      # start fetching data and submitting txs after this offset from the start of the NEXT epoch
+start_offset = "30s"       # start fetching data and submitting txs after this offset from the start of the NEXT epoch
 tx_submit_retries = 1
 tx_submit_timeout = "10s"
 data_fetch_retries = 1
 data_fetch_timeout = "5s"
+```
 
+Signature submission is set differently than submit and submit2. See
+`func (s *SignatureSubmitter) RunEpoch(currentEpoch int64)` in `submitter.go`.
+
+```toml
 [submit_signatures]
 enabled = true
-start_offset = "10s"       # start fetching data and submitting txs after this offset from the start of the NEXT epoch
-tx_submit_retries = 3
-tx_submit_timeout = "10s"
-data_fetch_retries = 5
-data_fetch_timeout = "5s"
-max_rounds = 3             # max number of rounds to fetch data and submit signatures
+start_offset = "45s"      # start fetching data and submitting txs after this offset from the start of the NEXT epoch
+deadline = "60s"          # submit transaction until deadline
+tx_submit_retries = 1
+data_fetch_retries = 1     # number of retries for fetching data from the API, timeout is 1 second
+data_fetch_timeout = "2s"
+cycle_duration = "2s"
+max_cycles = 3             # max number of rounds to fetch data and submit signatures
 
 [finalizer]
 starting_reward_epoch = 0
 starting_voting_round = 1005
-start_offset = "500s" # how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client default is 7 days
-grace_period_end_offset = "40s"  # Offset from the start of the voting round
+start_offset = "500s"            # how far in the past we start fetching reward epochs from the indexer at the start of the finalizer client default is 7 days
+grace_period_end_offset = "65s"  # Offset from the start of the voting round
+```
 
-[gas_submit]              # applies to all submit1, submit2 and submitSignatures transactions.
-tx_type = 0               # 0 for legacy and 2 for eip-1559 transaction
-gas_limit = 0             # (optional) gas limit for transaction. Defaults to 0, which will use gas limit estimates.
+Type 0 and type 2 are supported for transactions to Submission and Relay contracts
+
+```toml
+[gas_submit] # applies to all submit1, submit2 and submitSignatures transactions.
+tx_type = 2                            # 0 for legacy and 2 for eip-1559 transaction
+gas_limit = 0                          # (optional) gas limit for transaction. Defaults to 0, which will use gas limit estimates.
 # type 0 settings // Note: only one of gas_price_multiplier and gas_price_fixed can be set.
-gas_price_multiplier = 0  # (optional for type 0 tx) sets the gas price to be a multiplier of the estimated gas price. Defaults to 0, which will simply use the estimate, OR a fixed gas price if gas_price_fixed is set (!= 0).
-gas_price_fixed = 0       # (optional for type 0 tx) sets a fixed gas price for the transaction. Defaults to 0, which will use an estimate OR a multiplier of the estimate if gas_price_multiplier is set (!= 0).
+gas_price_multiplier = 0               # (optional for type 0 tx) sets the gas price to be a multiplier of the estimated gas price. Defaults to 0, which will simply use the estimate, OR a fixed gas price if gas_price_fixed is set (!= 0).
+gas_price_fixed = 0                    # (optional for type 0 tx) sets a fixed gas price for the transaction. Defaults to 0, which will use an estimate OR a multiplier of the estimate if gas_price_multiplier is set (!= 0).
 # type 2 settings
-max_priority_fee_per_gas = 20000000000 # (optional for type 2 tx) sets priority fee per gas for a transaction in wei. Defaults to 20GWei
-base_fee_per_gas_cap = 0 # (optional for type 2 tx) sets base fee per gas cap. Defaults to 3 times estimation of needed base fee to be included in the block.
-
-
-[gas_register] # applies to all voter registration transaction
-tx_type = 0
-gas_limit = 0
-gas_price_multiplier = 0
-gas_price_fixed = 0
-max_priority_fee_per_gas = 20000000000
-base_fee_per_gas_cap = 0
-
+max_priority_fee_per_gas = "20000000000" # (optional for type 2 tx) sets priority fee per gas for a transaction in wei. Defaults to 20GWei.
+base_fee_per_gas_cap = 0               # (optional for type 2 tx) sets base fee per gas cap. Defaults to 3 times estimation of needed base fee to be included in the block. !!! It is strongly recommended to keep it default. Any fixed amount may prevent the transaction from being accepted !!!
 
 [gas_relay] # applies to finalization transaction
 tx_type = 0
 gas_limit = 0
 gas_price_multiplier = 0
 gas_price_fixed = 0
-max_priority_fee_per_gas = 20000000000
+max_priority_fee_per_gas = "20000000000"
 base_fee_per_gas_cap = 0
+```
+
+Currently only type 0 transactions are supported for registration.
+
+```toml
+[gas_register] # applies to all voter registration transaction
+tx_type = 0
+gas_limit = 0
+gas_price_multiplier = 0
+gas_price_fixed = 0
 
 
 
 [rewards] # reward signing configuration - clients.enabled_reward_signing must be set to true
-# URL prefix for retrieving reward distribution data. 
+# URL prefix for retrieving reward distribution data.
 # A full URL will be constructed by appending the epoch id and expected file name: <prefix>/<epochId>/reward-distribution-data.json
 #
 # For example, if reward data for an epoch can be retrieved at https://raw.githubusercontent.com/flare-foundation/fsp-rewards/refs/heads/main/songbird/240/reward-distribution-data.json,
