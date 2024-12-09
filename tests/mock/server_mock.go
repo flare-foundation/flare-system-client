@@ -12,10 +12,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/flare-foundation/flare-system-client/client/config"
-
-	globalConfig "github.com/flare-foundation/flare-system-client/config"
-
 	"github.com/gorilla/mux"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -114,7 +110,7 @@ func buildMessageForSigning(protocolID uint8, roundID uint32, merkleRoot []byte)
 }
 
 func main() {
-	globalConfig.GlobalConfigCallback.Call(config.Client{Logger: logger.Config{Console: true}})
+	logger.Set(logger.Config{Console: true})
 
 	port := 3100
 	protocolID := uint8(101)

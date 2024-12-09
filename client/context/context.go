@@ -34,7 +34,6 @@ func BuildContext() (ClientContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	globalConfig.GlobalConfigCallback.Call(cfg)
 
 	db, err := database.Connect(&cfg.DB)
 	if err != nil {

@@ -23,6 +23,8 @@ func main() {
 		return
 	}
 
+	logger.Set(clientCtx.Config().Logger)
+
 	// Prometheus metrics
 	shared.InitMetricsServer(&clientCtx.Config().Metrics)
 

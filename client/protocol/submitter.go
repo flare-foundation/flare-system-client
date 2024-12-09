@@ -366,7 +366,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 }
 
 func (s *SignatureSubmitter) RunEpochAfterDeadline(currentEpoch int64, protocolsToQuery map[int]bool) {
-	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(protocolsToQuery))
+	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 
 	ticker := time.NewTicker(s.cycleDuration)
 
