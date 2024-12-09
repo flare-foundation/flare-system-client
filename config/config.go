@@ -13,22 +13,12 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/kelseyhightower/envconfig"
 )
 
 const (
 	ConfigFile string = "config.toml" // name of config file
 )
-
-var (
-	GlobalConfigCallback ConfigCallback[Global] = ConfigCallback[Global]{}
-)
-
-type Global interface {
-	LoggerConfig() logger.Config
-	ChainConfig() Chain
-}
 
 type Chain struct {
 	ChainID   int    `toml:"chain_id" envconfig:"CHAIN_ID"`
