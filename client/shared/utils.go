@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -18,17 +19,19 @@ type ExecuteStatus[T any] struct {
 func ExecuteWithRetryChan[T any](f func() (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
 	out := make(chan ExecuteStatus[T])
 	go func() {
+		var finalError error
 		for ri := 0; ri < maxRetries; ri++ {
 			result, err := f()
 			if err == nil {
 				out <- ExecuteStatus[T]{Success: true, Value: result}
 				return
 			} else {
-				logger.Errorf("error executing in retry no. %d: %v", ri, err)
+				logger.Debugf("error executing in retry no. %d: %v", ri, err)
+				finalError = err
 			}
 			time.Sleep(delay)
 		}
-		out <- ExecuteStatus[T]{Success: false, Message: "max retries reached"}
+		out <- ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("max retries reached: %v", finalError)}
 	}()
 	return out
 }
@@ -56,17 +59,19 @@ func ExecuteWithRetryWithContext[T any](ctx context.Context, f func() (T, error)
 func ExecuteWithRetryAttempts[T any](f func(int) (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
 	out := make(chan ExecuteStatus[T])
 	go func() {
+		var finalError error
 		for ri := 0; ri < maxRetries; ri++ {
 			result, err := f(ri)
 			if err == nil {
 				out <- ExecuteStatus[T]{Success: true, Value: result}
 				return
 			} else {
-				logger.Errorf("error executing in retry no. %d: %v", ri, err)
+				logger.Debugf("error executing in retry no. %d: %v", ri, err)
+				finalError = err
 			}
 			time.Sleep(delay)
 		}
-		out <- ExecuteStatus[T]{Success: false, Message: "max retries reached"}
+		out <- ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("max retries reached: %v", finalError)}
 	}()
 	return out
 }

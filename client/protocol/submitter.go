@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/payload"
 )
 
 type SubmitterBase struct {
@@ -109,7 +110,7 @@ func newSubmitter(
 }
 
 // GetPayload
-func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
+func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 	for i, protocol := range s.subProtocols {
 		channels[i] = protocol.fetchDataWithRetryChan(
@@ -118,7 +119,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 			s.protocolContext.submitAddress.Hex(),
 			s.dataFetchRetries,
 			s.dataFetchTimeout,
-			IdentityDataVerifier,
+			StatusDataVerifier,
 		)
 	}
 
@@ -126,32 +127,31 @@ func (s *Submitter) GetPayload(currentEpoch int64) ([]byte, error) {
 	buffer.Write(s.selector)
 
 	dataReceived := false
-	for _, channel := range channels {
+	for j, channel := range channels {
 		data := <-channel
-		if !data.Success || data.Value.Status != "OK" {
-			logger.Errorf("Error getting data for submitter %s: %s", s.name, data.Message)
+		if !data.Success {
+			logger.Warnf("Error getting data for submitter %s for protocol %v: %s", s.name, data.Message)
 			continue
+		} else if data.Value.Status == payload.Empty {
+			logger.Warnf("Empty data for submitter %s for protocol %v", s.name, s.subProtocols[j].ID)
 		}
+
 		dataReceived = true
 		buffer.Write(data.Value.Data)
 	}
 
 	if !dataReceived {
-		return nil, nil
+		return nil
 	}
 
-	return buffer.Bytes(), nil
+	return buffer.Bytes()
 }
 
 func (s *Submitter) RunEpoch(currentEpoch int64) {
 	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.votingRoundTiming.StartTime(currentEpoch), s.votingRoundTiming.EndTime(currentEpoch))
 
-	payload, err := s.GetPayload(currentEpoch)
+	payload := s.GetPayload(currentEpoch)
 
-	if err != nil {
-		logger.Errorf("Error getting payload for submitter %s: %v", s.name, err)
-		return
-	}
 	if payload != nil {
 		s.submit(payload)
 	} else {
@@ -310,7 +310,6 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 			logger.Debugf("%s received data for round %d for protocol %d with status", s.name, currentEpoch-1, protocol.ID)
 			if response.Success {
 				results[i] = response.Value
-				// send message to finalizer
 				finished <- i
 			} else {
 				logger.Debugf("unsuccessful data for round %d for protocol %d: %v", currentEpoch-1, protocol.ID, response.Message)
@@ -328,13 +327,22 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 	for {
 		select {
 		case i := <-finished:
-			err := s.WritePayload(buffer, currentEpoch-1, results[i], s.subProtocols[i].ID, s.subProtocols[i].Type)
-			if err != nil {
-				logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
-			} else {
-				s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: results[i].Data}
-				delete(protocolsToQuery, i)
+			switch results[i].Status {
+			case payload.Ok:
+				err := s.WritePayload(buffer, currentEpoch-1, results[i], s.subProtocols[i].ID, s.subProtocols[i].Type)
+				if err != nil {
+					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
+				} else {
+					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: results[i].Data}
+					delete(protocolsToQuery, i)
+				}
+			case payload.Empty:
+				logger.Warnf("Empty payload for for submitter %s for protocol", s.name, s.subProtocols[i].ID)
+			default:
+				logger.Warnf("Unknown success result status %s for submitter %s for protocol", results[i].Status, s.name, s.subProtocols[i].ID)
+				continue
 			}
+
 			protocolsDone++
 			if protocolsDone == len(s.subProtocols) {
 				readyToSend = true
@@ -357,7 +365,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 					for i := range s.subProtocols {
 						protocolsToQuery[i] = true
 					}
-					return protocolsToQuery, errors.Errorf("submitSignatures tx failed") // TODO
+					return protocolsToQuery, errors.Errorf("submitSignatures tx failed")
 				}
 			}
 			return protocolsToQuery, nil
@@ -396,21 +404,29 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentEpoch int64, protocols
 
 			data := <-channels[i]
 			if !data.Success {
-				logger.Errorf("Error getting data for submitter %s: %s", s.name, data.Message)
-				continue
-			}
-			err := s.WritePayload(buffer, currentEpoch-1, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
-			if err != nil {
-				logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
+				logger.Warnf("Error getting data for submitter %s: %s", s.name, data.Message)
 				continue
 			}
 
-			// send message to finalizer
-			s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
+			switch data.Value.Status {
+			case payload.Ok:
+				err := s.WritePayload(buffer, currentEpoch-1, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
+				if err != nil {
+					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
+					continue
+				}
+				// send message to finalizer
+				s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
+			case payload.Empty:
+				logger.Warnf("Empty submit signature payload for submitter %s for protocol %v ", s.name, s.subProtocols[i].ID)
+			default:
+				logger.Errorf("Unknown success status %s for submitter %s for protocol %v ", data.Value.Status, s.name, s.subProtocols[i].ID)
+				continue
+			}
 
 			protocolsSent = append(protocolsSent, i)
 		}
-		if len(protocolsSent) > 0 {
+		if len(protocolsSent) > 0 && buffer.Len() > 0 {
 			if s.submit(buffer.Bytes()) {
 				for _, i := range protocolsSent {
 					delete(protocolsToQuery, i)
