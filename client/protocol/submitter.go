@@ -266,7 +266,6 @@ func (s *SignatureSubmitter) WritePayload(
 // The processes is repeated until all subprotocols are queried successfully or at most maxCycles of times.
 func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 	logger.Infof("%s fetching data for %d", s.name, currentEpoch-1)
-	logger.Debugf("deadline in %v", s.deadline)
 	protocolsToRetry, err := s.RunEpochBeforeDeadline(currentEpoch, s.deadline)
 
 	if err != nil {
@@ -274,7 +273,7 @@ func (s *SignatureSubmitter) RunEpoch(currentEpoch int64) {
 	}
 
 	if len(protocolsToRetry) > 0 {
-		logger.Debugf("running %s for %v after deadline", s.name, currentEpoch-1)
+		logger.Debugf("running %s for %v after deadline for protocols", s.name, currentEpoch-1)
 		s.RunEpochAfterDeadline(currentEpoch, protocolsToRetry)
 	}
 }
@@ -323,7 +322,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 	protocolsDone := 0
 	readyToSend := false
 
-	// in case both finished and ctx.Done() are ready we first process finished
+	// in a case when both finished and ctx.Done() are ready we first process finished
 	for {
 		select {
 		case i := <-finished:
@@ -346,10 +345,12 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 			protocolsDone++
 			if protocolsDone == len(s.subProtocols) {
 				readyToSend = true
+				logger.Debugf("Payloads for submitter %s for round %v collected before deadline", s.name, currentEpoch-1)
 			}
 		default:
 			select {
 			case <-ctx.Done():
+				logger.Debugf("Tx for submitter %s for round %v triggered by the deadline", s.name, currentEpoch-1)
 				readyToSend = true
 			case i := <-finished:
 				finished <- i

@@ -131,11 +131,11 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		}
 
 		if p.isVoterForCurrentEpoch(item) {
-			logger.Infof("Finalizer with address %v was selected for item %v", p.relayClient.senderAddress, item)
+			logger.Infof("Finalizer with address %v was selected for  voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
 			p.processItem(ctx, item, false)
 		} else {
-			logger.Infof("Finalizer with address %v will send outside grace period for item %v", p.relayClient.senderAddress, item)
+			logger.Infof("Finalizer with address %v will send outside grace period for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
 			_, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
 			if exists {
@@ -144,11 +144,9 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
 
 				if st.Before(time.Now()) {
-					logger.Infof("Finalizer will send item %v now", item)
+					logger.Infof("Finalizer will send now for voting round %v for protocol %v", item.votingRoundID, item.protocolID)
 					p.processItem(ctx, item, true)
 				}
-
-				logger.Infof("Finalizer will send item %v at %v", item, st)
 				p.delayedQueues.Add(st, item)
 			} else {
 				logger.Errorf("Finalizer missing finalization data for protocol %v in votingRound %v", item.protocolID, item.votingRoundID)
