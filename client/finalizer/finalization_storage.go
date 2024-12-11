@@ -259,7 +259,7 @@ func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
 		defer fs.Unlock()
 
 		for i := fs.lowestRoundStored; i < votingRoundID; i++ {
-			logger.Infof("Deleting round %d in finalization storage", i)
+			logger.Debugf("Deleting round %d in finalization storage", i)
 			delete(fs.stg, i)
 		}
 
