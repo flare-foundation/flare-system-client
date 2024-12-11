@@ -130,7 +130,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 	for j, channel := range channels {
 		data := <-channel
 		if !data.Success {
-			logger.Warnf("Error getting data for submitter %s for protocol %v: %s", s.name, data.Message)
+			logger.Warnf("Error getting data for submitter %s for protocol %v: %s", s.name, s.subProtocols[j].ID, data.Message)
 			continue
 		} else if data.Value.Status == payload.Empty {
 			logger.Debugf("Empty data for submitter %s for protocol %v", s.name, s.subProtocols[j].ID)
