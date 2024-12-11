@@ -50,13 +50,7 @@ func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 }
 
 // fetchData queries the provider for data for SubProtocol.
-func (sp *SubProtocol) fetchData(votingRound int64, endpoint string, submitAddress string, timeout time.Duration) (*SubProtocolResponse, error) {
-	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting url")
-	}
-
-	logger.Infof("Calling protocol client API: %s", url.String())
+func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProtocolResponse, error) {
 	client := http.Client{
 		Timeout: timeout,
 	}
@@ -113,6 +107,19 @@ func (sp *SubProtocol) fetchData(votingRound int64, endpoint string, submitAddre
 	}, nil
 }
 
+func (sp *SubProtocol) fetchWithVerificationFunc(url *url.URL, timeout time.Duration, dataVerifier DataVerifier) func() (*SubProtocolResponse, error) {
+	return func() (*SubProtocolResponse, error) {
+		data, err := sp.fetchData(url, timeout)
+		if err == nil {
+			err = dataVerifier(data)
+		}
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+}
+
 // fetchDataWithRetryChan
 func (sp *SubProtocol) fetchDataWithRetryChan(
 	votingRound int64,
@@ -122,16 +129,20 @@ func (sp *SubProtocol) fetchDataWithRetryChan(
 	timeout time.Duration,
 	dataVerifier DataVerifier,
 ) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
-	return shared.ExecuteWithRetryChan(func() (*SubProtocolResponse, error) {
-		data, err := sp.fetchData(votingRound, endpoint, submitAddress, timeout)
-		if err == nil {
-			err = dataVerifier(data)
-		}
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
-	}, nRetries, 0)
+	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
+	if err != nil {
+		logger.Errorf("building url for protocol %v: %s", sp.ID, err)
+		out := make(chan shared.ExecuteStatus[*SubProtocolResponse])
+		go func() {
+			out <- shared.ExecuteStatus[*SubProtocolResponse]{Success: false, Message: fmt.Sprintf("initial error: %s", err)}
+		}()
+
+		return out
+	}
+
+	logger.Infof("Calling protocol %v client API: %s", sp.ID, url.String())
+
+	return shared.ExecuteWithRetryChan(sp.fetchWithVerificationFunc(url, timeout, dataVerifier), nRetries, 0)
 }
 
 // fetchDataWithRetry
@@ -144,17 +155,16 @@ func (sp *SubProtocol) fetchDataWithRetry(
 	dataVerifier DataVerifier,
 	minimalRetryDuration time.Duration,
 ) shared.ExecuteStatus[*SubProtocolResponse] {
+	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
+	if err != nil {
+		logger.Errorf("building url for protocol %v: %v", sp.ID, err)
+		return shared.ExecuteStatus[*SubProtocolResponse]{Success: false, Message: fmt.Sprintf("initial error: %s", err)}
+	}
+
+	logger.Infof("Calling protocol %v client API: %s", sp.ID, url.String())
+
 	return shared.ExecuteWithRetryWithContext(ctx,
-		func() (*SubProtocolResponse, error) {
-			data, err := sp.fetchData(votingRound, endpoint, submitAddress, timeout)
-			if err == nil {
-				err = dataVerifier(data)
-			}
-			if err != nil {
-				return nil, err
-			}
-			return data, nil
-		},
+		sp.fetchWithVerificationFunc(url, timeout, dataVerifier),
 		minimalRetryDuration)
 }
 
