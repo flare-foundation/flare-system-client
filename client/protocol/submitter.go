@@ -133,9 +133,10 @@ func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 			logger.Warnf("Error getting data for submitter %s for protocol %v: %s", s.name, data.Message)
 			continue
 		} else if data.Value.Status == payload.Empty {
-			logger.Warnf("Empty data for submitter %s for protocol %v", s.name, s.subProtocols[j].ID)
+			logger.Debugf("Empty data for submitter %s for protocol %v", s.name, s.subProtocols[j].ID)
 		}
 
+		logger.Debugf("%s received data for round %d for protocol %d", s.name, currentEpoch+s.epochOffset, s.subProtocols[j].ID)
 		dataReceived = true
 		buffer.Write(data.Value.Data)
 	}
@@ -148,7 +149,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 }
 
 func (s *Submitter) RunEpoch(currentEpoch int64) {
-	logger.Infof("Submitter %s running for epoch %d [%v, %v]", s.name, currentEpoch, s.votingRoundTiming.StartTime(currentEpoch), s.votingRoundTiming.EndTime(currentEpoch))
+	logger.Debugf("Submitter %s running for epoch %d")
 
 	payload := s.GetPayload(currentEpoch)
 
@@ -306,7 +307,6 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 				time.Second, // TODO make it configurable
 			)
 
-			logger.Debugf("%s received data for round %d for protocol %d with status", s.name, currentEpoch-1, protocol.ID)
 			if response.Success {
 				results[i] = response.Value
 				finished <- i
@@ -332,6 +332,8 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 				if err != nil {
 					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
 				} else {
+					logger.Debugf("%s received data for round %d for protocol %d", s.name, currentEpoch-1, s.subProtocols[i].ID)
+
 					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: results[i].Data}
 					delete(protocolsToQuery, i)
 				}

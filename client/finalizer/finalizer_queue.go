@@ -131,7 +131,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		}
 
 		if p.isVoterForCurrentEpoch(item) {
-			logger.Infof("Finalizer with address %v was selected for  voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
+			logger.Infof("Finalizer with address %v was selected for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
 			p.processItem(ctx, item, false)
 		} else {
@@ -144,7 +144,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 				st := votingRoundStartTime.Add(p.finalizerContext.gracePeriodEndOffset)
 
 				if st.Before(time.Now()) {
-					logger.Infof("Finalizer will send now for voting round %v for protocol %v", item.votingRoundID, item.protocolID)
+					logger.Debugf("Finalizer will send now for voting round %v for protocol %v", item.votingRoundID, item.protocolID)
 					p.processItem(ctx, item, true)
 				}
 				p.delayedQueues.Add(st, item)
@@ -215,7 +215,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error 
 		if relayedItems[*item] {
 			continue
 		}
-		logger.Infof("Finalizer processes delayed queue item %v", item)
+		logger.Infof("Finalizer processes delayed queue item for round %v for protocol %v", item.votingRoundID, item.protocolID)
 		p.processItem(context.TODO(), item, true)
 	}
 	return nil
