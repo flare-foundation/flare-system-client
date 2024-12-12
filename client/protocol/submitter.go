@@ -330,7 +330,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 			case payload.Ok:
 				err := s.WritePayload(buffer, currentEpoch-1, results[i], s.subProtocols[i].ID, s.subProtocols[i].Type)
 				if err != nil {
-					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
+					logger.Errorf("Error writing payload for submitter %s for round %d for protocol %d : %s", s.name, currentEpoch-1, s.subProtocols[i].ID, err)
 				} else {
 					logger.Debugf("%s received data for round %d for protocol %d", s.name, currentEpoch-1, s.subProtocols[i].ID)
 					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: results[i].Data}
@@ -412,7 +412,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentEpoch int64, protocols
 			case payload.Ok:
 				err := s.WritePayload(buffer, currentEpoch-1, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
 				if err != nil {
-					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
+					logger.Errorf("Error writing payload for submitter %s for round %d for protocol %d : %s", s.name, currentEpoch-1, s.subProtocols[i].ID, err)
 				} else {
 					// send message to finalizer
 					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
