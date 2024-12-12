@@ -198,7 +198,7 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 	}
 
 	logger.Infof("Relaying for round %d for protocol %d", item.votingRoundID, item.protocolID)
-	p.relayClient.SubmitPayloads(ctx, txInput, isDelayed)
+	p.relayClient.SubmitPayloads(ctx, txInput, isDelayed, item.protocolID)
 }
 
 func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
