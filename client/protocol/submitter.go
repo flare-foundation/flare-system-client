@@ -333,17 +333,14 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
 				} else {
 					logger.Debugf("%s received data for round %d for protocol %d", s.name, currentEpoch-1, s.subProtocols[i].ID)
-
 					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: results[i].Data}
-					delete(protocolsToQuery, i)
 				}
 			case payload.Empty:
-				logger.Warnf("Empty payload for for submitter %s for protocol", s.name, s.subProtocols[i].ID)
+				logger.Warnf("Empty payload for for submitter %s for round %d for protocol %d", s.name, currentEpoch-1, s.subProtocols[i].ID)
 			default:
-				logger.Warnf("Unknown success result status %s for submitter %s for protocol", results[i].Status, s.name, s.subProtocols[i].ID)
-				continue
+				logger.Warnf("Unknown success result status %s for submitter %s for round %d for protocol %d", results[i].Status, s.name, currentEpoch-1, s.subProtocols[i].ID)
 			}
-
+			delete(protocolsToQuery, i)
 			protocolsDone++
 			if protocolsDone == len(s.subProtocols) {
 				readyToSend = true
@@ -416,15 +413,14 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentEpoch int64, protocols
 				err := s.WritePayload(buffer, currentEpoch-1, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
 				if err != nil {
 					logger.Errorf("Error writing payload for submitter %s: %v", s.name, err)
-					continue
+				} else {
+					// send message to finalizer
+					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
 				}
-				// send message to finalizer
-				s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentEpoch - 1), Message: data.Value.Data}
 			case payload.Empty:
 				logger.Warnf("Empty submit signature payload for submitter %s for protocol %v ", s.name, s.subProtocols[i].ID)
 			default:
 				logger.Errorf("Unknown success status %s for submitter %s for protocol %v ", data.Value.Status, s.name, s.subProtocols[i].ID)
-				continue
 			}
 
 			protocolsSent = append(protocolsSent, i)
@@ -436,7 +432,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentEpoch int64, protocols
 				}
 			}
 		} else {
-			logger.Infof("Submitter %s did not get any new data", s.name)
+			logger.Debugf("Submitter %s did not get any new data", s.name)
 		}
 
 		<-ticker.C

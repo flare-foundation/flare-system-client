@@ -277,7 +277,7 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rsp := payload.SubprotocolResponse{
-		Status:         "OK",
+		Status:         payload.Ok,
 		Data:           "0x" + strings.Repeat("ff", 38),
 		AdditionalData: "0x1234",
 	}
