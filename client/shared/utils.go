@@ -18,7 +18,7 @@ type ExecuteStatus[T any] struct {
 func ExecuteWithRetryChan[T any](f func() (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
 	out := make(chan ExecuteStatus[T])
 	go func() {
-		for ri := 0; ri < maxRetries; ri++ {
+		for ri := 0; ri <= maxRetries; ri++ {
 			result, err := f()
 			if err == nil {
 				out <- ExecuteStatus[T]{Success: true, Value: result}
