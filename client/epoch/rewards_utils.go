@@ -124,17 +124,14 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 		return nil, errors.New("reward data url prefix not set")
 	}
 
-	// rewardsUrl := fmt.Sprintf("%s/%d/reward-distribution-data.json", config.UrlPrefix, epochId)
-
 	rewardsUrl, err := url.JoinPath(config.UrlPrefix, epochId.Text(10), "reward-distribution-data.json")
 
 	if err != nil {
 		return nil, errors.Errorf("cannot join url: %s", err)
 	}
 
-	logger.Info("Fetching reward data at: %s", rewardsUrl)
+	logger.Infof("Fetching reward data at: %s", rewardsUrl)
 	result := <-shared.ExecuteWithRetryChan(func() (*rewardDistributionData, error) {
-
 		client := &http.Client{Timeout: timeout}
 
 		resp, err := client.Get(rewardsUrl)
@@ -153,7 +150,6 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 		respLimited := &io.LimitedReader{R: resp.Body, N: maxRespSize}
 
 		decoder := json.NewDecoder(respLimited)
-		decoder.DisallowUnknownFields()
 
 		var rewardData rewardDistributionData
 		err = decoder.Decode(&rewardData)
