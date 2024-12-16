@@ -21,6 +21,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const maxRespSize = 100 * (1 << 20) // 100 MB for maximal response size
+
 type DataVerifier func(*SubProtocolResponse) error
 
 type SubProtocol struct {
@@ -71,17 +73,24 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 		return nil, fmt.Errorf("protocol client returned http status %v", resp.Status)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading protocol client response")
-	}
+	respLimited := &io.LimitedReader{R: resp.Body, N: maxRespSize}
+
+	// body, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "error reading protocol client response")
+	// }
+
+	decoder := json.NewDecoder(respLimited)
+	decoder.DisallowUnknownFields()
 
 	var response payload.SubprotocolResponse
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, errors.Wrap(err, "cannot parse protocol client response body")
+
+	err = decoder.Decode(&response)
+	if err != nil {
+		return nil, err
 	}
 
-	if response.Status != "OK" {
+	if response.Status != payload.Ok {
 		return &SubProtocolResponse{Status: response.Status}, nil
 	}
 

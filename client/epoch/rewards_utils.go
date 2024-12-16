@@ -3,11 +3,11 @@ package epoch
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"math/big"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -22,6 +22,9 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/merkle"
 )
+
+const timeout = 5 * time.Second     // maximal duration for fetching of the reward data
+const maxRespSize = 100 * (1 << 20) // 100 MB for maximal response size of the reward
 
 var (
 	uint8Type, _   = abi.NewType("uint8", "", nil)
@@ -121,11 +124,20 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 		return nil, errors.New("reward data url prefix not set")
 	}
 
-	url := fmt.Sprintf("%s/%d/reward-distribution-data.json", config.UrlPrefix, epochId)
+	// rewardsUrl := fmt.Sprintf("%s/%d/reward-distribution-data.json", config.UrlPrefix, epochId)
 
-	logger.Info("Fetching reward data at: %s", url)
-	result := <-shared.ExecuteWithRetryChan(func() ([]byte, error) {
-		resp, err := http.Get(url)
+	rewardsUrl, err := url.JoinPath(config.UrlPrefix, epochId.Text(10), "reward-distribution-data.json")
+
+	if err != nil {
+		return nil, errors.Errorf("cannot join url: %s", err)
+	}
+
+	logger.Info("Fetching reward data at: %s", rewardsUrl)
+	result := <-shared.ExecuteWithRetryChan(func() (*rewardDistributionData, error) {
+
+		client := &http.Client{Timeout: timeout}
+
+		resp, err := client.Get(rewardsUrl)
 		if err != nil {
 			return nil, err
 		}
@@ -138,23 +150,24 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 			return nil, errors.Errorf("unexpected status code: %s", resp.Status)
 		}
 
-		bytes, err := io.ReadAll(resp.Body)
+		respLimited := &io.LimitedReader{R: resp.Body, N: maxRespSize}
+
+		decoder := json.NewDecoder(respLimited)
+		decoder.DisallowUnknownFields()
+
+		var rewardData rewardDistributionData
+		err = decoder.Decode(&rewardData)
 		if err != nil {
 			return nil, err
 		}
-		return bytes, nil
+		return &rewardData, nil
 	}, 3, 1*time.Second)
 
 	if !result.Success {
 		return nil, errors.Errorf("unable to fetch reward data")
 	}
 
-	var rewardData rewardDistributionData
-	err := json.Unmarshal(result.Value, &rewardData)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to parse reward data")
-	}
-	return &rewardData, nil
+	return result.Value, nil
 }
 
 func verifyRewardData(epochId *big.Int, identity common.Address, data *rewardDistributionData, rewardsConfig *config.RewardsConfig) (*common.Hash, int, error) {

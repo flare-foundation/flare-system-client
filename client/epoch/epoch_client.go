@@ -241,11 +241,11 @@ func (c *client) signRewards(epochId *big.Int) {
 		logger.Info("Signing rewards for epoch %v, attempt %d", epochId, i)
 
 		data, err := fetchRewardData(epochId, c.rewardsConfig)
-		if data == nil {
-			return nil, errors.New("no reward data found")
-		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to fetch reward data for epoch %d", epochId)
+		}
+		if data == nil {
+			return nil, errors.New("no reward data found")
 		}
 		hash, weightClaims, err := verifyRewardData(epochId, c.identityAddress, data, c.rewardsConfig)
 		if err != nil {
