@@ -87,6 +87,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 		ethClient,
 		&cfg.RegisterGas,
 		cfg.ContractAddresses.VoterRegistry,
+		cfg.ContractAddresses.VoterPreRegistry,
 		senderTxOpts,
 		signerPk,
 	)
@@ -123,6 +124,7 @@ func (c *client) Run(ctx context.Context) error {
 		return err
 	}
 
+	var epochStartedListener <-chan *system.FlareSystemsManagerRewardEpochStarted
 	var vpbsListener <-chan *system.FlareSystemsManagerVotePowerBlockSelected
 	var policyListener <-chan *relay.RelaySigningPolicyInitialized
 	var uptimeEnabledListener <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
@@ -130,6 +132,7 @@ func (c *client) Run(ctx context.Context) error {
 
 	if c.registrationEnabled {
 		logger.Info("Waiting for VotePowerBlockSelected event to start registration")
+		epochStartedListener = c.systemsManagerClient.RewardEpochStartedListener(c.db, rewardEpochTiming)
 		vpbsListener = c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, rewardEpochTiming)
 		policyListener = c.relayClient.SigningPolicyInitializedListener(c.db, rewardEpochTiming)
 	}
@@ -144,6 +147,9 @@ func (c *client) Run(ctx context.Context) error {
 
 	for {
 		select {
+		case rewardEpochStarted := <-epochStartedListener:
+			logger.Debugf("RewardEpochStarted event emitted for epoch %v", rewardEpochStarted.RewardEpochId)
+			c.preregisterVoter(new(big.Int).Add(rewardEpochStarted.RewardEpochId, big.NewInt(1)))
 		case powerBlockData := <-vpbsListener:
 			logger.Debugf("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
 			c.registerVoter(powerBlockData.RewardEpochId)
@@ -174,6 +180,18 @@ func (c *client) registerVoter(epochID *big.Int) {
 		logger.Info("RegisterVoter success")
 	} else {
 		logger.Errorf("RegisterVoter failed %s", registerResult.Message)
+	}
+}
+
+func (c *client) preregisterVoter(epochID *big.Int) {
+	if !c.isFutureEpoch(epochID) {
+		logger.Debugf("Skipping pre-registration process for old epoch %v", epochID)
+		return
+	}
+
+	registerResult := <-c.registryClient.PreregisterVoter(epochID, c.identityAddress)
+	if !registerResult.Success {
+		logger.Errorf("PreregisterVoter failed %s", registerResult.Message)
 	}
 }
 

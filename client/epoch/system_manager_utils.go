@@ -50,6 +50,8 @@ func init() {
 type systemsManagerContractClient interface {
 	RewardEpochTimingFromChain() (*utils.EpochTimingConfig, error)
 
+	RewardEpochStartedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted
+
 	VotePowerBlockSelectedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
 	SignNewSigningPolicy(*big.Int, []byte) <-chan shared.ExecuteStatus[any]
 
@@ -170,6 +172,47 @@ func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochID() <-chan shar
 		}
 		return id, nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+}
+
+func (s *systemsManagerContractClientImpl) RewardEpochStartedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted {
+	out := make(chan *system.FlareSystemsManagerRewardEpochStarted)
+	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "RewardEpochStarted")
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+	go func() {
+		randomDelay()
+		ticker := time.NewTicker(shared.EventListenerInterval)
+		eventRangeStart := rewardEpochTiming.StartTime(rewardEpochTiming.EpochIndex(time.Now())).Unix() - 60*60 // Expected epoch start - 1h
+		for {
+			<-ticker.C
+			now := time.Now().Unix()
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now)
+			if err != nil {
+				logger.Errorf("Error fetching logs %v", err)
+				continue
+			}
+			if len(logs) > 0 {
+				rewardEpochStarted, err := s.parseRewardEpochStartedEvent(logs[len(logs)-1])
+				if err != nil {
+					logger.Errorf("Error parsing RewardEpochStarted event %v", err)
+					continue
+				}
+				out <- rewardEpochStarted
+				eventRangeStart = int64(rewardEpochStarted.Timestamp)
+			}
+		}
+	}()
+	return out
+}
+
+func (s *systemsManagerContractClientImpl) parseRewardEpochStartedEvent(dbLog database.Log) (*system.FlareSystemsManagerRewardEpochStarted, error) {
+	contractLog, err := events.ConvertDatabaseLogToChainLog(dbLog)
+	if err != nil {
+		return nil, err
+	}
+	return s.flareSystemsManager.FlareSystemsManagerFilterer.ParseRewardEpochStarted(*contractLog)
 }
 
 func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
