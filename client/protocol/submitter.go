@@ -149,7 +149,7 @@ func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 }
 
 func (s *Submitter) RunEpoch(currentEpoch int64) {
-	logger.Debugf("Submitter %s running for epoch %d")
+	logger.Debugf("Submitter %s running for epoch %d", s.name, currentEpoch)
 
 	payload := s.GetPayload(currentEpoch)
 

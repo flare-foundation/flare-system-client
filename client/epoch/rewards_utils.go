@@ -125,7 +125,6 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 	}
 
 	rewardsUrl, err := url.JoinPath(config.UrlPrefix, epochId.Text(10), "reward-distribution-data.json")
-
 	if err != nil {
 		return nil, errors.Errorf("cannot join url: %s", err)
 	}

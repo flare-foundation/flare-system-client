@@ -75,11 +75,6 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 
 	respLimited := &io.LimitedReader{R: resp.Body, N: maxRespSize}
 
-	// body, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "error reading protocol client response")
-	// }
-
 	decoder := json.NewDecoder(respLimited)
 	decoder.DisallowUnknownFields()
 
