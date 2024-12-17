@@ -127,7 +127,7 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 	)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
-			logger.Infof("Non fatal error dry run sign new signing policy: %v", err)
+			logger.Debugf("Non fatal error dry run sign new signing policy: %v", err)
 			return nil
 		}
 		logger.Warnf("Dry run fail: %v", err)
@@ -138,7 +138,7 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 	tx, err := s.flareSystemsManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
-			logger.Infof("Non fatal error sending sign new signing policy: %v", err)
+			logger.Debugf("Non fatal error sending sign new signing policy: %v", err)
 			return nil
 		}
 		return err
@@ -293,7 +293,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
-			logger.Infof("Non fatal error dryRun sign uptime vote: %v", err)
+			logger.Debugf("Non fatal error dryRun sign uptime vote: %v", err)
 			return nil
 		}
 		logger.Warnf("Dry run fail: %v", err)
@@ -304,7 +304,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, hash, *signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
-			logger.Infof("Non fatal error sending sign uptime vote: %v", err)
+			logger.Debugf("Non fatal error sending sign uptime vote: %v", err)
 			return nil
 		}
 		return err
@@ -418,7 +418,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 	)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
-			logger.Infof("Non fatal error dry run reward signature: %v", err)
+			logger.Debugf("Non fatal error dry run reward signature: %v", err)
 			return nil
 		}
 		logger.Warnf("Dry run fail: %v", err)
@@ -429,7 +429,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 	tx, err := s.flareSystemsManager.SignRewards(s.senderTxOpts, epochId, numberOfWeightBasedClaims, *rewardHash, signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
-			logger.Infof("Non fatal error sending reward signature: %v", err)
+			logger.Debugf("Non fatal error sending reward signature: %v", err)
 			return nil
 		}
 		return err

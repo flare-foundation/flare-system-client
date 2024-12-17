@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/payload"
 )
 
 const (
@@ -275,8 +276,8 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rsp := dataProviderResponse{
-		Status:         "OK",
+	rsp := payload.SubprotocolResponse{
+		Status:         payload.Ok,
 		Data:           "0x" + strings.Repeat("ff", 38),
 		AdditionalData: "0x1234",
 	}

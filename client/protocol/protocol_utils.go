@@ -17,8 +17,11 @@ import (
 	"github.com/flare-foundation/flare-system-client/client/shared"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/payload"
 	"github.com/pkg/errors"
 )
+
+const maxRespSize = 100 * (1 << 20) // 100 MB for maximal response size
 
 type DataVerifier func(*SubProtocolResponse) error
 
@@ -30,15 +33,9 @@ type SubProtocol struct {
 }
 
 type SubProtocolResponse struct {
-	Status         string `json:"status"`
-	Data           []byte `json:"data"`
-	AdditionalData []byte `json:"additionalData"`
-}
-
-type dataProviderResponse struct {
-	Status         string `json:"status"`
-	Data           string `json:"data"`
-	AdditionalData string `json:"additionalData"`
+	Status         payload.ResponseStatus `json:"status"`
+	Data           []byte                 `json:"data"`
+	AdditionalData []byte                 `json:"additionalData"`
 }
 
 func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
@@ -55,13 +52,7 @@ func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 }
 
 // fetchData queries the provider for data for SubProtocol.
-func (sp *SubProtocol) fetchData(votingRound int64, endpoint string, submitAddress string, timeout time.Duration) (*SubProtocolResponse, error) {
-	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting url")
-	}
-
-	logger.Infof("Calling protocol client API: %s", url.String())
+func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProtocolResponse, error) {
 	client := http.Client{
 		Timeout: timeout,
 	}
@@ -82,18 +73,20 @@ func (sp *SubProtocol) fetchData(votingRound int64, endpoint string, submitAddre
 		return nil, fmt.Errorf("protocol client returned http status %v", resp.Status)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	respLimited := &io.LimitedReader{R: resp.Body, N: maxRespSize}
+
+	decoder := json.NewDecoder(respLimited)
+	decoder.DisallowUnknownFields()
+
+	var response payload.SubprotocolResponse
+
+	err = decoder.Decode(&response)
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading protocol client response")
+		return nil, err
 	}
 
-	var response dataProviderResponse
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, errors.Wrap(err, "cannot parse protocol client response body")
-	}
-
-	if response.Status != "OK" {
-		return &SubProtocolResponse{Status: resp.Status}, nil
+	if response.Status != payload.Ok {
+		return &SubProtocolResponse{Status: response.Status}, nil
 	}
 
 	bodyString := strings.TrimPrefix(response.Data, "0x")
@@ -118,6 +111,19 @@ func (sp *SubProtocol) fetchData(votingRound int64, endpoint string, submitAddre
 	}, nil
 }
 
+func (sp *SubProtocol) fetchWithVerificationFunc(url *url.URL, timeout time.Duration, dataVerifier DataVerifier) func() (*SubProtocolResponse, error) {
+	return func() (*SubProtocolResponse, error) {
+		data, err := sp.fetchData(url, timeout)
+		if err == nil {
+			err = dataVerifier(data)
+		}
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+}
+
 // fetchDataWithRetryChan
 func (sp *SubProtocol) fetchDataWithRetryChan(
 	votingRound int64,
@@ -127,18 +133,20 @@ func (sp *SubProtocol) fetchDataWithRetryChan(
 	timeout time.Duration,
 	dataVerifier DataVerifier,
 ) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
-	return shared.ExecuteWithRetryChan(func() (*SubProtocolResponse, error) {
-		data, err := sp.fetchData(votingRound, endpoint, submitAddress, timeout)
-		if err == nil {
-			err = dataVerifier(data)
-		}
-		if err != nil {
-			logger.Errorf("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
-				sp.ID, sp.APIUrl, votingRound, err)
-			return nil, err
-		}
-		return data, nil
-	}, nRetries, 0)
+	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
+	if err != nil {
+		logger.Errorf("building url for protocol %v: %s", sp.ID, err)
+		out := make(chan shared.ExecuteStatus[*SubProtocolResponse])
+		go func() {
+			out <- shared.ExecuteStatus[*SubProtocolResponse]{Success: false, Message: fmt.Sprintf("initial error: %s", err)}
+		}()
+
+		return out
+	}
+
+	logger.Infof("Calling protocol %v client API: %s", sp.ID, url.String())
+
+	return shared.ExecuteWithRetryChan(sp.fetchWithVerificationFunc(url, timeout, dataVerifier), nRetries, 0)
 }
 
 // fetchDataWithRetry
@@ -151,26 +159,30 @@ func (sp *SubProtocol) fetchDataWithRetry(
 	dataVerifier DataVerifier,
 	minimalRetryDuration time.Duration,
 ) shared.ExecuteStatus[*SubProtocolResponse] {
+	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
+	if err != nil {
+		logger.Errorf("building url for protocol %v: %v", sp.ID, err)
+		return shared.ExecuteStatus[*SubProtocolResponse]{Success: false, Message: fmt.Sprintf("initial error: %s", err)}
+	}
+
+	logger.Infof("Calling protocol %v client API: %s", sp.ID, url.String())
+
 	return shared.ExecuteWithRetryWithContext(ctx,
-		func() (*SubProtocolResponse, error) {
-			data, err := sp.fetchData(votingRound, endpoint, submitAddress, timeout)
-			if err == nil {
-				err = dataVerifier(data)
-			}
-			if err != nil {
-				// logger.Errorf("Error getting data from protocol client with id %d, endpoint %s, voting round %d: %v",
-				// 	sp.ID, sp.APIUrl, votingRound, err)
-				return nil, err
-			}
-			return data, nil
-		},
+		sp.fetchWithVerificationFunc(url, timeout, dataVerifier),
 		minimalRetryDuration)
 }
 
 func SignatureSubmitterDataVerifier(data *SubProtocolResponse) error {
-	if data.Status != "OK" {
-		return fmt.Errorf("status %s", data.Status)
+	switch data.Status {
+	case payload.Ok:
+	case payload.Retry:
+		return errors.New("retry")
+	case payload.Empty:
+		return nil
+	default:
+		return fmt.Errorf("unknown status: %v", data.Status)
 	}
+
 	if len(data.Data) != 38 {
 		return fmt.Errorf("data length %d is not 38", len(data.Data))
 	}
@@ -182,8 +194,17 @@ func SignatureSubmitterDataVerifier(data *SubProtocolResponse) error {
 	return nil
 }
 
-func IdentityDataVerifier(data *SubProtocolResponse) error {
-	return nil
+func StatusDataVerifier(data *SubProtocolResponse) error {
+	switch data.Status {
+	case payload.Ok:
+		return nil
+	case payload.Retry:
+		return errors.New("retry")
+	case payload.Empty:
+		return nil
+	default:
+		return fmt.Errorf("unknown status: %v", data.Status)
+	}
 }
 
 // submitEndpointUrl builds url to be queried for the data for subprotocol for a given votingRound and address.

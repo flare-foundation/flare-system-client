@@ -195,7 +195,6 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 
 	verifier := NewTxVerifier(client)
 
-	logger.Debug("Waiting for tx to be mined...")
 	err = verifier.WaitUntilMined(fromAddress, signedTx, timeout)
 	if err != nil {
 		return err
@@ -273,7 +272,6 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 
 	verifier := NewTxVerifier(client)
 
-	logger.Debug("Waiting for tx to be mined...")
 	err = verifier.WaitUntilMined(fromAddress, signedTx, timeout)
 	if err != nil {
 		return err

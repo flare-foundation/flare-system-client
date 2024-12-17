@@ -143,27 +143,31 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 }
 
 // SubmitPayloads sends a transaction with input to Relay contract.
-func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool) {
+func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool, protocolID uint8) {
 	if len(input) == 0 {
 		return
 	}
 
-	execStatusChan := shared.ExecuteWithRetryChan(func() (any, error) {
+	execStatusChan := shared.ExecuteWithRetryChan(func() (string, error) {
 		err := r.chainClient.SendRawTx(r.privateKey, r.address, input, r.gasConfig, chain.DefaultTxTimeout)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
-				logger.Infof("Non fatal error sending relay tx: %v", err)
+				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
+				return "non fatal error", nil
+
 			} else {
-				return nil, errors.Wrap(err, "Error sending relay tx")
+				return "", errors.Wrap(err, "Error sending relay tx")
 			}
 		}
-		return nil, nil
+		return "success", nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 
 	select {
 	case execStatus := <-execStatusChan:
 		if execStatus.Success {
-			logger.Info("Relaying finished")
+			logger.Infof("Relaying finished for protocol %d with %s", protocolID, execStatus.Value)
+		} else {
+			logger.Warnf("Relaying failed with: %v", execStatus.Message)
 		}
 
 	case <-ctx.Done():
