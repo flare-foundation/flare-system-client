@@ -176,9 +176,7 @@ func (c *client) registerVoter(epochID *big.Int) {
 
 	logger.Infof("VotePowerBlockSelected event emitted for next epoch %v, starting registration", epochID)
 	registerResult := <-c.registryClient.RegisterVoter(epochID, c.identityAddress)
-	if registerResult.Success {
-		logger.Info("RegisterVoter success")
-	} else {
+	if !registerResult.Success {
 		logger.Errorf("RegisterVoter failed %s", registerResult.Message)
 	}
 }

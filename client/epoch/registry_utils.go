@@ -30,6 +30,10 @@ var (
 )
 
 var (
+	nonFatalRegisterErrors = []string{
+		"already registered",
+		"voter registration not enabled",
+	}
 	nonFatalPreregisterErrors = []string{
 		"voter already pre-registered",
 		"voter currently not registered",
@@ -122,7 +126,11 @@ func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, a
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := r.sendRegisterVoter(nextRewardEpochId, address)
 		if err != nil {
-			return nil, errors.Wrap(err, "error sending register voter")
+			if shared.ExistsAsSubstring(nonFatalRegisterErrors, err.Error()) {
+				logger.Debugf("Non fatal error sending register voter: %v", err)
+			} else {
+				return nil, errors.Wrap(err, "error sending register voter")
+			}
 		}
 		return nil, nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
@@ -147,24 +155,24 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 	}
 	r.senderTxOpts.GasPrice = gasPrice
 
+	estimatedGasLimit, err := chain.DryRunTxAbi(
+		r.ethClient,
+		chain.DefaultTxTimeout,
+		r.senderTxOpts.From,
+		r.address,
+		common.Big0,
+		registryAbi,
+		"registerVoter",
+		address,
+		vrsSignature,
+	)
+	if err != nil {
+		return errors.Wrap(err, "Dry run failed")
+	}
+
 	if r.gasCfg.GasLimit != 0 {
 		r.senderTxOpts.GasLimit = uint64(r.gasCfg.GasLimit)
 	} else {
-		estimatedGasLimit, err := chain.DryRunTxAbi(
-			r.ethClient,
-			chain.DefaultTxTimeout,
-			r.senderTxOpts.From,
-			r.address,
-			common.Big0,
-			registryAbi,
-			"registerVoter",
-			address,
-			vrsSignature,
-		)
-		if err != nil {
-			logger.Warnf("Dry run fail: %v", err)
-			return err
-		}
 		r.senderTxOpts.GasLimit = estimatedGasLimit
 	}
 
