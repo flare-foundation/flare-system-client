@@ -56,7 +56,6 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) error {
 	for _, payloadItem := range payloads {
 		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
-			logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - before startingVotingRound %d", payloadItem.votingRoundID, payloadItem.protocolID, c.finalizerContext.startingVotingRound)
 			continue
 		}
 

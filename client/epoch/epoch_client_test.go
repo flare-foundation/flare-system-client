@@ -381,6 +381,16 @@ func (c testRegistryClient) RegisterVoter(
 	}, 1, 0)
 }
 
+func (c testSystemsManagerClient) RewardEpochStartedListener(db epochClientDB, config *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted {
+	return make(chan *system.FlareSystemsManagerRewardEpochStarted)
+}
+
+func (c testRegistryClient) PreregisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
+	return shared.ExecuteWithRetryChan(func() (any, error) {
+		return nil, nil
+	}, 1, 0)
+}
+
 func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 }

@@ -34,9 +34,10 @@ type client struct {
 
 	identityAddress common.Address
 
-	registrationEnabled   bool
-	uptimeVotingEnabled   bool
-	rewardsSigningEnabled bool
+	preregistrationEnabled bool
+	registrationEnabled    bool
+	uptimeVotingEnabled    bool
+	rewardsSigningEnabled  bool
 
 	rewardsConfig *clientConfig.RewardsConfig
 }
@@ -87,6 +88,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 		ethClient,
 		&cfg.RegisterGas,
 		cfg.ContractAddresses.VoterRegistry,
+		cfg.ContractAddresses.VoterPreRegistry,
 		senderTxOpts,
 		signerPk,
 	)
@@ -102,15 +104,16 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 
 	db := epochClientDBGorm{db: ctx.DB()}
 	return &client{
-		db:                    db,
-		systemsManagerClient:  systemsManagerClient,
-		relayClient:           relayClient,
-		registryClient:        registryClient,
-		identityAddress:       identityAddress,
-		registrationEnabled:   cfg.Clients.EnabledRegistration,
-		uptimeVotingEnabled:   cfg.Clients.EnabledUptimeVoting,
-		rewardsSigningEnabled: cfg.Clients.EnabledRewardSigning,
-		rewardsConfig:         &cfg.Rewards,
+		db:                     db,
+		systemsManagerClient:   systemsManagerClient,
+		relayClient:            relayClient,
+		registryClient:         registryClient,
+		identityAddress:        identityAddress,
+		preregistrationEnabled: cfg.Clients.EnabledPreregistration,
+		registrationEnabled:    cfg.Clients.EnabledRegistration,
+		uptimeVotingEnabled:    cfg.Clients.EnabledUptimeVoting,
+		rewardsSigningEnabled:  cfg.Clients.EnabledRewardSigning,
+		rewardsConfig:          &cfg.Rewards,
 	}, nil
 }
 
@@ -123,11 +126,15 @@ func (c *client) Run(ctx context.Context) error {
 		return err
 	}
 
+	var epochStartedListener <-chan *system.FlareSystemsManagerRewardEpochStarted
 	var vpbsListener <-chan *system.FlareSystemsManagerVotePowerBlockSelected
 	var policyListener <-chan *relay.RelaySigningPolicyInitialized
 	var uptimeEnabledListener <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
 	var uptimeSignedListener <-chan *system.FlareSystemsManagerUptimeVoteSigned
 
+	if c.preregistrationEnabled {
+		epochStartedListener = c.systemsManagerClient.RewardEpochStartedListener(c.db, rewardEpochTiming)
+	}
 	if c.registrationEnabled {
 		logger.Info("Waiting for VotePowerBlockSelected event to start registration")
 		vpbsListener = c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, rewardEpochTiming)
@@ -144,6 +151,9 @@ func (c *client) Run(ctx context.Context) error {
 
 	for {
 		select {
+		case rewardEpochStarted := <-epochStartedListener:
+			logger.Debugf("RewardEpochStarted event emitted for epoch %v", rewardEpochStarted.RewardEpochId)
+			c.preregisterVoter(new(big.Int).Add(rewardEpochStarted.RewardEpochId, big.NewInt(1)))
 		case powerBlockData := <-vpbsListener:
 			logger.Debugf("VotePowerBlockSelected event emitted for epoch %v", powerBlockData.RewardEpochId)
 			c.registerVoter(powerBlockData.RewardEpochId)
@@ -170,10 +180,20 @@ func (c *client) registerVoter(epochID *big.Int) {
 
 	logger.Infof("VotePowerBlockSelected event emitted for next epoch %v, starting registration", epochID)
 	registerResult := <-c.registryClient.RegisterVoter(epochID, c.identityAddress)
-	if registerResult.Success {
-		logger.Info("RegisterVoter success")
-	} else {
+	if !registerResult.Success {
 		logger.Errorf("RegisterVoter failed %s", registerResult.Message)
+	}
+}
+
+func (c *client) preregisterVoter(epochID *big.Int) {
+	if !c.isFutureEpoch(epochID) {
+		logger.Debugf("Skipping pre-registration process for old epoch %v", epochID)
+		return
+	}
+
+	registerResult := <-c.registryClient.PreregisterVoter(epochID, c.identityAddress)
+	if !registerResult.Success {
+		logger.Errorf("PreregisterVoter failed %s", registerResult.Message)
 	}
 }
 

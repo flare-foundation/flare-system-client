@@ -93,15 +93,16 @@ type SubmitSignatures struct {
 }
 
 type Clients struct {
-	EnabledRegistration   bool `toml:"enabled_registration"`
-	EnabledUptimeVoting   bool `toml:"enabled_uptime_voting"`
-	EnabledRewardSigning  bool `toml:"enabled_reward_signing"`
-	EnabledProtocolVoting bool `toml:"enabled_protocol_voting"`
-	EnabledFinalizer      bool `toml:"enabled_finalizer"`
+	EnabledRegistration    bool `toml:"enabled_registration"`
+	EnabledPreregistration bool `toml:"enabled_pre_registration"`
+	EnabledUptimeVoting    bool `toml:"enabled_uptime_voting"`
+	EnabledRewardSigning   bool `toml:"enabled_reward_signing"`
+	EnabledProtocolVoting  bool `toml:"enabled_protocol_voting"`
+	EnabledFinalizer       bool `toml:"enabled_finalizer"`
 }
 
 func (c *Clients) EpochClientEnabled() bool {
-	return c.EnabledRegistration || c.EnabledUptimeVoting || c.EnabledRewardSigning
+	return c.EnabledRegistration || c.EnabledUptimeVoting || c.EnabledRewardSigning || c.EnabledPreregistration
 }
 
 type Finalizer struct {
