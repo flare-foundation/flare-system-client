@@ -34,9 +34,10 @@ type client struct {
 
 	identityAddress common.Address
 
-	registrationEnabled   bool
-	uptimeVotingEnabled   bool
-	rewardsSigningEnabled bool
+	preregistrationEnabled bool
+	registrationEnabled    bool
+	uptimeVotingEnabled    bool
+	rewardsSigningEnabled  bool
 
 	rewardsConfig *clientConfig.RewardsConfig
 }
@@ -103,15 +104,16 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 
 	db := epochClientDBGorm{db: ctx.DB()}
 	return &client{
-		db:                    db,
-		systemsManagerClient:  systemsManagerClient,
-		relayClient:           relayClient,
-		registryClient:        registryClient,
-		identityAddress:       identityAddress,
-		registrationEnabled:   cfg.Clients.EnabledRegistration,
-		uptimeVotingEnabled:   cfg.Clients.EnabledUptimeVoting,
-		rewardsSigningEnabled: cfg.Clients.EnabledRewardSigning,
-		rewardsConfig:         &cfg.Rewards,
+		db:                     db,
+		systemsManagerClient:   systemsManagerClient,
+		relayClient:            relayClient,
+		registryClient:         registryClient,
+		identityAddress:        identityAddress,
+		preregistrationEnabled: cfg.Clients.EnabledPreregistration,
+		registrationEnabled:    cfg.Clients.EnabledRegistration,
+		uptimeVotingEnabled:    cfg.Clients.EnabledUptimeVoting,
+		rewardsSigningEnabled:  cfg.Clients.EnabledRewardSigning,
+		rewardsConfig:          &cfg.Rewards,
 	}, nil
 }
 
@@ -130,9 +132,11 @@ func (c *client) Run(ctx context.Context) error {
 	var uptimeEnabledListener <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
 	var uptimeSignedListener <-chan *system.FlareSystemsManagerUptimeVoteSigned
 
+	if c.preregistrationEnabled {
+		epochStartedListener = c.systemsManagerClient.RewardEpochStartedListener(c.db, rewardEpochTiming)
+	}
 	if c.registrationEnabled {
 		logger.Info("Waiting for VotePowerBlockSelected event to start registration")
-		epochStartedListener = c.systemsManagerClient.RewardEpochStartedListener(c.db, rewardEpochTiming)
 		vpbsListener = c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, rewardEpochTiming)
 		policyListener = c.relayClient.SigningPolicyInitializedListener(c.db, rewardEpochTiming)
 	}

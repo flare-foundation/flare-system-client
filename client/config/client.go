@@ -93,15 +93,16 @@ type SubmitSignatures struct {
 }
 
 type Clients struct {
-	EnabledRegistration   bool `toml:"enabled_registration"`
-	EnabledUptimeVoting   bool `toml:"enabled_uptime_voting"`
-	EnabledRewardSigning  bool `toml:"enabled_reward_signing"`
-	EnabledProtocolVoting bool `toml:"enabled_protocol_voting"`
-	EnabledFinalizer      bool `toml:"enabled_finalizer"`
+	EnabledRegistration    bool `toml:"enabled_registration"`
+	EnabledPreregistration bool `toml:"enabled_pre_registration"`
+	EnabledUptimeVoting    bool `toml:"enabled_uptime_voting"`
+	EnabledRewardSigning   bool `toml:"enabled_reward_signing"`
+	EnabledProtocolVoting  bool `toml:"enabled_protocol_voting"`
+	EnabledFinalizer       bool `toml:"enabled_finalizer"`
 }
 
 func (c *Clients) EpochClientEnabled() bool {
-	return c.EnabledRegistration || c.EnabledUptimeVoting || c.EnabledRewardSigning
+	return c.EnabledRegistration || c.EnabledUptimeVoting || c.EnabledRewardSigning || c.EnabledPreregistration
 }
 
 type Finalizer struct {
@@ -206,10 +207,6 @@ func validate(cfg *Client) error {
 	if err != nil {
 		return fmt.Errorf("validating RelayGas: %v", err)
 	}
-	err = validateContracts(&cfg.ContractAddresses)
-	if err != nil {
-		return fmt.Errorf("validating ContractAddresses: %v", err)
-	}
 	return nil
 }
 
@@ -224,27 +221,6 @@ func validateGas(cfg *Gas) error {
 	}
 	if cfg.GasPriceMultiplier != 0.0 && cfg.GasPriceMultiplier < 1 {
 		return errors.New("if set, gas_price_multiplier value cannot be less than 1")
-	}
-	return nil
-}
-
-func validateContracts(cfg *config.ContractAddresses) error {
-	empty := common.Address{}
-
-	if cfg.Relay == empty {
-		return errors.New("relay address is not set")
-	}
-	if cfg.VoterRegistry == empty {
-		return errors.New("voter registry address is not set")
-	}
-	if cfg.VoterPreRegistry == empty {
-		return errors.New("voter preregistry address is not set")
-	}
-	if cfg.SystemsManager == empty {
-		return errors.New("systems manager address is not set")
-	}
-	if cfg.Submission == empty {
-		return errors.New("submission address is not set")
 	}
 	return nil
 }
