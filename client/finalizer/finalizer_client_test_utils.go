@@ -145,7 +145,7 @@ type sentTxInfo struct {
 	data       []byte
 }
 
-func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, _ *config.Gas, _ time.Duration) error {
+func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, _ *config.Gas, _ time.Duration, _ bool) error {
 	eth.mu.Lock()
 	defer eth.mu.Unlock()
 
