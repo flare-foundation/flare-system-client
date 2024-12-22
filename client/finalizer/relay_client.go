@@ -149,7 +149,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	}
 
 	execStatusChan := shared.ExecuteWithRetryChan(func() (string, error) {
-		err := r.chainClient.SendRawTx(r.privateKey, r.address, input, r.gasConfig, chain.DefaultTxTimeout)
+		err := r.chainClient.SendRawTx(r.privateKey, r.address, input, r.gasConfig, chain.DefaultTxTimeout, dryRun)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
