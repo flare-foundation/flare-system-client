@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 )
 
 func TestGasConfigForAttempt(t *testing.T) {
@@ -78,7 +79,7 @@ func TestGasConfigForAttempt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gasConfigForAttempt(&tt.cfg, tt.ri)
+			got := chain.GasConfigForAttempt(&tt.cfg, tt.ri)
 			if got.GasPriceFixed.Cmp(tt.expected.GasPriceFixed) != 0 {
 				t.Errorf("GasPriceFixed = %v, want %v", got.GasPriceFixed, tt.expected.GasPriceFixed)
 			}

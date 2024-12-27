@@ -26,6 +26,7 @@ const (
 var (
 	nonFatalRelayErrors = []string{
 		"Already relayed",
+		"nonce too low",
 	}
 )
 
@@ -148,8 +149,16 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		return
 	}
 
-	execStatusChan := shared.ExecuteWithRetryChan(func() (string, error) {
-		err := r.chainClient.SendRawTx(r.privateKey, r.address, input, r.gasConfig, chain.DefaultTxTimeout, dryRun)
+	nonce, err := r.chainClient.Nonce(r.privateKey, 2*time.Second)
+	if err != nil {
+		logger.Error("error getting nonce: %v", err)
+		return
+	}
+
+	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
+		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
+
+		err := r.chainClient.SendRawTx(r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
@@ -162,17 +171,12 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		return "success", nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 
-	select {
-	case execStatus := <-execStatusChan:
-		if execStatus.Success {
-			logger.Infof("Relaying finished for protocol %d with %s", protocolID, execStatus.Value)
-		} else {
-			logger.Warnf("Relaying failed with: %v", execStatus.Message)
-		}
-
-	case <-ctx.Done():
-		return
+	if sendResult.Success {
+		logger.Infof("Relaying finished for protocol %d with %s", protocolID, sendResult.Value)
+	} else {
+		logger.Warnf("Relaying failed with: %v", sendResult.Message)
 	}
+
 }
 
 // ProtocolMessageRelayed returns a set of pairs of protocol and round that have been finalized.

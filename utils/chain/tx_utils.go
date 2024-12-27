@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -29,6 +31,8 @@ const (
 	DefaultTipPerGasCap = 20_000_000_000 //20 GWei
 
 	baseFeeCapMultiplier = 4
+
+	tipMultiplierTimes10 int64 = 12
 )
 
 var (
@@ -149,7 +153,12 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 			logger.Debug("Error getting baseFee, %v", err)
 			return err
 		}
-		gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
+
+		if gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
+			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
+		} else {
+			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
+		}
 	}
 
 	tipCap := new(big.Int)
@@ -165,7 +174,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	chainID, err := client.NetworkID(ctx)
 	cancelFunc()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "network ID")
 	}
 
 	txData := types.DynamicFeeTx{
@@ -190,7 +199,7 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	err = client.SendTransaction(ctx, signedTx)
 	cancelFunc()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "sending tx")
 	}
 
 	verifier := NewTxVerifier(client)
@@ -211,8 +220,80 @@ func SendRawType2Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAd
 	return nil
 }
 
-// SendRawTx prepares and sends legacy transaction.
-func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
+func prepareAndSignType0(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+	gasPrice, err := GetGasPrice(gasConfig, client, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	txData := types.LegacyTx{
+		Nonce:    nonce,
+		GasPrice: gasPrice,
+		Gas:      gasLimit,
+		To:       &toAddress,
+		Value:    value,
+		Data:     data,
+	}
+
+	tx := types.NewTx(&txData)
+	signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
+}
+
+func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+	gasFeeCap := new(big.Int)
+	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
+		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
+	} else {
+		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+		baseFeePerGas, err := baseFee(ctx, client)
+		cancelFunc()
+
+		if err != nil {
+			logger.Debug("Error getting baseFee, %v", err)
+			return nil, err
+		}
+
+		if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
+			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
+		} else {
+			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
+		}
+	}
+
+	tipCap := new(big.Int)
+	if gasConfig.MaxPriorityFeePerGas != nil && gasConfig.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
+		tipCap.Set(gasConfig.MaxPriorityFeePerGas)
+	} else {
+		tipCap.Set(DefaultTipCap)
+	}
+
+	txData := types.DynamicFeeTx{
+		ChainID:   chainID,
+		Nonce:     nonce,
+		GasTipCap: tipCap,
+		GasFeeCap: gasFeeCap,
+		Gas:       gasLimit,
+		To:        &toAddress,
+		Value:     value,
+		Data:      data,
+	}
+
+	tx := types.NewTx(&txData)
+	signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
+}
+
+// SendRawType0Tx prepares and sends legacy transaction.
+func SendRawType0Tx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -288,6 +369,73 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, toAddress
 	return nil
 }
 
+func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
+	var err error
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	value := big.NewInt(0)
+
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	chainID, err := client.NetworkID(ctx)
+	cancelFunc()
+	if err != nil {
+		return err
+	}
+
+	var gasLimit uint64
+	if dryRun && gasConfig.GasLimit > 0 {
+		gasLimit = uint64(gasConfig.GasLimit)
+		_, err = DryRunTx(client, fromAddress, toAddress, value, data, timeout)
+		if err != nil {
+			return errors.Wrap(err, "dry run failed")
+		}
+	} else if dryRun {
+		gasLimit, err = DryRunTx(client, fromAddress, toAddress, value, data, timeout)
+		if err != nil {
+			return errors.Wrap(err, "dry run failed")
+		}
+	} else {
+		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data, timeout)
+	}
+
+	var signedTx *types.Transaction
+	switch gasConfig.TxType {
+	case 0:
+		signedTx, err = prepareAndSignType0(client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
+	case 2:
+		signedTx, err = prepareAndSignType2(client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
+	default:
+		return errors.New("unsupported tx type: set TxType to 0 or 2")
+	}
+	if err != nil {
+		return errors.Wrap(err, "preparing tx")
+	}
+
+	logger.Debugf("Sending signed tx: %s", signedTx.Hash().Hex())
+	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+	err = client.SendTransaction(ctx, signedTx)
+	cancelFunc()
+	if err != nil {
+		return err
+	}
+
+	verifier := NewTxVerifier(client)
+
+	err = verifier.WaitUntilMined(fromAddress, signedTx, timeout)
+	if err != nil {
+		return err
+	}
+	logger.Debugf("Successful tx: %s", signedTx.Hash().Hex())
+
+	return nil
+}
+
 // DryRunTx locally executes a transaction with the current state of blockchain and returns estimated Gas multiplied with 1.5 and potential errors.
 func DryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (uint64, error) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
@@ -334,7 +482,6 @@ func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress co
 		} else {
 			gasLimit = 3 * estimatedGas / 2
 			logger.Debugf("Gas limit: %d", gasLimit)
-
 		}
 	} else {
 		gasLimit = uint64(gasConfig.GasLimit)
@@ -344,7 +491,7 @@ func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress co
 
 func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.Duration) (*big.Int, error) {
 	var gasPrice *big.Int
-	if gasConfig.GasPriceFixed.Cmp(common.Big0) == 1 {
+	if gasConfig.GasPriceFixed != nil && gasConfig.GasPriceFixed.Cmp(common.Big0) == 1 {
 		gasPrice = gasConfig.GasPriceFixed
 	} else {
 		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
@@ -363,4 +510,66 @@ func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.D
 		}
 	}
 	return gasPrice, nil
+}
+
+// GasConfigForAttempt sets gas config for a retry attempt.
+//
+// For type 0 transaction, it bumps up GasPriceMultiplier for each retry attempt by 50%,
+// up to a maximum of 10x the original value.
+// If GasPriceFixed is used, the retry multiplier will not be applied.
+//
+// For type 2 transaction, MaxPriorityFeePerGas on the n-the attempt is (1,2)^n times the MaxPriorityFeePerGas of the initial attempt.
+func GasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
+	if cfg.TxType == 0 {
+		if cfg.GasPriceFixed != nil && cfg.GasPriceFixed.Cmp(common.Big0) != 0 {
+			return cfg
+		}
+
+		retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
+
+		return &config.Gas{
+			TxType:   0,
+			GasLimit: cfg.GasLimit,
+
+			GasPriceMultiplier: max(1.0, cfg.GasPriceMultiplier) * float32(retryMultiplier),
+			GasPriceFixed:      cfg.GasPriceFixed,
+		}
+	} else if cfg.TxType == 2 {
+
+		fmt.Print("tukej")
+		tipCap := new(big.Int)
+		if cfg.MaxPriorityFeePerGas != nil && cfg.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
+			tipCap.Set(cfg.MaxPriorityFeePerGas)
+		} else {
+			tipCap.Set(DefaultTipCap)
+		}
+
+		bigRi := big.NewInt(int64(ri))
+
+		multiplierTemp := big.NewInt(tipMultiplierTimes10)
+		multiplierTemp = multiplierTemp.Exp(multiplierTemp, bigRi, nil)
+
+		normalizer := new(big.Int).Exp(big.NewInt(10), bigRi, nil)
+
+		tipCap = tipCap.Mul(tipCap, multiplierTemp)
+		tipCap = tipCap.Div(tipCap, normalizer)
+
+		baseFeeMultiplier := new(big.Int)
+		if cfg.BaseFeeMultiplier != nil {
+			baseFeeMultiplier = baseFeeMultiplier.Set(cfg.BaseFeeMultiplier).Add(baseFeeMultiplier, bigRi)
+		} else {
+			baseFeeMultiplier = big.NewInt(3 + int64(ri))
+		}
+
+		return &config.Gas{
+			TxType:   2,
+			GasLimit: cfg.GasLimit,
+
+			BaseFeeMultiplier:    baseFeeMultiplier,
+			MaxPriorityFeePerGas: tipCap,
+			BaseFeePerGasCap:     cfg.BaseFeePerGasCap,
+		}
+	} else {
+		return cfg
+	}
 }

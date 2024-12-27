@@ -5,8 +5,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"math"
-	"math/big"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -15,7 +13,6 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -63,10 +60,18 @@ type SignatureSubmitter struct {
 }
 
 func (s *SubmitterBase) submit(payload []byte) bool {
+
+	nonce, err := s.chainClient.Nonce(s.submitPrivateKey, 3*time.Second)
+
+	if err != nil {
+		logger.Errorf("error getting nonce: %v", err)
+		return false
+	}
+
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (any, error) {
-		gasConfig := gasConfigForAttempt(s.gasConfig, ri)
+		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
-		err := s.chainClient.SendRawTx(s.submitPrivateKey, s.protocolContext.submitContractAddress, payload, gasConfig, s.submitTimeout, true)
+		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, payload, gasConfig, s.submitTimeout, true)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
@@ -436,50 +441,5 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentEpoch int64, protocols
 		}
 
 		<-ticker.C
-	}
-}
-
-// gasConfigForAttempt sets gas config for a retry attempt.
-//
-// For type 0 transaction, it bumps up GasPriceMultiplier for each retry attempt by 50%,
-// up to a maximum of 10x the original value.
-// If GasPriceFixed is used, the retry multiplier will not be applied.
-//
-// For type 2 transaction, MaxPriorityFeePerGas on the n-the attempt is n times the MaxPriorityFeePerGas of the initial attempt.
-func gasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
-	if cfg.TxType == 0 {
-		if cfg.GasPriceFixed.Cmp(common.Big0) != 0 {
-			return cfg
-		}
-
-		retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
-
-		return &config.Gas{
-			TxType:   0,
-			GasLimit: cfg.GasLimit,
-
-			GasPriceMultiplier: max(1.0, cfg.GasPriceMultiplier) * float32(retryMultiplier),
-			GasPriceFixed:      cfg.GasPriceFixed,
-		}
-	} else if cfg.TxType == 2 {
-		tipCap := new(big.Int)
-		if cfg.MaxPriorityFeePerGas != nil && cfg.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
-			tipCap.Set(cfg.MaxPriorityFeePerGas)
-		} else {
-			tipCap.Set(chain.DefaultTipCap)
-		}
-
-		retryMultiplier := int64(1 + ri)
-		tipCap = tipCap.Mul(tipCap, big.NewInt(retryMultiplier))
-
-		return &config.Gas{
-			TxType:   2,
-			GasLimit: cfg.GasLimit,
-
-			MaxPriorityFeePerGas: tipCap,
-			BaseFeePerGasCap:     cfg.BaseFeePerGasCap,
-		}
-	} else {
-		return cfg
 	}
 }
