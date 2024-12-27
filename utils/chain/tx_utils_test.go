@@ -61,3 +61,160 @@ func TestSendTx(t *testing.T) {
 
 	fmt.Printf("err: %v\n", err)
 }
+
+func TestGasConfigForAttemptType0(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      config2.Gas
+		ri       int
+		expected config2.Gas
+	}{
+		{
+			name: "retry 0",
+			cfg: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 1.0,
+			},
+			ri: 0,
+			expected: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 1.0,
+			},
+		},
+		{
+			name: "retry 1",
+			cfg: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 1.0,
+			},
+			ri: 1,
+			expected: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 1.5,
+			},
+		},
+		{
+			name: "retry 1 - no config",
+			cfg: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 0,
+			},
+			ri: 1,
+			expected: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 1.5,
+			},
+		},
+		{
+			name: "retry 2",
+			cfg: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 1.0,
+			},
+			ri: 2,
+			expected: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(0),
+				GasPriceMultiplier: 2.25,
+			},
+		},
+		{
+			name: "retry 1 - fixed",
+			cfg: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(100),
+				GasPriceMultiplier: 0,
+			},
+			ri: 1,
+			expected: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      big.NewInt(100),
+				GasPriceMultiplier: 0,
+			},
+		},
+		{
+			name: "empty type 0",
+			cfg:  config2.Gas{},
+			ri:   0,
+			expected: config2.Gas{
+				TxType:             0,
+				GasPriceFixed:      nil,
+				GasPriceMultiplier: 1,
+			},
+		},
+		{
+			name: "empty type 2",
+			cfg:  config2.Gas{TxType: 2},
+			ri:   0,
+			expected: config2.Gas{
+				TxType:               2,
+				GasLimit:             0,
+				MaxPriorityFeePerGas: big.NewInt(20_000_000_000),
+				BaseFeeMultiplier:    big.NewInt(3),
+				BaseFeePerGasCap:     nil,
+			},
+		},
+		{
+			name: "zero type 2",
+			cfg: config2.Gas{
+				TxType:               2,
+				MaxPriorityFeePerGas: big.NewInt(0),
+				BaseFeeMultiplier:    big.NewInt(0),
+				BaseFeePerGasCap:     big.NewInt(0),
+			},
+			ri: 0,
+			expected: config2.Gas{
+				TxType:               2,
+				GasLimit:             0,
+				MaxPriorityFeePerGas: big.NewInt(20_000_000_000),
+				BaseFeeMultiplier:    big.NewInt(3),
+				BaseFeePerGasCap:     big.NewInt(0),
+			},
+		},
+		{
+			name: "zero type 2",
+			cfg: config2.Gas{
+				TxType:               2,
+				MaxPriorityFeePerGas: big.NewInt(10_000_000_000),
+				BaseFeeMultiplier:    big.NewInt(2),
+				BaseFeePerGasCap:     big.NewInt(0),
+			},
+			ri: 2,
+			expected: config2.Gas{
+				TxType:               2,
+				GasLimit:             0,
+				MaxPriorityFeePerGas: big.NewInt(14_400_000_000),
+				BaseFeeMultiplier:    big.NewInt(4),
+				BaseFeePerGasCap:     big.NewInt(0),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := chain.GasConfigForAttempt(&test.cfg, test.ri)
+
+			require.Equal(t, test.expected.TxType, got.TxType)
+
+			if got.TxType == 0 {
+				if got.GasPriceFixed.Cmp(test.expected.GasPriceFixed) != 0 {
+					t.Errorf("GasPriceFixed = %v, want %v", got.GasPriceFixed, test.expected.GasPriceFixed)
+				}
+				if got.GasPriceMultiplier != test.expected.GasPriceMultiplier {
+					t.Errorf("GasPriceMultiplier = %v, want %v", got.GasPriceMultiplier, test.expected.GasPriceMultiplier)
+				}
+			} else if got.TxType == 2 {
+				require.Equal(t, test.expected.BaseFeeMultiplier, got.BaseFeeMultiplier)
+				require.Equal(t, test.expected.MaxPriorityFeePerGas, got.MaxPriorityFeePerGas)
+				require.Equal(t, test.expected.BaseFeePerGasCap, got.BaseFeePerGasCap)
+			}
+		})
+	}
+}

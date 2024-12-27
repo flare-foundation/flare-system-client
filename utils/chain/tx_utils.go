@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -535,8 +534,6 @@ func GasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
 			GasPriceFixed:      cfg.GasPriceFixed,
 		}
 	} else if cfg.TxType == 2 {
-
-		fmt.Print("tukej")
 		tipCap := new(big.Int)
 		if cfg.MaxPriorityFeePerGas != nil && cfg.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
 			tipCap.Set(cfg.MaxPriorityFeePerGas)
@@ -555,12 +552,12 @@ func GasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
 		tipCap = tipCap.Div(tipCap, normalizer)
 
 		baseFeeMultiplier := new(big.Int)
-		if cfg.BaseFeeMultiplier != nil {
-			baseFeeMultiplier = baseFeeMultiplier.Set(cfg.BaseFeeMultiplier).Add(baseFeeMultiplier, bigRi)
+		if cfg.BaseFeeMultiplier != nil && cfg.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
+			baseFeeMultiplier = baseFeeMultiplier.Set(cfg.BaseFeeMultiplier)
+			baseFeeMultiplier = baseFeeMultiplier.Add(baseFeeMultiplier, bigRi)
 		} else {
 			baseFeeMultiplier = big.NewInt(3 + int64(ri))
 		}
-
 		return &config.Gas{
 			TxType:   2,
 			GasLimit: cfg.GasLimit,
