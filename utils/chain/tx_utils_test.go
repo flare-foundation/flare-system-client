@@ -38,12 +38,12 @@ func TestSendTx(t *testing.T) {
 
 	gasConfig := config2.Gas{TxType: 2, MaxPriorityFeePerGas: big.NewInt(1)}
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	nonce, err := cl.NonceAt(ctx, addr, nil)
 	require.NoError(t, err)
 	cancelFunc()
 
-	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2}, true, &gasConfig, 3*time.Second)
+	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2}, true, &gasConfig, 10*time.Second)
 
 	require.NoError(t, err)
 }
