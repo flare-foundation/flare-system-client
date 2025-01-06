@@ -1,7 +1,9 @@
 package epoch
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -148,12 +150,10 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 		V: signature[64] + 27,
 	}
 
-	gasPrice, err := chain.GetGasPrice(r.gasCfg, r.ethClient, chain.DefaultTxTimeout)
+	err = SetGas(r.senderTxOpts, r.ethClient, r.gasCfg)
 	if err != nil {
-		logger.Warnf("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
-		gasPrice = fallbackGasPrice
+		return err
 	}
-	r.senderTxOpts.GasPrice = gasPrice
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
 		r.ethClient,
@@ -223,12 +223,10 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochId *big
 		V: signature[64] + 27,
 	}
 
-	gasPrice, err := chain.GetGasPrice(r.gasCfg, r.ethClient, chain.DefaultTxTimeout)
+	err = SetGas(r.senderTxOpts, r.ethClient, r.gasCfg)
 	if err != nil {
-		logger.Warnf("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
-		gasPrice = fallbackGasPrice
+		return err
 	}
-	r.senderTxOpts.GasPrice = gasPrice
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
 		r.ethClient,
@@ -261,4 +259,53 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochId *big
 	}
 	logger.Infof("Voter %s pre-registered for epoch %v", address, nextRewardEpochId)
 	return nil
+}
+
+// SetGas sets gas parameters in txOptions according to the gasConfig.
+func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *config.Gas) error {
+	switch gasConfig.TxType {
+	case 0:
+		gasPrice, err := chain.GetGasPrice(gasConfig, client, chain.DefaultTxTimeout)
+		if err != nil {
+			logger.Warnf("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
+			gasPrice = new(big.Int).Set(fallbackGasPrice)
+		}
+		txOptions.GasPrice = gasPrice
+		return nil
+	case 2:
+		gasFeeCap := new(big.Int)
+		if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
+			gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
+		} else {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+			baseFeePerGas, err := chain.BaseFee(ctx, client)
+			cancelFunc()
+
+			if err != nil {
+				logger.Debug("Error getting baseFee, %v", err)
+				return err
+			}
+
+			if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
+				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
+			} else {
+				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(4))
+			}
+		}
+
+		tipCap := new(big.Int)
+		if gasConfig.MaxPriorityFeePerGas != nil && gasConfig.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
+			tipCap.Set(gasConfig.MaxPriorityFeePerGas)
+		} else {
+			tipCap.Set(chain.DefaultTipCap)
+		}
+		gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
+
+		txOptions.GasFeeCap = gasFeeCap
+		txOptions.GasTipCap = tipCap
+		return nil
+	default:
+		// should never happen. txType is checked when config is read
+		return fmt.Errorf("unsupported tx type: %d", gasConfig.TxType)
+	}
 }
