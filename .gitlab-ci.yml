@@ -22,7 +22,7 @@ build:
 
 lint:
     stage: test
-    needs: []
+    needs: [build]
     image: golangci/golangci-lint:${GOLINT_VERSION}
     script:
         - "! gofmt -l . | grep -q ."
@@ -31,6 +31,6 @@ lint:
 test:
     stage: test
     image: golang:${GOLANG_VERSION}
-    needs: []
+    needs: [build]
     script:
         - go test ./...
