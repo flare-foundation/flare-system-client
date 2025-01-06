@@ -416,7 +416,7 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uin
 		return errors.Wrap(err, "preparing tx")
 	}
 
-	logger.Debugf("Sending signed tx: %s", signedTx.Hash().Hex())
+	logger.Debugf("Sending signed tx: %s, nonce: %d", signedTx.Hash().Hex(), nonce)
 	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
 	err = client.SendTransaction(ctx, signedTx)
 	cancelFunc()

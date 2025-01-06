@@ -21,6 +21,12 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
 )
 
+var (
+	nonFatalSubmitterErrors = []string{
+		"nonce too low", // the transaction with the same input has already been accepted
+	}
+)
+
 type SubmitterBase struct {
 	chainClient chain.Client
 	gasConfig   *config.Gas
@@ -59,7 +65,11 @@ type SignatureSubmitter struct {
 	cycleDuration time.Duration // minimal duration of one cycle
 }
 
-func (s *SubmitterBase) submit(payload []byte) bool {
+// submit submits tx with payload to submitContractAddress with latest nonce.
+func (s *SubmitterBase) submit(input []byte) bool {
+	if len(input) <= 4 {
+		return false
+	}
 
 	nonce, err := s.chainClient.Nonce(s.submitPrivateKey, 3*time.Second)
 
@@ -71,12 +81,17 @@ func (s *SubmitterBase) submit(payload []byte) bool {
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (any, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
-		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, payload, gasConfig, s.submitTimeout, true)
+		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
 		if err != nil {
+			if ri > 0 && shared.ExistsAsSubstring(nonFatalSubmitterErrors, err.Error()) {
+				logger.Debugf("Non fatal error sending tx for submitter %s: %v", s.name, err)
+				return "non fatal error", nil
+			}
 			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
 		return nil, nil
 	}, s.submitRetries, 1*time.Second)
+
 	if sendResult.Success {
 		logger.Infof("Submitter %s successfully sent tx", s.name)
 	}

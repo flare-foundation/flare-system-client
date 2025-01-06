@@ -21,30 +21,27 @@ func TestSendTx(t *testing.T) {
 	cl, err := chainCfg.DialETH()
 	require.NoError(t, err)
 
-	// if out off gas use faucet for coston 2
+	// if out off gas, use faucet for coston 2
 	testPrivateKey := "38f9137948fd4779212fa53fcdb0e41cfe8fa6c249c0e3c50994743f444aaded"
 	pk, err := credentials.PrivateKeyFromHex(testPrivateKey)
 	require.NoError(t, err)
 	testPrivateAddress := "0xf52413dD9D7dDB8b4c9DAF249BF79De7a7821577"
 	addr := common.HexToAddress(testPrivateAddress)
 
-	// fmt.Printf("addr: %v\n", addr)
-
 	deadAddress := "0x000000000000000000000000000000000000dead"
 	toAddress := common.HexToAddress(deadAddress)
 
-	// deadAddress2 := "0x00000000000000000000000000000000000dead22"
-	// toAddress2 := common.HexToAddress(deadAddress2)
-
-	gasConfig := config2.Gas{TxType: 2, MaxPriorityFeePerGas: big.NewInt(1)}
-
+	gasConfigType2 := config2.Gas{TxType: 2, MaxPriorityFeePerGas: big.NewInt(1)}
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	nonce, err := cl.NonceAt(ctx, addr, nil)
 	require.NoError(t, err)
 	cancelFunc()
 
-	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2}, true, &gasConfig, 10*time.Second)
+	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 10*time.Second)
+	require.NoError(t, err)
 
+	gasConfigType0 := config2.Gas{TxType: 0, GasPriceMultiplier: 3}
+	err = chain.SendRawTx(cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 10*time.Second)
 	require.NoError(t, err)
 }
 

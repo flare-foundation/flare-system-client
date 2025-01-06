@@ -28,6 +28,7 @@ func (c ClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, nonce uint64, to com
 	return SendRawTx(c.EthClient, privateKey, nonce, to, payload, dryRun, gasConfig, timeout)
 }
 
+// Nonce returns of the address corresponding to the privateKey from the latest known block.
 func (c ClientImpl) Nonce(privateKey *ecdsa.PrivateKey, timeout time.Duration) (uint64, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)

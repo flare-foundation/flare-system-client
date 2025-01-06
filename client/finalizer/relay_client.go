@@ -163,7 +163,6 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
 				return "non fatal error", nil
-
 			} else {
 				return "", errors.Wrap(err, "Error sending relay tx")
 			}
