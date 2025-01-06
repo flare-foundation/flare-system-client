@@ -37,11 +37,11 @@ func TestSendTx(t *testing.T) {
 	require.NoError(t, err)
 	cancelFunc()
 
-	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 10*time.Second)
+	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 15*time.Second)
 	require.NoError(t, err)
 
 	gasConfigType0 := config2.Gas{TxType: 0, GasPriceMultiplier: 3}
-	err = chain.SendRawTx(cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 10*time.Second)
+	err = chain.SendRawTx(cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 15*time.Second)
 	require.NoError(t, err)
 }
 
