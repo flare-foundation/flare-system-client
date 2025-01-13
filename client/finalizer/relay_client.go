@@ -105,6 +105,15 @@ func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int6
 		}
 		allLogs = append(allLogs, logsOld...)
 	}
+	// If using new Flare Relay, query the old one as well.
+	// Note: this won't have any effect on other networks as we currently have unique Relay addresses for each network.
+	if r.address == common.HexToAddress("0x57a4c3676d08Aa5d15410b5A6A80fBcEF72f3F45") {
+		logsOld, err := db.FetchLogsByAddressAndTopic0(common.HexToAddress("0xea077600E3065F4FAd7161a6D0977741f2618eec"), r.topic0SPI, from, to)
+		if err != nil {
+			return nil, err
+		}
+		allLogs = append(allLogs, logsOld...)
+	}
 	// END TEMP CHANGE
 
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, from, to)
