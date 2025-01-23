@@ -90,9 +90,9 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	_, exists := pc.signatureCollection[msgHsh]
 	if !exists {
 		pc.signatureCollection[msgHsh] = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
-		pc.messageChosenHash = msgHsh
 	}
 
+	pc.messageChosenHash = msgHsh
 	pc.signatureCollection[msgHsh].message = message
 	pc.messageAdded = true
 
