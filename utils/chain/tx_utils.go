@@ -31,11 +31,12 @@ const (
 
 	baseFeeCapMultiplier = 4
 
-	tipMultiplierTimes10 int64 = 12
+	retryTipMultiplierTimes10 int64 = 12 // 1,2 * 10
 )
 
 var (
-	DefaultTipCap = big.NewInt(DefaultTipPerGasCap)
+	DefaultTipCap               = big.NewInt(DefaultTipPerGasCap)  // 20 GWei
+	DefaultBaseFeeCapMultiplier = big.NewInt(baseFeeCapMultiplier) // 4
 )
 
 type TxVerifier struct {
@@ -106,6 +107,7 @@ func BaseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	return (*big.Int)(&result), err
 }
 
+// prepareAndSignType0 prepares a type 0 (legacy) transaction and signs it.
 func prepareAndSignType0(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
 	gasPrice, err := GetGasPrice(gasConfig, client, timeout)
 	if err != nil {
@@ -130,6 +132,7 @@ func prepareAndSignType0(client *ethclient.Client, gasConfig *config.Gas, privat
 	return signedTx, nil
 }
 
+// prepareAndSignType0 prepares a type 2 (eip 1559) transaction and signs it.
 func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
 	gasFeeCap := new(big.Int)
 	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
@@ -180,6 +183,7 @@ func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privat
 	return signedTx, nil
 }
 
+// SendRawTx sends a transaction to toAddress with input data with prescribed nonce and gasConfig.
 func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
 	var err error
 
@@ -330,13 +334,13 @@ func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.D
 // If GasPriceFixed is used, the retry multiplier will not be applied.
 //
 // For type 2 transaction, MaxPriorityFeePerGas on the n-the attempt is (1,2)^n times the MaxPriorityFeePerGas of the initial attempt.
-func GasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
+func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 	if cfg.TxType == 0 {
 		if cfg.GasPriceFixed != nil && cfg.GasPriceFixed.Cmp(common.Big0) != 0 {
 			return cfg
 		}
 
-		retryMultiplier := min(10.0, math.Pow(1.5, float64(ri)))
+		retryMultiplier := min(10.0, math.Pow(1.5, float64(attempt)))
 
 		return &config.Gas{
 			TxType:   0,
@@ -353,12 +357,12 @@ func GasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
 			tipCap.Set(DefaultTipCap)
 		}
 
-		bigRi := big.NewInt(int64(ri))
+		attemptBig := big.NewInt(int64(attempt))
 
-		multiplierTemp := big.NewInt(tipMultiplierTimes10)
-		multiplierTemp = multiplierTemp.Exp(multiplierTemp, bigRi, nil)
+		multiplierTemp := big.NewInt(retryTipMultiplierTimes10)
+		multiplierTemp = multiplierTemp.Exp(multiplierTemp, attemptBig, nil)
 
-		normalizer := new(big.Int).Exp(big.NewInt(10), bigRi, nil)
+		normalizer := new(big.Int).Exp(big.NewInt(10), attemptBig, nil)
 
 		tipCap = tipCap.Mul(tipCap, multiplierTemp)
 		tipCap = tipCap.Div(tipCap, normalizer)
@@ -366,9 +370,9 @@ func GasConfigForAttempt(cfg *config.Gas, ri int) *config.Gas {
 		baseFeeMultiplier := new(big.Int)
 		if cfg.BaseFeeMultiplier != nil && cfg.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
 			baseFeeMultiplier = baseFeeMultiplier.Set(cfg.BaseFeeMultiplier)
-			baseFeeMultiplier = baseFeeMultiplier.Add(baseFeeMultiplier, bigRi)
+			baseFeeMultiplier = baseFeeMultiplier.Add(baseFeeMultiplier, attemptBig)
 		} else {
-			baseFeeMultiplier = big.NewInt(3 + int64(ri))
+			baseFeeMultiplier = big.NewInt(3 + int64(attempt))
 		}
 		return &config.Gas{
 			TxType:   2,

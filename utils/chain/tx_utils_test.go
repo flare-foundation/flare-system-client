@@ -21,7 +21,7 @@ func TestSendTx(t *testing.T) {
 	cl, err := chainCfg.DialETH()
 	require.NoError(t, err)
 
-	// if out off gas, use faucet for coston 2
+	// if out of gas, use faucet for coston 2
 	testPrivateKey := "38f9137948fd4779212fa53fcdb0e41cfe8fa6c249c0e3c50994743f444aaded"
 	pk, err := credentials.PrivateKeyFromHex(testPrivateKey)
 	require.NoError(t, err)

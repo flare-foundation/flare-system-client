@@ -26,9 +26,10 @@ import (
 
 var (
 	registratorArguments abi.Arguments
-	fallbackGasPrice     = big.NewInt(50 * 1e9)
 	registryAbi          *abi.ABI
 	preregistryAbi       *abi.ABI
+
+	fallbackGasPrice = big.NewInt(50 * 1e9) // 50 GWei
 )
 
 var (
@@ -74,7 +75,6 @@ func init() {
 		// panic, this error is fatal
 		panic(err)
 	}
-
 }
 
 type registryContractClient interface {
@@ -121,9 +121,9 @@ func NewRegistryContractClient(
 		txVerifier:         chain.NewTxVerifier(ethClient),
 		signerPrivateKey:   signerPk,
 	}, nil
-
 }
 
+// RegisterVoter tries to register voter on VoterRegistry smart contract.
 func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := r.sendRegisterVoter(nextRewardEpochId, address)
@@ -188,15 +188,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 	return nil
 }
 
-func (r *registryContractClientImpl) createSignature(nextRewardEpochId uint32, address common.Address) ([]byte, error) {
-	message, err := registratorArguments.Pack(nextRewardEpochId, address)
-	if err != nil {
-		return nil, err
-	}
-	messageHash := crypto.Keccak256(message)
-	return crypto.Sign(accounts.TextHash(messageHash), r.signerPrivateKey)
-}
-
+// PreregisterVoter tries to pre-register voter on VoterPreRegistry smart contract.
 func (r *registryContractClientImpl) PreregisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := r.sendPreRegisterVoter(nextRewardEpochId, address)
@@ -261,6 +253,16 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochId *big
 	return nil
 }
 
+// createSignature creates ECDSA message signature keccak256(abi.encode(nextRewardEpochId, address)) with signerPrivateKey
+func (r *registryContractClientImpl) createSignature(nextRewardEpochId uint32, address common.Address) ([]byte, error) {
+	message, err := registratorArguments.Pack(nextRewardEpochId, address)
+	if err != nil {
+		return nil, err
+	}
+	messageHash := crypto.Keccak256(message)
+	return crypto.Sign(accounts.TextHash(messageHash), r.signerPrivateKey)
+}
+
 // SetGas sets gas parameters in txOptions according to the gasConfig.
 func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *config.Gas) error {
 	switch gasConfig.TxType {
@@ -289,7 +291,7 @@ func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *c
 			if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
 				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
 			} else {
-				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(4))
+				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, chain.DefaultBaseFeeCapMultiplier)
 			}
 		}
 
@@ -305,7 +307,7 @@ func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *c
 		txOptions.GasTipCap = tipCap
 		return nil
 	default:
-		// should never happen. txType is checked when config is read
+		// should never happen. txType is checked when config is read from toml file.
 		return fmt.Errorf("unsupported tx type: %d", gasConfig.TxType)
 	}
 }

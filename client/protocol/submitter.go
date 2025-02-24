@@ -78,7 +78,7 @@ func (s *SubmitterBase) submit(input []byte) bool {
 		return false
 	}
 
-	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (any, error) {
+	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
 		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
@@ -87,9 +87,9 @@ func (s *SubmitterBase) submit(input []byte) bool {
 				logger.Debugf("Non fatal error sending tx for submitter %s: %v", s.name, err)
 				return "non fatal error", nil
 			}
-			return nil, errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
+			return "", errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
-		return nil, nil
+		return "", nil
 	}, s.submitRetries, 1*time.Second)
 
 	if sendResult.Success {

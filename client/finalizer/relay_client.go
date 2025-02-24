@@ -68,6 +68,7 @@ func NewRelayContractClient(
 		panic(err)
 	}
 	relaySelectorBytes := relayABI.Methods["relay"].ID
+
 	topic0SPI, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal
@@ -92,6 +93,7 @@ func NewRelayContractClient(
 	}, nil
 }
 
+// FetchSigningPolicies fetches signing policies emitted by in SigningPolicyInitialized events from Relay smart contract with timestamps in the interval (from,to].
 func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
 	var allLogs []database.Log
 
@@ -175,7 +177,6 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	} else {
 		logger.Warnf("Relaying failed with: %v", sendResult.Message)
 	}
-
 }
 
 // ProtocolMessageRelayed returns a set of pairs of protocol and round that have been finalized.

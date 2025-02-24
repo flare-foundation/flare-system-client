@@ -211,7 +211,7 @@ func validate(cfg *Client) error {
 	return nil
 }
 
-// validateGas checks consistency of gas configurations.
+// validateGas checks viability of gas configurations.
 func validateGas(cfg *Gas) error {
 	if cfg.TxType != 0 && cfg.TxType != 2 {
 		return errors.New("unsupported tx_type")
@@ -220,7 +220,6 @@ func validateGas(cfg *Gas) error {
 	if cfg.TxType == 2 && cfg.BaseFeePerGasCap.Cmp(common.Big0) == 1 {
 		logger.Warnf("a fixed BaseFeePerGasCap %v is used", cfg.BaseFeePerGasCap)
 	}
-
 	if cfg.TxType == 2 && cfg.BaseFeeMultiplier.Cmp(common.Big0) == -1 {
 		return errors.New("negative base fee multiplier")
 	}
