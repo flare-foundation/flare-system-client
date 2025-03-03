@@ -333,7 +333,7 @@ func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.D
 // up to a maximum of 10x the original value.
 // If GasPriceFixed is used, the retry multiplier will not be applied.
 //
-// For type 2 transaction, MaxPriorityFeePerGas on the n-the attempt is (1,2)^n times the MaxPriorityFeePerGas of the initial attempt.
+// For type 2 transaction, MaxPriorityFeePerGas on the n-the attempt is n-th power of 1,2 times the MaxPriorityFeePerGas of the initial attempt.
 func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 	if cfg.TxType == 0 {
 		if cfg.GasPriceFixed != nil && cfg.GasPriceFixed.Cmp(common.Big0) != 0 {

@@ -156,7 +156,8 @@ func new() *Client {
 		Submit1: defaultSubmitConfig,
 		Submit2: defaultSubmitConfig,
 		SubmitSignatures: SubmitSignatures{
-			Submit: defaultSubmitConfig,
+			Submit:   defaultSubmitConfig,
+			Deadline: 60 * time.Second,
 		},
 		SubmitGas:   Gas{GasPriceFixed: big.NewInt(0)},
 		RegisterGas: Gas{GasPriceFixed: big.NewInt(0)},
