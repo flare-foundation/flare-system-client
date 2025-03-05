@@ -151,16 +151,16 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		return
 	}
 
-	nonce, err := r.chainClient.Nonce(r.privateKey, 2*time.Second)
-	if err != nil {
-		logger.Error("error getting nonce: %v", err)
-		return
-	}
-
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
 
-		err := r.chainClient.SendRawTx(r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
+		nonce, err := r.chainClient.Nonce(r.privateKey, 2*time.Second)
+		if err != nil {
+			logger.Error("error getting nonce: %v", err)
+			return "", errors.Wrap(err, "Error sending relay tx")
+		}
+
+		err = r.chainClient.SendRawTx(r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)

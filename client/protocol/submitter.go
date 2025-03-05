@@ -72,7 +72,6 @@ func (s *SubmitterBase) submit(input []byte) bool {
 	}
 
 	nonce, err := s.chainClient.Nonce(s.submitPrivateKey, 3*time.Second)
-
 	if err != nil {
 		logger.Errorf("error getting nonce: %v", err)
 		return false
