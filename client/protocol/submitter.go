@@ -94,7 +94,7 @@ func (s *SubmitterBase) submit(input []byte) bool {
 	if sendResult.Success {
 		logger.Infof("Submitter %s successfully sent tx", s.name)
 	} else {
-		logger.Errorf("Submiter %s unsuccesful tx: %s", s.name, sendResult.Message)
+		logger.Errorf("Submitter %s unsuccessful tx: %s", s.name, sendResult.Message)
 	}
 	return sendResult.Success
 }
