@@ -204,7 +204,7 @@ type sentTxInfo struct {
 }
 
 func (c *testChainClient) SendRawTx(
-	privateKey *ecdsa.PrivateKey, to common.Address, payload []byte, _ *clientConfig.Gas, _ time.Duration, _ bool,
+	privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, payload []byte, _ *clientConfig.Gas, _ time.Duration, _ bool,
 ) error {
 	c.sentTxs = append(c.sentTxs, &sentTxInfo{
 		privateKey: privateKey,
@@ -212,6 +212,10 @@ func (c *testChainClient) SendRawTx(
 		payload:    payload,
 	})
 	return nil
+}
+
+func (c *testChainClient) Nonce(_ *ecdsa.PrivateKey, _ time.Duration) (uint64, error) {
+	return 10, nil
 }
 
 type testAPIEndpoint struct {

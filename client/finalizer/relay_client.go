@@ -26,6 +26,7 @@ const (
 var (
 	nonFatalRelayErrors = []string{
 		"Already relayed",
+		"nonce too low",
 	}
 )
 
@@ -67,6 +68,7 @@ func NewRelayContractClient(
 		panic(err)
 	}
 	relaySelectorBytes := relayABI.Methods["relay"].ID
+
 	topic0SPI, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal
@@ -91,30 +93,9 @@ func NewRelayContractClient(
 	}, nil
 }
 
+// FetchSigningPolicies fetches signing policies emitted by in SigningPolicyInitialized events from Relay smart contract with timestamps in the interval (from,to].
 func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
 	var allLogs []database.Log
-
-	// TEMP CHANGE for upgrading Relay contract, can be removed after 20 Jan 2025
-
-	// If using new Coston2 Relay, query the old one as well.
-	// Note: this won't have any effect on other networks as we currently have unique Relay addresses for each network.
-	if r.address == common.HexToAddress("0x97702e350CaEda540935d92aAf213307e9069784") {
-		logsOld, err := db.FetchLogsByAddressAndTopic0(common.HexToAddress("0x4087D4B5E009Af9FF41db910205439F82C3dc63c"), r.topic0SPI, from, to)
-		if err != nil {
-			return nil, err
-		}
-		allLogs = append(allLogs, logsOld...)
-	}
-	// If using new Flare Relay, query the old one as well.
-	// Note: this won't have any effect on other networks as we currently have unique Relay addresses for each network.
-	if r.address == common.HexToAddress("0x57a4c3676d08Aa5d15410b5A6A80fBcEF72f3F45") {
-		logsOld, err := db.FetchLogsByAddressAndTopic0(common.HexToAddress("0xea077600E3065F4FAd7161a6D0977741f2618eec"), r.topic0SPI, from, to)
-		if err != nil {
-			return nil, err
-		}
-		allLogs = append(allLogs, logsOld...)
-	}
-	// END TEMP CHANGE
 
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, from, to)
 	if err != nil {
@@ -170,13 +151,20 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		return
 	}
 
-	execStatusChan := shared.ExecuteWithRetryChan(func() (string, error) {
-		err := r.chainClient.SendRawTx(r.privateKey, r.address, input, r.gasConfig, chain.DefaultTxTimeout, dryRun)
+	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
+		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
+
+		nonce, err := r.chainClient.Nonce(r.privateKey, 2*time.Second)
+		if err != nil {
+			logger.Error("error getting nonce: %v", err)
+			return "", errors.Wrap(err, "Error sending relay tx")
+		}
+
+		err = r.chainClient.SendRawTx(r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
 				return "non fatal error", nil
-
 			} else {
 				return "", errors.Wrap(err, "Error sending relay tx")
 			}
@@ -184,16 +172,10 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		return "success", nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 
-	select {
-	case execStatus := <-execStatusChan:
-		if execStatus.Success {
-			logger.Infof("Relaying finished for protocol %d with %s", protocolID, execStatus.Value)
-		} else {
-			logger.Warnf("Relaying failed with: %v", execStatus.Message)
-		}
-
-	case <-ctx.Done():
-		return
+	if sendResult.Success {
+		logger.Infof("Relaying finished for protocol %d with %s", protocolID, sendResult.Value)
+	} else {
+		logger.Warnf("Relaying failed with: %v", sendResult.Message)
 	}
 }
 

@@ -145,7 +145,7 @@ type sentTxInfo struct {
 	data       []byte
 }
 
-func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Address, data []byte, _ *config.Gas, _ time.Duration, _ bool) error {
+func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, data []byte, _ *config.Gas, _ time.Duration, _ bool) error {
 	eth.mu.Lock()
 	defer eth.mu.Unlock()
 
@@ -162,6 +162,9 @@ func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, to common.Addr
 	})
 
 	return nil
+}
+func (eth *testEthClient) Nonce(privateKey *ecdsa.PrivateKey, timeout time.Duration) (uint64, error) {
+	return 10, nil
 }
 
 func (eth *testEthClient) hasAnyCalls() bool {

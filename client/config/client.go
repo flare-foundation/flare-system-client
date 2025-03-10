@@ -130,6 +130,7 @@ type Gas struct {
 
 	// type 2
 	MaxPriorityFeePerGas *big.Int `toml:"max_priority_fee_per_gas"`
+	BaseFeeMultiplier    *big.Int `toml:"base_fee_multiplier"`
 	BaseFeePerGasCap     *big.Int `toml:"base_fee_per_gas_cap"`
 }
 
@@ -211,10 +212,17 @@ func validate(cfg *Client) error {
 	return nil
 }
 
-// validateGas checks consistency of gas configurations.
+// validateGas checks viability of gas configurations.
 func validateGas(cfg *Gas) error {
 	if cfg.TxType != 0 && cfg.TxType != 2 {
 		return errors.New("unsupported tx_type")
+	}
+
+	if cfg.TxType == 2 && cfg.BaseFeePerGasCap.Cmp(common.Big0) == 1 {
+		logger.Warnf("a fixed BaseFeePerGasCap %v is used", cfg.BaseFeePerGasCap)
+	}
+	if cfg.TxType == 2 && cfg.BaseFeeMultiplier.Cmp(common.Big0) == -1 {
+		return errors.New("negative base fee multiplier")
 	}
 
 	if cfg.TxType == 0 && cfg.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.GasPriceMultiplier != 0.0 {
