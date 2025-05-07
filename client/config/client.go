@@ -209,6 +209,35 @@ func validate(cfg *Client) error {
 	if err != nil {
 		return fmt.Errorf("validating RelayGas: %v", err)
 	}
+	err = validateContracts(cfg)
+	if err != nil {
+		return fmt.Errorf("validating contracts: %v", err)
+	}
+	return nil
+}
+
+func validateContracts(cfg *Client) error {
+	if cfg.ContractAddresses.Submission == (common.Address{}) {
+		return errors.New("submission contract address not set")
+	}
+	if cfg.ContractAddresses.SystemsManager == (common.Address{}) {
+		return errors.New("systems_manager contract address not set")
+	}
+	if cfg.Clients.EnabledPreregistration {
+		if cfg.ContractAddresses.VoterPreRegistry == (common.Address{}) {
+			return errors.New("pre-registration enabled but voter_preregistry contract address not set")
+		}
+	}
+	if cfg.Clients.EnabledRegistration {
+		if cfg.ContractAddresses.VoterRegistry == (common.Address{}) {
+			return errors.New("registration enabled but voter_registry contract address not set")
+		}
+	}
+	if cfg.Clients.EnabledFinalizer {
+		if cfg.ContractAddresses.Relay == (common.Address{}) {
+			return errors.New("finalizer enabled but relay contract address not set")
+		}
+	}
 	return nil
 }
 
