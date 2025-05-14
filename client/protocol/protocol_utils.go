@@ -67,7 +67,7 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling protocol client API")
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("protocol client returned http status %v", resp.Status)
