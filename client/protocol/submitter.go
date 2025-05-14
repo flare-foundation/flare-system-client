@@ -66,27 +66,46 @@ type SignatureSubmitter struct {
 }
 
 // submit submits tx with payload to submitContractAddress with latest nonce.
+//
+// On retry, nonce is reused if deadline is exceeded and "nonce too low" is considered non fatal error in the next attempt.
 func (s *SubmitterBase) submit(input []byte) bool {
 	if len(input) <= 4 {
 		return false
 	}
 
-	nonce, err := s.chainClient.Nonce(s.submitPrivateKey, 3*time.Second)
-	if err != nil {
-		logger.Errorf("error getting nonce: %v", err)
+	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(s.submitPrivateKey, 2*time.Second) }, 3, 500*time.Millisecond)
+	if !nonceResult.Success {
+		logger.Errorf("error getting nonce: %v", nonceResult.Message)
 		return false
 	}
+	nonce := nonceResult.Value
+
+	timedOut := false
 
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
 		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
 		if err != nil {
-			if ri > 0 && shared.ExistsAsSubstring(nonFatalSubmitterErrors, err.Error()) {
+			if timedOut && shared.ExistsAsSubstring(nonFatalSubmitterErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending tx for submitter %s: %v", s.name, err)
-				return "non fatal error", nil
+				return fmt.Sprintf("non fatal error: %v", err), nil
 			}
-			return "", errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
+
+			if shared.ExistsAsSubstring([]string{context.DeadlineExceeded.Error()}, err.Error()) {
+				// do not update nonce
+				timedOut = true
+				return "", errors.Wrap(err, "sending submit tx")
+			}
+
+			// update nonce
+			newNonce, errNonce := s.chainClient.Nonce(s.submitPrivateKey, time.Second)
+			if errNonce != nil {
+				err = fmt.Errorf("%v, updating nonce :%v", err, errNonce)
+			} else {
+				nonce = newNonce
+			}
+			return "", errors.Wrap(err, "sending submit tx")
 		}
 		return "", nil
 	}, s.submitRetries, 1*time.Second)

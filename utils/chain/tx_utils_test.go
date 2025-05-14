@@ -37,11 +37,11 @@ func TestSendTx(t *testing.T) {
 	require.NoError(t, err)
 	cancelFunc()
 
-	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 15*time.Second)
+	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 3*time.Second)
 	require.NoError(t, err)
 
 	gasConfigType0 := config2.Gas{TxType: 0, GasPriceMultiplier: 3}
-	err = chain.SendRawTx(cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 15*time.Second)
+	err = chain.SendRawTx(cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 3*time.Second)
 	require.NoError(t, err)
 }
 
@@ -186,17 +186,19 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 
 			require.Equal(t, test.expected.TxType, got.TxType)
 
-			if got.TxType == 0 {
+			switch got.TxType {
+			case 0:
 				if got.GasPriceFixed.Cmp(test.expected.GasPriceFixed) != 0 {
 					t.Errorf("GasPriceFixed = %v, want %v", got.GasPriceFixed, test.expected.GasPriceFixed)
 				}
 				if got.GasPriceMultiplier != test.expected.GasPriceMultiplier {
 					t.Errorf("GasPriceMultiplier = %v, want %v", got.GasPriceMultiplier, test.expected.GasPriceMultiplier)
 				}
-			} else if got.TxType == 2 {
+			case 2:
 				require.Equal(t, test.expected.BaseFeeMultiplier, got.BaseFeeMultiplier)
 				require.Equal(t, test.expected.MaxPriorityFeePerGas, got.MaxPriorityFeePerGas)
 				require.Equal(t, test.expected.BaseFeePerGasCap, got.BaseFeePerGasCap)
+
 			}
 		})
 	}
