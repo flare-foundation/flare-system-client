@@ -67,13 +67,14 @@ type SignatureSubmitter struct {
 
 // submit submits tx with payload to submitContractAddress with latest nonce.
 //
-// On retry, nonce is reused if deadline is exceeded and "nonce too low" is considered non fatal error in the next attempt.
+// On retry, nonce is reused if deadline is exceeded and "nonce too low" is considered non fatal error in the next attempt
+// (it indicates that the transaction was accepted).
 func (s *SubmitterBase) submit(input []byte) bool {
 	if len(input) <= 4 {
 		return false
 	}
 
-	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(s.submitPrivateKey, 2*time.Second) }, 3, 500*time.Millisecond)
+	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
 	if !nonceResult.Success {
 		logger.Errorf("error getting nonce: %v", nonceResult.Message)
 		return false
@@ -139,7 +140,7 @@ func newSubmitter(
 			subProtocols:      subProtocols,
 			startOffset:       submitCfg.StartOffset,
 			submitRetries:     max(1, submitCfg.TxSubmitRetries),
-			submitTimeout:     max(1*time.Second, submitCfg.TxSubmitTimeout),
+			submitTimeout:     max(2*time.Second, submitCfg.TxSubmitTimeout),
 			name:              name,
 			submitPrivateKey:  pc.submitPrivateKey,
 			dataFetchRetries:  submitCfg.DataFetchRetries,
@@ -210,12 +211,6 @@ func newSignatureSubmitter(
 	subProtocols []*SubProtocol,
 	messageChannel chan<- shared.ProtocolMessage,
 ) *SignatureSubmitter {
-
-	deadline := submitCfg.Deadline - submitCfg.StartOffset
-	if deadline <= 0 {
-		deadline = 0
-	}
-
 	delay := submitCfg.CycleDuration
 	if delay <= 0 {
 		delay = time.Second
@@ -231,7 +226,7 @@ func newSignatureSubmitter(
 			selector:          selector,
 			subProtocols:      subProtocols,
 			submitRetries:     max(1, submitCfg.TxSubmitRetries),
-			submitTimeout:     max(1*time.Second, submitCfg.TxSubmitTimeout),
+			submitTimeout:     max(2*time.Second, submitCfg.TxSubmitTimeout),
 			name:              "submitSignatures",
 			submitPrivateKey:  pc.submitSignaturesPrivateKey,
 			dataFetchTimeout:  submitCfg.DataFetchTimeout,
@@ -240,7 +235,7 @@ func newSignatureSubmitter(
 		maxCycles:      submitCfg.MaxCycles,
 		cycleDuration:  delay,
 		messageChannel: messageChannel,
-		deadline:       deadline,
+		deadline:       max(submitCfg.Deadline-submitCfg.StartOffset, 0),
 	}
 }
 

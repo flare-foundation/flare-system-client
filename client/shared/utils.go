@@ -48,7 +48,7 @@ func ExecuteWithRetryWithContext[T any](ctx context.Context, f func() (T, error)
 
 		select {
 		case <-ctx.Done():
-			return ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("context canceled, finale error: %v", err)}
+			return ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("context closed, final error: %v", err)}
 		default:
 		}
 
