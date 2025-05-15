@@ -22,9 +22,7 @@ import (
 )
 
 var (
-	nonFatalSubmitterErrors = []string{
-		"nonce too low", // the transaction with the same input has already been accepted
-	}
+	nonceTooLowError = "nonce too low" // the transaction with the same input has already been accepted
 )
 
 type SubmitterBase struct {
@@ -87,36 +85,50 @@ func (s *SubmitterBase) submit(input []byte) bool {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
 		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
-		if err != nil {
-			if timedOut && shared.ExistsAsSubstring(nonFatalSubmitterErrors, err.Error()) {
+		if err == nil {
+			return "", nil // Success
+		} else {
+			switch {
+			// Tx was sent, but client timed out awaiting confirmation, and first retry results
+			// in "nonce too low" error -> abort retries to avoid submitting multiple transactions.
+			case timedOut && isNonceTooLow(err):
 				logger.Debugf("Non fatal error sending tx for submitter %s: %v", s.name, err)
 				return fmt.Sprintf("non fatal error: %v", err), nil
-			}
-
-			if shared.ExistsAsSubstring([]string{context.DeadlineExceeded.Error()}, err.Error()) {
-				// do not update nonce
+			// Tx was sent, but client timed out awaiting confirmation -> retry with the same nonce but updated gas config.
+			case isTimeout(err):
 				timedOut = true
-				return "", errors.Wrap(err, "sending submit tx")
+				return "", err
+			// For all other errors, including "nonce too low" without prior timeout -> retry with updated nonce and gas config.
+			default:
+				newNonce, errNonce := s.chainClient.Nonce(s.submitPrivateKey, time.Second)
+				if errNonce != nil {
+					err = fmt.Errorf("%v, updating nonce :%v", err, errNonce)
+				} else {
+					nonce = newNonce
+				}
+				return "", err
 			}
-
-			// update nonce
-			newNonce, errNonce := s.chainClient.Nonce(s.submitPrivateKey, time.Second)
-			if errNonce != nil {
-				err = fmt.Errorf("%v, updating nonce :%v", err, errNonce)
-			} else {
-				nonce = newNonce
-			}
-			return "", errors.Wrap(err, "sending submit tx")
 		}
-		return "", nil
 	}, s.submitRetries, 1*time.Second)
 
 	if sendResult.Success {
-		logger.Infof("Submitter %s successfully sent tx", s.name)
+		if sendResult.Value == "" {
+			logger.Infof("Submitter %s successfully sent tx", s.name)
+		} else {
+			logger.Infof("Submitter %s sent tx, but unable to ascertain its confirmation: %s", s.name, sendResult.Value)
+		}
 	} else {
 		logger.Errorf("Submitter %s unsuccessful tx: %s", s.name, sendResult.Message)
 	}
 	return sendResult.Success
+}
+
+func isNonceTooLow(err error) bool {
+	return shared.ExistsAsSubstring([]string{nonceTooLowError}, err.Error())
+}
+
+func isTimeout(err error) bool {
+	return shared.ExistsAsSubstring([]string{context.DeadlineExceeded.Error()}, err.Error())
 }
 
 func newSubmitter(
