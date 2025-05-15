@@ -22,7 +22,8 @@ import (
 )
 
 var (
-	nonceTooLowError = "nonce too low" // the transaction with the same input has already been accepted
+	nonceTooLowError           = "nonce too low" // the transaction with the same nonce has already been accepted
+	waitUntilMinedTimeoutError = "bind.WaitMined: context deadline exceeded"
 )
 
 type SubmitterBase struct {
@@ -128,7 +129,7 @@ func isNonceTooLow(err error) bool {
 }
 
 func isTimeout(err error) bool {
-	return shared.ExistsAsSubstring([]string{context.DeadlineExceeded.Error()}, err.Error())
+	return shared.ExistsAsSubstring([]string{waitUntilMinedTimeoutError}, err.Error())
 }
 
 func newSubmitter(

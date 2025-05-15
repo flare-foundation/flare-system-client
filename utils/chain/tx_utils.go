@@ -185,8 +185,6 @@ func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privat
 
 // SendRawTx sends a transaction to toAddress with input data with prescribed nonce and gasConfig.
 func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
-	var err error
-
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	value := big.NewInt(0)
