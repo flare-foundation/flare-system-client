@@ -272,7 +272,7 @@ func newSPILog(voterAddress common.Address) (*database.Log, error) {
 		return nil, err
 	}
 
-	_, err = relayContract.RelayFilterer.ParseSigningPolicyInitialized(types.Log{
+	_, err = relayContract.ParseSigningPolicyInitialized(types.Log{
 		Data: packedData,
 		Topics: []common.Hash{
 			common.HexToHash(topicSPIHex),

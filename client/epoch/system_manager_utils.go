@@ -212,7 +212,7 @@ func (s *systemsManagerContractClientImpl) parseRewardEpochStartedEvent(dbLog da
 	if err != nil {
 		return nil, err
 	}
-	return s.flareSystemsManager.FlareSystemsManagerFilterer.ParseRewardEpochStarted(*contractLog)
+	return s.flareSystemsManager.ParseRewardEpochStarted(*contractLog)
 }
 
 func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
@@ -253,7 +253,7 @@ func (s *systemsManagerContractClientImpl) parseVotePowerBlockSelectedEvent(dbLo
 	if err != nil {
 		return nil, err
 	}
-	return s.flareSystemsManager.FlareSystemsManagerFilterer.ParseVotePowerBlockSelected(*contractLog)
+	return s.flareSystemsManager.ParseVotePowerBlockSelected(*contractLog)
 }
 
 func (s *systemsManagerContractClientImpl) RewardEpochTimingFromChain() (*utils.EpochTimingConfig, error) {
@@ -303,7 +303,7 @@ func (s *systemsManagerContractClientImpl) parseSignUptimeVoteEnabledEvent(dbLog
 	if err != nil {
 		return nil, err
 	}
-	return s.flareSystemsManager.FlareSystemsManagerFilterer.ParseSignUptimeVoteEnabled(*contractLog)
+	return s.flareSystemsManager.ParseSignUptimeVoteEnabled(*contractLog)
 }
 
 func (s *systemsManagerContractClientImpl) SignUptimeVote(rewardEpochId *big.Int) <-chan shared.ExecuteStatus[any] {
@@ -389,7 +389,7 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 					logger.Errorf("Error parsing UptimeVoteSigned database log %v", err)
 					continue
 				}
-				uptimeVoteSigned, err := s.flareSystemsManager.FlareSystemsManagerFilterer.ParseUptimeVoteSigned(*contractLog)
+				uptimeVoteSigned, err := s.flareSystemsManager.ParseUptimeVoteSigned(*contractLog)
 				if err != nil {
 					logger.Errorf("Error parsing UptimeVoteSigned event %v", err)
 					continue

@@ -185,14 +185,7 @@ func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privat
 
 // SendRawTx sends a transaction to toAddress with input data with prescribed nonce and gasConfig.
 func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
-	var err error
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
-	}
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	value := big.NewInt(0)
 
@@ -335,7 +328,8 @@ func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.D
 //
 // For type 2 transaction, MaxPriorityFeePerGas on the n-the attempt is n-th power of 1,2 times the MaxPriorityFeePerGas of the initial attempt.
 func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
-	if cfg.TxType == 0 {
+	switch cfg.TxType {
+	case 0:
 		if cfg.GasPriceFixed != nil && cfg.GasPriceFixed.Cmp(common.Big0) != 0 {
 			return cfg
 		}
@@ -349,7 +343,7 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 			GasPriceMultiplier: max(1.0, cfg.GasPriceMultiplier) * float32(retryMultiplier),
 			GasPriceFixed:      cfg.GasPriceFixed,
 		}
-	} else if cfg.TxType == 2 {
+	case 2:
 		tipCap := new(big.Int)
 		if cfg.MaxPriorityFeePerGas != nil && cfg.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
 			tipCap.Set(cfg.MaxPriorityFeePerGas)
@@ -382,7 +376,7 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 			MaxPriorityFeePerGas: tipCap,
 			BaseFeePerGasCap:     cfg.BaseFeePerGasCap,
 		}
-	} else {
+	default:
 		return cfg
 	}
 }

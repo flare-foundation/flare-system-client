@@ -40,7 +40,7 @@ func TestSubmitter(t *testing.T) {
 	var apiEndpoint testAPIEndpoint
 	err := apiEndpoint.Listen()
 	require.NoError(t, err)
-	defer apiEndpoint.Close()
+	defer apiEndpoint.Close() //nolint:errcheck
 
 	apiEndpointURL := apiEndpoint.URL()
 	t.Logf("apiEndpointURL: %v", apiEndpointURL)
@@ -149,7 +149,7 @@ func TestSubmitter(t *testing.T) {
 			cycleDuration:  time.Second,
 		}
 		subProtocolType1 := &SubProtocol{ID: 100, APIUrl: apiEndpointURL, Type: 1}
-		submitter.SubmitterBase.subProtocols = []*SubProtocol{subProtocolType1}
+		submitter.subProtocols = []*SubProtocol{subProtocolType1}
 
 		epochID := int64(1)
 		submitter.RunEpoch(epochID)

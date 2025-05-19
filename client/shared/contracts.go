@@ -12,7 +12,7 @@ func ParseSigningPolicyInitializedEvent(relay *relay.Relay, dbLog database.Log) 
 	if err != nil {
 		return nil, err
 	}
-	return relay.RelayFilterer.ParseSigningPolicyInitialized(*contractLog)
+	return relay.ParseSigningPolicyInitialized(*contractLog)
 }
 
 func ParseProtocolMessageRelayedEvent(relay *relay.Relay, dbLog database.Log) (*relay.RelayProtocolMessageRelayed, error) {
@@ -20,5 +20,5 @@ func ParseProtocolMessageRelayedEvent(relay *relay.Relay, dbLog database.Log) (*
 	if err != nil {
 		return nil, err
 	}
-	return relay.RelayFilterer.ParseProtocolMessageRelayed(*contractLog)
+	return relay.ParseProtocolMessageRelayed(*contractLog)
 }

@@ -22,9 +22,8 @@ import (
 )
 
 var (
-	nonFatalSubmitterErrors = []string{
-		"nonce too low", // the transaction with the same input has already been accepted
-	}
+	nonceTooLowError           = "nonce too low" // the transaction with the same nonce has already been accepted
+	waitUntilMinedTimeoutError = "bind.WaitMined: context deadline exceeded"
 )
 
 type SubmitterBase struct {
@@ -66,37 +65,71 @@ type SignatureSubmitter struct {
 }
 
 // submit submits tx with payload to submitContractAddress with latest nonce.
+//
+// On retry, nonce is reused if deadline is exceeded and "nonce too low" is considered non fatal error in the next attempt
+// (it indicates that the transaction was accepted).
 func (s *SubmitterBase) submit(input []byte) bool {
 	if len(input) <= 4 {
 		return false
 	}
 
-	nonce, err := s.chainClient.Nonce(s.submitPrivateKey, 3*time.Second)
-	if err != nil {
-		logger.Errorf("error getting nonce: %v", err)
+	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
+	if !nonceResult.Success {
+		logger.Errorf("error getting nonce: %v", nonceResult.Message)
 		return false
 	}
+	nonce := nonceResult.Value
+
+	timedOut := false
 
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
 		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
-		if err != nil {
-			if ri > 0 && shared.ExistsAsSubstring(nonFatalSubmitterErrors, err.Error()) {
+		if err == nil {
+			return "", nil // Success
+		} else {
+			switch {
+			// Tx was sent, but client timed out awaiting confirmation, and first retry results
+			// in "nonce too low" error -> abort retries to avoid submitting multiple transactions.
+			case timedOut && isNonceTooLow(err):
 				logger.Debugf("Non fatal error sending tx for submitter %s: %v", s.name, err)
-				return "non fatal error", nil
+				return fmt.Sprintf("non fatal error: %v", err), nil
+			// Tx was sent, but client timed out awaiting confirmation -> retry with the same nonce but updated gas config.
+			case isTimeout(err):
+				timedOut = true
+				return "", err
+			// For all other errors, including "nonce too low" without prior timeout -> retry with updated nonce and gas config.
+			default:
+				newNonce, errNonce := s.chainClient.Nonce(s.submitPrivateKey, time.Second)
+				if errNonce != nil {
+					err = fmt.Errorf("%v, updating nonce :%v", err, errNonce)
+				} else {
+					nonce = newNonce
+				}
+				return "", err
 			}
-			return "", errors.Wrap(err, fmt.Sprintf("error sending submit tx for submitter %s tx", s.name))
 		}
-		return "", nil
 	}, s.submitRetries, 1*time.Second)
 
 	if sendResult.Success {
-		logger.Infof("Submitter %s successfully sent tx", s.name)
+		if sendResult.Value == "" {
+			logger.Infof("Submitter %s successfully sent tx", s.name)
+		} else {
+			logger.Infof("Submitter %s sent tx, but unable to ascertain its confirmation: %s", s.name, sendResult.Value)
+		}
 	} else {
 		logger.Errorf("Submitter %s unsuccessful tx: %s", s.name, sendResult.Message)
 	}
 	return sendResult.Success
+}
+
+func isNonceTooLow(err error) bool {
+	return shared.ExistsAsSubstring([]string{nonceTooLowError}, err.Error())
+}
+
+func isTimeout(err error) bool {
+	return shared.ExistsAsSubstring([]string{waitUntilMinedTimeoutError}, err.Error())
 }
 
 func newSubmitter(
@@ -120,7 +153,7 @@ func newSubmitter(
 			subProtocols:      subProtocols,
 			startOffset:       submitCfg.StartOffset,
 			submitRetries:     max(1, submitCfg.TxSubmitRetries),
-			submitTimeout:     max(1*time.Second, submitCfg.TxSubmitTimeout),
+			submitTimeout:     max(2*time.Second, submitCfg.TxSubmitTimeout),
 			name:              name,
 			submitPrivateKey:  pc.submitPrivateKey,
 			dataFetchRetries:  submitCfg.DataFetchRetries,
@@ -191,12 +224,6 @@ func newSignatureSubmitter(
 	subProtocols []*SubProtocol,
 	messageChannel chan<- shared.ProtocolMessage,
 ) *SignatureSubmitter {
-
-	deadline := submitCfg.Deadline - submitCfg.StartOffset
-	if deadline <= 0 {
-		deadline = 0
-	}
-
 	delay := submitCfg.CycleDuration
 	if delay <= 0 {
 		delay = time.Second
@@ -212,7 +239,7 @@ func newSignatureSubmitter(
 			selector:          selector,
 			subProtocols:      subProtocols,
 			submitRetries:     max(1, submitCfg.TxSubmitRetries),
-			submitTimeout:     max(1*time.Second, submitCfg.TxSubmitTimeout),
+			submitTimeout:     max(2*time.Second, submitCfg.TxSubmitTimeout),
 			name:              "submitSignatures",
 			submitPrivateKey:  pc.submitSignaturesPrivateKey,
 			dataFetchTimeout:  submitCfg.DataFetchTimeout,
@@ -221,7 +248,7 @@ func newSignatureSubmitter(
 		maxCycles:      submitCfg.MaxCycles,
 		cycleDuration:  delay,
 		messageChannel: messageChannel,
-		deadline:       deadline,
+		deadline:       max(submitCfg.Deadline-submitCfg.StartOffset, 0),
 	}
 }
 

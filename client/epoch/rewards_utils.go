@@ -137,7 +137,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 
 		if resp.StatusCode == http.StatusNotFound {
 			return nil, nil // 404 is expected if data is not yet published, don't retry
