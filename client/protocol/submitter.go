@@ -362,7 +362,6 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 				logger.Debugf("unsuccessful data for round %d for protocol %d: %v", currentEpoch-1, protocol.ID, response.Message)
 			}
 		}()
-
 	}
 	buffer := bytes.NewBuffer(nil)
 	buffer.Write(s.selector)
@@ -402,8 +401,8 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(currentEpoch int64, deadline
 			case i := <-finished:
 				finished <- i
 			}
-
 		}
+
 		if readyToSend {
 			cancel()
 

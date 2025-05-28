@@ -365,5 +365,4 @@ func (r *testRegistry) IsVoterRegistered(ctx context.Context, address common.Add
 	}
 
 	return epoch >= r.registeredEpoch, nil
-
 }

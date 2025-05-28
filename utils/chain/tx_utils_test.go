@@ -198,7 +198,6 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 				require.Equal(t, test.expected.BaseFeeMultiplier, got.BaseFeeMultiplier)
 				require.Equal(t, test.expected.MaxPriorityFeePerGas, got.MaxPriorityFeePerGas)
 				require.Equal(t, test.expected.BaseFeePerGasCap, got.BaseFeePerGasCap)
-
 			}
 		})
 	}

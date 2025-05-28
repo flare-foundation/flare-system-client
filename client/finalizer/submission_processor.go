@@ -35,7 +35,6 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 		if err != nil {
 			// if input cannot be decoded, it is not a valid submission and should be skipped
 			logger.Infof("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
-
 		}
 		signaturePayloads = append(signaturePayloads, signaturePayload)
 	}

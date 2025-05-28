@@ -185,7 +185,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 		return FinalizationReady{thresholdReached: false}, err
 	}
 	if thresholdReached {
-		return FinalizationReady{thresholdReached: true, protocolID: p.protocolID, votingRoundID: p.votingRoundID, msgHash: common.Hash(msgHash)}, nil
+		return FinalizationReady{thresholdReached: true, protocolID: p.protocolID, votingRoundID: p.votingRoundID, msgHash: msgHash}, nil
 	}
 
 	return FinalizationReady{thresholdReached: false}, nil

@@ -100,13 +100,12 @@ func buildMessage(protocolID uint8, votingRoundID uint32, payload []byte) string
 func buildMessageForSigning(protocolID uint8, roundID uint32, merkleRoot []byte) string {
 	data := make([]byte, 38)
 
-	data[0] = uint8(protocolID)
-	binary.BigEndian.PutUint32(data[1:5], uint32(roundID))
+	data[0] = protocolID
+	binary.BigEndian.PutUint32(data[1:5], roundID)
 	data[5] = 1 // claim secure random
 	copy(data[6:38], merkleRoot[:])
 
 	return "0x" + hex.EncodeToString(data)
-
 }
 
 func main() {

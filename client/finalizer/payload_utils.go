@@ -110,9 +110,7 @@ func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *vote
 
 	pk, err := crypto.SigToPub(messageHash, transformedSignature)
 	if err != nil {
-
-		fmt.Printf("err: %v\n", err)
-		return err
+		return fmt.Errorf("recovering signer for %v", err)
 	}
 
 	pld.signer = crypto.PubkeyToAddress(*pk)

@@ -64,7 +64,7 @@ func (s *submissionListener) SubmissionTxListen(
 			logger.Warnf("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
 		}
 
-		if tx.BlockNumber > uint64(lastBlockChecked) {
+		if tx.BlockNumber > lastBlockChecked {
 			lastBlockChecked = tx.BlockNumber
 		}
 	}
@@ -88,7 +88,7 @@ func (s *submissionListener) SubmissionTxListen(
 			if err != nil {
 				logger.Warnf("Error processing submitSignatures payload sent by %s: %v", tx.FromAddress, err)
 			}
-			if tx.BlockNumber > uint64(lastBlockChecked) {
+			if tx.BlockNumber > lastBlockChecked {
 				lastBlockChecked = tx.BlockNumber
 			}
 		}
