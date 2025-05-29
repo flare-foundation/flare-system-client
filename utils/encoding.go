@@ -20,7 +20,7 @@ func UInt64ToHex(value uint64) string {
 
 func UInt32ToHex(value uint32) string {
 	buf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, uint32(value))
+	binary.LittleEndian.PutUint32(buf, value)
 	return hex.EncodeToString(buf)
 }
 

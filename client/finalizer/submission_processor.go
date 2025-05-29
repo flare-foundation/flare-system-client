@@ -35,9 +35,9 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 		if err != nil {
 			// if input cannot be decoded, it is not a valid submission and should be skipped
 			logger.Infof("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
-
+		} else {
+			signaturePayloads = append(signaturePayloads, signaturePayload)
 		}
-		signaturePayloads = append(signaturePayloads, signaturePayload)
 	}
 
 	if len(signaturePayloads) > 0 {
@@ -48,8 +48,6 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 			return err
 		}
 	}
-	// -1 for overlap in case of an error and retry above
-	// processor should be able to handle duplicates
 	return nil
 }
 

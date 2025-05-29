@@ -157,32 +157,43 @@ L:
 						// we need to wait for it to complete before shutdown.
 						wg.Add(1)
 					}
+
 					c.submitter1.RunEpoch(currentEpoch)
 				}()
 			}
 
 			if c.submitter2 != nil {
 				go func() {
+					time.Sleep(ticker.Epoch.Period + c.submitter2.startOffset)
+
+					if c.signatureSubmitter != nil {
+						// if running submitter2, and signatureSubmitter is enabled,
+						// we need to wait for it to complete before shutdown.
+						wg.Add(1)
+					}
 					// Submit2 processes the current epoch data in the following epoch
 					// so we wait a full epoch duration + offset before invoking.
 					// TODO: this assumes c.submitter2.epochOffset is always -1
-					time.Sleep(ticker.Epoch.Period + c.submitter2.startOffset)
 					c.submitter2.RunEpoch(currentEpoch + 1)
+
 					if c.submitter1 != nil {
 						wg.Done()
 					}
 				}()
 			}
 			if c.signatureSubmitter != nil {
-				// signatureSubmitter is independent of submit1 and submit2
 				go func() {
-					time.Sleep(c.signatureSubmitter.startOffset)
+					time.Sleep(ticker.Epoch.Period + c.signatureSubmitter.startOffset)
 					c.signatureSubmitter.RunEpoch(currentEpoch)
+
+					if c.submitter2 != nil {
+						wg.Done()
+					}
 				}()
 			}
 		case <-ctx.Done():
-			if c.submitter1 != nil && c.submitter2 != nil {
-				logger.Warn("Stopping submitters. Making sure both submit1 & submit2 have completed for the voting round. Not running submit2 might result in reward penalties.")
+			if c.submitter1 != nil && c.submitter2 != nil || c.submitter2 != nil && c.signatureSubmitter != nil {
+				logger.Warn("Stopping submitters. Making sure both submit1 & submit2 & signatureSubmitter have completed for the voting round.")
 				wg.Wait()
 			}
 
