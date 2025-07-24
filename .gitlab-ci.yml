@@ -1,6 +1,10 @@
+include:
+  - component: $CI_SERVER_FQDN/flarenetwork/infra-public/ci-components/dependency-track@~latest
+
 stages:
   - build
   - test
+  - sbom
 
 variables:
   GOPATH: /go
