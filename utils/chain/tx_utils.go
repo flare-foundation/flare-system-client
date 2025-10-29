@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -89,13 +90,19 @@ var (
 
 func unpackError(result []byte) (string, error) {
 	if len(result) < 4 || !bytes.Equal(result[:4], errorSig) {
-		return "<tx result not Error(string)>", errors.New("tx result not of type Error(string)")
+		return "<tx result not Error(string)>", fmt.Errorf("unknown error signature: %x", result[:4])
 	}
 	vs, err := abi.Arguments{{Type: abiString}}.UnpackValues(result[4:])
 	if err != nil {
 		return "<invalid tx result>", errors.Wrap(err, "unpacking revert reason")
 	}
-	return vs[0].(string), nil
+
+	errStr, ok := vs[0].(string)
+	if !ok {
+		return "<invalid tx result>", errors.New("unexpected error type)")
+	}
+
+	return errStr, nil
 }
 
 // BaseFee returns the BaseFee per gas if the block was mined immediately.

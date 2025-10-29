@@ -9,7 +9,7 @@ stages:
 variables:
   GOPATH: /go
   GOLANG_VERSION: "1.23-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db"
-  GOLINT_VERSION: "v2.0.2"
+  GOLINT_VERSION: "v2.4.0"
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
@@ -37,4 +37,4 @@ test:
   image: golang:${GOLANG_VERSION}
   needs: [build]
   script:
-    - go test ./...
+    - go test -timeout 5m ./...
