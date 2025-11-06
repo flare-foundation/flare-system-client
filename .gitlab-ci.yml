@@ -8,8 +8,8 @@ stages:
 
 variables:
   GOPATH: /go
-  GOLANG_VERSION: "1.23-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db"
-  GOLINT_VERSION: "v2.4.0"
+  GOLANG_VERSION: "1.25.1-trixie@sha256:61226c61f37cb86253c4ac486ef22c47f14bfddb8f60bb4805bfc165001be758"
+  GOLINT_VERSION: "v2.6.1"
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
