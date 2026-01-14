@@ -129,9 +129,9 @@ type Gas struct {
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
 
 	// type 2
-	MaxPriorityFeePerGas *big.Int `toml:"max_priority_fee_per_gas"`
-	BaseFeeMultiplier    *big.Int `toml:"base_fee_multiplier"`
-	BaseFeePerGasCap     *big.Int `toml:"base_fee_per_gas_cap"`
+	MaxPriorityMultiplier *big.Int `toml:"max_priority_fee_multiplier"`
+	BaseFeeMultiplier     *big.Int `toml:"base_fee_multiplier"`
+	BaseFeePerGasCap      *big.Int `toml:"base_fee_per_gas_cap"`
 }
 
 type RewardsConfig struct {

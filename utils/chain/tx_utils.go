@@ -26,17 +26,15 @@ import (
 
 const (
 	// default timeout for waiting for a tx to be mined.
-	DefaultTxTimeout    = 60 * time.Second
-	DefaultGasLimit     = 2_500_000
-	DefaultTipPerGasCap = 20_000_000_000 //20 GWei
+	DefaultTxTimeout     = 60 * time.Second
+	DefaultGasLimit      = 2_500_000
+	defaultTipMultiplier = 2
 
 	baseFeeCapMultiplier = 4
-
-	retryTipMultiplierTimes10 int64 = 12 // 1,2 * 10
 )
 
 var (
-	DefaultTipCap               = big.NewInt(DefaultTipPerGasCap)  // 20 GWei
+	DefaultTipMultiplier        = big.NewInt(defaultTipMultiplier) // 2
 	DefaultBaseFeeCapMultiplier = big.NewInt(baseFeeCapMultiplier) // 4
 )
 
@@ -141,19 +139,18 @@ func prepareAndSignType0(client *ethclient.Client, gasConfig *config.Gas, privat
 
 // prepareAndSignType0 prepares a type 2 (eip 1559) transaction and signs it.
 func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	baseFeePerGas, err := BaseFee(ctx, client)
+	cancelFunc()
+	if err != nil {
+		logger.Debug("Error getting baseFee, %v", err)
+		return nil, err
+	}
+
 	gasFeeCap := new(big.Int)
 	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
 		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
 	} else {
-		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-		baseFeePerGas, err := BaseFee(ctx, client)
-		cancelFunc()
-
-		if err != nil {
-			logger.Debug("Error getting baseFee, %v", err)
-			return nil, err
-		}
-
 		if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
 			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
 		} else {
@@ -161,19 +158,19 @@ func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privat
 		}
 	}
 
-	tipCap := new(big.Int)
-	if gasConfig.MaxPriorityFeePerGas != nil && gasConfig.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
-		tipCap.Set(gasConfig.MaxPriorityFeePerGas)
+	gasTipCap := new(big.Int)
+	if gasConfig.MaxPriorityMultiplier != nil && gasConfig.MaxPriorityMultiplier.Cmp(big.NewInt(0)) == 1 {
+		gasTipCap.Mul(gasConfig.MaxPriorityMultiplier, baseFeePerGas)
 	} else {
-		tipCap.Set(DefaultTipCap)
+		gasTipCap.Mul(DefaultTipMultiplier, baseFeePerGas)
 	}
 
-	gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
+	gasFeeCap = gasFeeCap.Add(gasFeeCap, gasTipCap)
 
 	txData := types.DynamicFeeTx{
 		ChainID:   chainID,
 		Nonce:     nonce,
-		GasTipCap: tipCap,
+		GasTipCap: gasTipCap,
 		GasFeeCap: gasFeeCap,
 		Gas:       gasLimit,
 		To:        &toAddress,
@@ -351,27 +348,20 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 			GasPriceFixed:      cfg.GasPriceFixed,
 		}
 	case 2:
-		tipCap := new(big.Int)
-		if cfg.MaxPriorityFeePerGas != nil && cfg.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
-			tipCap.Set(cfg.MaxPriorityFeePerGas)
-		} else {
-			tipCap.Set(DefaultTipCap)
-		}
-
 		attemptBig := big.NewInt(int64(attempt))
 
-		multiplierTemp := big.NewInt(retryTipMultiplierTimes10)
-		multiplierTemp = multiplierTemp.Exp(multiplierTemp, attemptBig, nil)
-
-		normalizer := new(big.Int).Exp(big.NewInt(10), attemptBig, nil)
-
-		tipCap = tipCap.Mul(tipCap, multiplierTemp)
-		tipCap = tipCap.Div(tipCap, normalizer)
+		maxPriorityMultiplier := new(big.Int)
+		if cfg.MaxPriorityMultiplier != nil && cfg.MaxPriorityMultiplier.Cmp(common.Big0) == 1 {
+			maxPriorityMultiplier.Set(cfg.MaxPriorityMultiplier)
+			maxPriorityMultiplier.Add(maxPriorityMultiplier, attemptBig)
+		} else {
+			maxPriorityMultiplier.SetInt64(defaultTipMultiplier + int64(attempt))
+		}
 
 		baseFeeMultiplier := new(big.Int)
 		if cfg.BaseFeeMultiplier != nil && cfg.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
-			baseFeeMultiplier = baseFeeMultiplier.Set(cfg.BaseFeeMultiplier)
-			baseFeeMultiplier = baseFeeMultiplier.Add(baseFeeMultiplier, attemptBig)
+			baseFeeMultiplier.Set(cfg.BaseFeeMultiplier)
+			baseFeeMultiplier.Add(baseFeeMultiplier, attemptBig)
 		} else {
 			baseFeeMultiplier = big.NewInt(3 + int64(attempt))
 		}
@@ -379,9 +369,9 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 			TxType:   2,
 			GasLimit: cfg.GasLimit,
 
-			BaseFeeMultiplier:    baseFeeMultiplier,
-			MaxPriorityFeePerGas: tipCap,
-			BaseFeePerGasCap:     cfg.BaseFeePerGasCap,
+			BaseFeeMultiplier:     baseFeeMultiplier,
+			MaxPriorityMultiplier: maxPriorityMultiplier,
+			BaseFeePerGasCap:      cfg.BaseFeePerGasCap,
 		}
 	default:
 		return cfg

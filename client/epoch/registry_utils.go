@@ -275,19 +275,20 @@ func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *c
 		txOptions.GasPrice = gasPrice
 		return nil
 	case 2:
+
+		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+		baseFeePerGas, err := chain.BaseFee(ctx, client)
+		cancelFunc()
+
+		if err != nil {
+			logger.Debug("Error getting baseFee, %v", err)
+			return err
+		}
+
 		gasFeeCap := new(big.Int)
 		if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
 			gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
 		} else {
-			ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-			baseFeePerGas, err := chain.BaseFee(ctx, client)
-			cancelFunc()
-
-			if err != nil {
-				logger.Debug("Error getting baseFee, %v", err)
-				return err
-			}
-
 			if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
 				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
 			} else {
@@ -296,10 +297,10 @@ func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *c
 		}
 
 		tipCap := new(big.Int)
-		if gasConfig.MaxPriorityFeePerGas != nil && gasConfig.MaxPriorityFeePerGas.Cmp(big.NewInt(0)) == 1 {
-			tipCap.Set(gasConfig.MaxPriorityFeePerGas)
+		if gasConfig.MaxPriorityMultiplier != nil && gasConfig.MaxPriorityMultiplier.Cmp(big.NewInt(0)) == 1 {
+			tipCap.Mul(baseFeePerGas, gasConfig.MaxPriorityMultiplier)
 		} else {
-			tipCap.Set(chain.DefaultTipCap)
+			tipCap.Mul(baseFeePerGas, chain.DefaultTipMultiplier)
 		}
 		gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
 
