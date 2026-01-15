@@ -164,6 +164,7 @@ func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privat
 	} else {
 		gasTipCap.Mul(DefaultTipMultiplier, baseFeePerGas)
 	}
+	gasTipCap = gasConfig.EnforceMaxPriorityFeeCaps(gasTipCap)
 
 	gasFeeCap = gasFeeCap.Add(gasFeeCap, gasTipCap)
 
@@ -371,7 +372,10 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 
 			BaseFeeMultiplier:     baseFeeMultiplier,
 			MaxPriorityMultiplier: maxPriorityMultiplier,
-			BaseFeePerGasCap:      cfg.BaseFeePerGasCap,
+			MaximalMaxPriorityFee: cfg.MaximalMaxPriorityFee,
+			MinimalMaxPriorityFee: cfg.MinimalMaxPriorityFee,
+
+			BaseFeePerGasCap: cfg.BaseFeePerGasCap,
 		}
 	default:
 		return cfg

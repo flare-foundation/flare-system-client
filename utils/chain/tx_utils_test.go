@@ -31,10 +31,7 @@ func TestSendTx(t *testing.T) {
 	deadAddress := "0x000000000000000000000000000000000000dead"
 	toAddress := common.HexToAddress(deadAddress)
 
-	gasConfigType2 := config2.Gas{
-		TxType:                2,
-		MaxPriorityMultiplier: big.NewInt(2),
-	}
+	gasConfigType2 := config2.DefaultGas()
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	nonce, err := cl.NonceAt(ctx, addr, nil)
 	require.NoError(t, err)

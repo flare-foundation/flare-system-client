@@ -137,8 +137,12 @@ gas_limit = 0                          # (optional) gas limit for transaction. D
 gas_price_multiplier = 0               # (optional for type 0 tx) sets the gas price to be a multiplier of the estimated gas price. Defaults to 0, which will simply use the estimate, OR a fixed gas price if gas_price_fixed is set (!= 0).
 gas_price_fixed = 0                    # (optional for type 0 tx) sets a fixed gas price for the transaction. Defaults to 0, which will use an estimate OR a multiplier of the estimate if gas_price_multiplier is set (!= 0).
 # type 2 settings
-max_priority_fee_per_gas = "20000000000" # (optional for type 2 tx) sets priority fee per gas for a transaction in wei. Defaults to 20GWei.
-base_fee_per_gas_cap = 0               # (optional for type 2 tx) sets base fee per gas cap. Defaults to 3 times estimation of needed base fee to be included in the block. !!! It is strongly recommended to keep it default. Any fixed amount may prevent the transaction from being accepted !!!
+max_priority_fee_multiplier = 2 # (optional for type 2 tx) sets the max priority fee per gas to be a multiple of the estimated base fee. Defaults to 2.
+maximal_max_priority_fee_per_gas = 5000_000_000_000 # (optional for type 2 tx) maximal max priority fee per gas. Defaults to 5000 Gwei.
+minimal_max_priority_fee =100_000_000_000 # (optional for type 2 tx) minimal max priority fee per gas. Defaults to 100 Gwei.
+base_fee_multiplier = 4 # (optional for type 2 tx) sets the base fee to be a multiple of the estimated base fee. Defaults to 4.
+
+
 
 [gas_relay] # applies to finalization transaction
 tx_type = 0
