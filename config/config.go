@@ -63,7 +63,7 @@ type ContractAddresses struct {
 	Relay            common.Address `toml:"relay" envconfig:"RELAY_CONTRACT_ADDRESS"`
 }
 
-func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error {
+func ParseConfigFile(cfg any, fileName string, allowMissing bool) error {
 	content, err := os.ReadFile(fileName)
 	if err != nil {
 		if allowMissing {
@@ -80,7 +80,7 @@ func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error 
 	return nil
 }
 
-func ReadEnv(cfg interface{}) error {
+func ReadEnv(cfg any) error {
 	err := envconfig.Process("", cfg)
 	if err != nil {
 		return fmt.Errorf("error reading env config: %w", err)

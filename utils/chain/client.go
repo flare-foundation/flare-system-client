@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
-	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -30,12 +29,7 @@ func (c ClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, nonce uint64, to com
 
 // Nonce returns the nonce of the address corresponding to the privateKey from the latest known block.
 func (c ClientImpl) Nonce(privateKey *ecdsa.PrivateKey, timeout time.Duration) (uint64, error) {
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return 0, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
-	}
-	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
 	nonce, err := c.EthClient.NonceAt(ctx, address, nil)

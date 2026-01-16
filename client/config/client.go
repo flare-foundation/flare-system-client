@@ -57,6 +57,16 @@ func Build(cfgFileName string) (*Client, error) {
 	return cfg, nil
 }
 
+// methods to satisfy config.Global interface
+
+func (c Client) ChainConfig() config.Chain {
+	return c.Chain
+}
+
+func (c Client) LoggerConfig() logger.Config {
+	return c.Logger
+}
+
 func defaultConfig() *Client {
 	return &Client{
 		Chain: config.Chain{
@@ -103,14 +113,29 @@ func (c *Client) validate() error {
 	return nil
 }
 
-// methods to satisfy config.Global interface
+func (cfg *Client) validateContracts() error {
+	var zeroAddress common.Address
 
-func (c Client) ChainConfig() config.Chain {
-	return c.Chain
-}
+	if cfg.ContractAddresses.Submission == zeroAddress {
+		return errors.New("submission contract address not set")
+	}
+	if cfg.ContractAddresses.SystemsManager == zeroAddress {
+		return errors.New("systems_manager contract address not set")
+	}
 
-func (c Client) LoggerConfig() logger.Config {
-	return c.Logger
+	if cfg.Clients.EnabledPreregistration && cfg.ContractAddresses.VoterPreRegistry == zeroAddress {
+		return errors.New("pre-registration enabled but voter_preregistry contract address not set")
+	}
+
+	if cfg.Clients.EnabledRegistration && cfg.ContractAddresses.VoterRegistry == zeroAddress {
+		return errors.New("registration enabled but voter_registry contract address not set")
+	}
+
+	if cfg.Clients.EnabledFinalizer && cfg.ContractAddresses.Relay == zeroAddress {
+		return errors.New("finalizer enabled but relay contract address not set")
+	}
+
+	return nil
 }
 
 type Metrics struct {
@@ -192,7 +217,7 @@ type Finalizer struct {
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 
-// Gas dictates how gas settings for the transaction are set.
+// Gas dictates how gas for the transaction is set.
 //
 // TxType decides the type of the transaction. The available options are 0 and 2.
 // It is recommended to use type 2.
@@ -211,7 +236,7 @@ type Finalizer struct {
 type Gas struct {
 	TxType uint8 `toml:"tx_type"` // 0 for legacy, 2 for eip-1559
 
-	GasLimit int `toml:"gas_limit"`
+	GasLimit int `toml:"gas_limit"` // LEAVE UNSET OR SET TO 0 UNLESS YOU KNOW WHAT YOU ARE DOING.
 
 	// type 0
 	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
@@ -241,6 +266,8 @@ func DefaultGas() Gas {
 	}
 }
 
+// EnforceMaxPriorityFeeCaps returns capped fee.
+// A new value is returned and the underlying value of the fee is unchanged/
 func (g *Gas) EnforceMaxPriorityFeeCaps(fee *big.Int) *big.Int {
 	out := new(big.Int)
 
@@ -295,29 +322,4 @@ type RewardsConfig struct {
 
 	Retries       int           `toml:"retries"`
 	RetryInterval time.Duration `toml:"retry_interval"`
-}
-
-func (cfg *Client) validateContracts() error {
-	var zeroAddress common.Address
-
-	if cfg.ContractAddresses.Submission == zeroAddress {
-		return errors.New("submission contract address not set")
-	}
-	if cfg.ContractAddresses.SystemsManager == zeroAddress {
-		return errors.New("systems_manager contract address not set")
-	}
-
-	if cfg.Clients.EnabledPreregistration && cfg.ContractAddresses.VoterPreRegistry == zeroAddress {
-		return errors.New("pre-registration enabled but voter_preregistry contract address not set")
-	}
-
-	if cfg.Clients.EnabledRegistration && cfg.ContractAddresses.VoterRegistry == zeroAddress {
-		return errors.New("registration enabled but voter_registry contract address not set")
-	}
-
-	if cfg.Clients.EnabledFinalizer && cfg.ContractAddresses.Relay == zeroAddress {
-		return errors.New("finalizer enabled but relay contract address not set")
-	}
-
-	return nil
 }

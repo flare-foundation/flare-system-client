@@ -112,82 +112,6 @@ func BaseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	return (*big.Int)(&result), err
 }
 
-// prepareAndSignType0 prepares a type 0 (legacy) transaction and signs it.
-func prepareAndSignType0(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
-	gasPrice, err := GetGasPrice(gasConfig, client, timeout)
-	if err != nil {
-		return nil, err
-	}
-
-	txData := types.LegacyTx{
-		Nonce:    nonce,
-		GasPrice: gasPrice,
-		Gas:      gasLimit,
-		To:       &toAddress,
-		Value:    value,
-		Data:     data,
-	}
-
-	tx := types.NewTx(&txData)
-	signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return signedTx, nil
-}
-
-// prepareAndSignType0 prepares a type 2 (eip 1559) transaction and signs it.
-func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
-	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-	baseFeePerGas, err := BaseFee(ctx, client)
-	cancelFunc()
-	if err != nil {
-		logger.Debug("Error getting baseFee, %v", err)
-		return nil, err
-	}
-
-	gasFeeCap := new(big.Int)
-	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
-		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
-	} else {
-		if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
-			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
-		} else {
-			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
-		}
-	}
-
-	gasTipCap := new(big.Int)
-	if gasConfig.MaxPriorityMultiplier != nil && gasConfig.MaxPriorityMultiplier.Cmp(big.NewInt(0)) == 1 {
-		gasTipCap.Mul(gasConfig.MaxPriorityMultiplier, baseFeePerGas)
-	} else {
-		gasTipCap.Mul(DefaultTipMultiplier, baseFeePerGas)
-	}
-	gasTipCap = gasConfig.EnforceMaxPriorityFeeCaps(gasTipCap)
-
-	gasFeeCap = gasFeeCap.Add(gasFeeCap, gasTipCap)
-
-	txData := types.DynamicFeeTx{
-		ChainID:   chainID,
-		Nonce:     nonce,
-		GasTipCap: gasTipCap,
-		GasFeeCap: gasFeeCap,
-		Gas:       gasLimit,
-		To:        &toAddress,
-		Value:     value,
-		Data:      data,
-	}
-
-	tx := types.NewTx(&txData)
-	signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return signedTx, nil
-}
-
 // SendRawTx sends a transaction to toAddress with input data with prescribed nonce and gasConfig.
 func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -247,6 +171,82 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uin
 	logger.Debugf("Successful tx: %s", signedTx.Hash().Hex())
 
 	return nil
+}
+
+// prepareAndSignType0 prepares a type 0 (legacy) transaction and signs it.
+func prepareAndSignType0(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+	gasPrice, err := GetGasPrice(gasConfig, client, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	txData := types.LegacyTx{
+		Nonce:    nonce,
+		GasPrice: gasPrice,
+		Gas:      gasLimit,
+		To:       &toAddress,
+		Value:    value,
+		Data:     data,
+	}
+
+	tx := types.NewTx(&txData)
+	signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
+}
+
+// prepareAndSignType2 prepares a type 2 (eip 1559) transaction and signs it.
+func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	baseFeePerGas, err := BaseFee(ctx, client)
+	cancelFunc()
+	if err != nil {
+		logger.Debug("Error getting baseFee, %v", err)
+		return nil, err
+	}
+
+	gasFeeCap := new(big.Int)
+	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
+		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
+	} else {
+		if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
+			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
+		} else {
+			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
+		}
+	}
+
+	gasTipCap := new(big.Int)
+	if gasConfig.MaxPriorityMultiplier != nil && gasConfig.MaxPriorityMultiplier.Cmp(big.NewInt(0)) == 1 {
+		gasTipCap.Mul(gasConfig.MaxPriorityMultiplier, baseFeePerGas)
+	} else {
+		gasTipCap.Mul(DefaultTipMultiplier, baseFeePerGas)
+	}
+	gasTipCap = gasConfig.EnforceMaxPriorityFeeCaps(gasTipCap)
+
+	gasFeeCap = gasFeeCap.Add(gasFeeCap, gasTipCap)
+
+	txData := types.DynamicFeeTx{
+		ChainID:   chainID,
+		Nonce:     nonce,
+		GasTipCap: gasTipCap,
+		GasFeeCap: gasFeeCap,
+		Gas:       gasLimit,
+		To:        &toAddress,
+		Value:     value,
+		Data:      data,
+	}
+
+	tx := types.NewTx(&txData)
+	signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
 }
 
 // DryRunTx locally executes a transaction with the current state of blockchain and returns estimated Gas multiplied with 1.5 and potential errors.

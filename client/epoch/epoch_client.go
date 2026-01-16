@@ -8,7 +8,6 @@ import (
 	flarectx "github.com/flare-foundation/flare-system-client/client/context"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/config"
-	"github.com/flare-foundation/flare-system-client/utils/chain"
 	"github.com/flare-foundation/flare-system-client/utils/credentials"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -97,7 +96,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 	}
 
 	identityAddress := cfg.Identity.Address
-	if identityAddress == chain.EmptyAddress {
+	if identityAddress == (common.Address{}) {
 		return nil, errors.New("no identity address provided")
 	}
 	logger.Debugf("Identity address %v", identityAddress)

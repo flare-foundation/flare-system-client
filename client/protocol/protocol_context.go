@@ -5,9 +5,9 @@ import (
 
 	"github.com/flare-foundation/flare-system-client/client/config"
 	globalConfig "github.com/flare-foundation/flare-system-client/config"
-	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/submission"
@@ -57,18 +57,10 @@ func newProtocolContext(cfg *config.Client) (*protocolContext, error) {
 	}
 
 	// Addresses
-	ctx.signingAddress, err = chain.PrivateKeyToEthAddress(ctx.signerPrivateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting signing address")
-	}
-	ctx.submitAddress, err = chain.PrivateKeyToEthAddress(ctx.submitPrivateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting submit address")
-	}
-	ctx.submitSignaturesAddress, err = chain.PrivateKeyToEthAddress(ctx.submitSignaturesPrivateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting submit signatures address")
-	}
+	ctx.signingAddress = crypto.PubkeyToAddress(ctx.signerPrivateKey.PublicKey)
+	ctx.submitAddress = crypto.PubkeyToAddress(ctx.submitPrivateKey.PublicKey)
+	ctx.submitSignaturesAddress = crypto.PubkeyToAddress(ctx.submitSignaturesPrivateKey.PublicKey)
+
 	ctx.submitContractAddress = cfg.ContractAddresses.Submission
 
 	return ctx, nil
