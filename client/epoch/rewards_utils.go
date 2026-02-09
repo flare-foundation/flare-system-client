@@ -207,8 +207,8 @@ func verifyRewardData(epochId *big.Int, identity common.Address, data *rewardDis
 }
 
 func verifyRoot(data *rewardDistributionData) (common.Hash, error) {
-	var hashes []common.Hash
-	var weightBasedClaims = 0
+	hashes := make([]common.Hash, 0, len(data.RewardClaims))
+	weightBasedClaims := 0
 	for _, claim := range data.RewardClaims {
 		body := claim.Body
 		if body.Type == WNat || body.Type == Mirror || body.Type == CChain {

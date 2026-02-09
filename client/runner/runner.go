@@ -25,15 +25,13 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 		return
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := r.Run(ctx)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			logger.Errorf("Unexpected error, terminating: %v", err)
 			cancel()
 		}
-	}()
+	})
 }
 
 // Start sets up registrationClient, protocolClient, and finalizerClient, then asynchronously runs all of them and returns their workgroup.

@@ -90,7 +90,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 		return nil, err
 	}
 
-	var subProtocols []*SubProtocol
+	subProtocols := make([]*SubProtocol, 0, len(cfg.Protocol))
 	for _, protocol := range cfg.Protocol {
 		subProtocols = append(subProtocols, NewSubProtocol(protocol))
 	}
