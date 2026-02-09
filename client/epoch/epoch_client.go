@@ -64,13 +64,22 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 		return nil, errors.Wrap(err, "error creating sender register tx opts")
 	}
 
-	signerPk, err := config.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
-		cfg.Credentials.SigningPolicyPrivateKey)
+	signerPk, err := config.PrivateKeyFromConfig(
+		cfg.Credentials.SigningPolicyPrivateKeyFile,
+		cfg.Credentials.SigningPolicyPrivateKey,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating signer private key")
 	}
 
-	systemsManagerClient, err := NewSystemsManagerClient(ethClient, cfg.ContractAddresses.SystemsManager, senderTxOpts, signerPk, chainCfg.ChainID)
+	systemsManagerClient, err := NewSystemsManagerClient(
+		ethClient,
+		&cfg.SystemManagerGas,
+		cfg.ContractAddresses.SystemsManager,
+		senderTxOpts,
+		signerPk,
+		chainCfg.ChainID,
+	)
 	if err != nil {
 		return nil, err
 	}

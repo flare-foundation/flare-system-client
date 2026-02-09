@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/flare-foundation/flare-system-client/client/config"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/utils"
 	"github.com/flare-foundation/flare-system-client/utils/chain"
@@ -69,13 +70,20 @@ type systemsManagerContractClientImpl struct {
 	address             common.Address
 	flareSystemsManager *system.FlareSystemsManager
 	senderTxOpts        *bind.TransactOpts
+	gasCfg              *config.Gas
 	txVerifier          *chain.TxVerifier
 	signerPrivateKey    *ecdsa.PrivateKey
-	chainId             int
+	chainID             int
 	ethClient           *ethclient.Client
 }
 
-func NewSystemsManagerClient(ethClient *ethclient.Client, address common.Address, senderTxOpts *bind.TransactOpts, signerPrivateKey *ecdsa.PrivateKey, chainId int) (*systemsManagerContractClientImpl, error) {
+func NewSystemsManagerClient(
+	ethClient *ethclient.Client,
+	gasCfg *config.Gas,
+	address common.Address,
+	senderTxOpts *bind.TransactOpts,
+	signerPrivateKey *ecdsa.PrivateKey,
+	chainID int) (*systemsManagerContractClientImpl, error) {
 	flareSystemsManager, err := system.NewFlareSystemsManager(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -87,7 +95,7 @@ func NewSystemsManagerClient(ethClient *ethclient.Client, address common.Address
 		senderTxOpts:        senderTxOpts,
 		txVerifier:          chain.NewTxVerifier(ethClient),
 		signerPrivateKey:    signerPrivateKey,
-		chainId:             chainId,
+		chainID:             chainID,
 		ethClient:           ethClient,
 	}, nil
 }
@@ -136,6 +144,11 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 		return err
 	}
 	s.senderTxOpts.GasLimit = estimatedGasLimit
+
+	err = SetGas(s.senderTxOpts, s.ethClient, s.gasCfg)
+	if err != nil {
+		return err
+	}
 
 	tx, err := s.flareSystemsManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
@@ -426,7 +439,7 @@ func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardH
 
 func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
 	logger.Infof("Signing rewards for epoch %v, hash: %s", epochId, rewardHash.Hex())
-	packed := encodeRewardsData(epochId, s.chainId, rewardHash, weightClaims)
+	packed := encodeRewardsData(epochId, s.chainID, rewardHash, weightClaims)
 
 	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(packed)), s.signerPrivateKey)
 	if err != nil {
@@ -441,7 +454,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 
 	numberOfWeightBasedClaims := []system.IFlareSystemsManagerNumberOfWeightBasedClaims{
 		{
-			RewardManagerId:       big.NewInt(int64(s.chainId)),
+			RewardManagerId:       big.NewInt(int64(s.chainID)),
 			NoOfWeightBasedClaims: big.NewInt(int64(weightClaims)),
 		},
 	}

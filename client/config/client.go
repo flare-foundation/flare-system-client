@@ -33,9 +33,10 @@ type Client struct {
 
 	Finalizer Finalizer `toml:"finalizer"`
 
-	SubmitGas   Gas `toml:"gas_submit"`
-	RegisterGas Gas `toml:"gas_register"`
-	RelayGas    Gas `toml:"gas_relay"`
+	SubmitGas        Gas `toml:"gas_submit"`
+	RegisterGas      Gas `toml:"gas_register"`
+	RelayGas         Gas `toml:"gas_relay"`
+	SystemManagerGas Gas `toml:"gas_system_manager"`
 
 	Rewards RewardsConfig `toml:"rewards"`
 }
@@ -82,9 +83,11 @@ func defaultConfig() *Client {
 			Submit:   defaultSubmitConfig,
 			Deadline: 60 * time.Second,
 		},
-		SubmitGas:   DefaultGas(),
-		RelayGas:    DefaultGas(),
-		RegisterGas: DefaultGas(),
+		SubmitGas:        DefaultGas(),
+		RelayGas:         DefaultGas(),
+		RegisterGas:      DefaultGas(),
+		SystemManagerGas: DefaultGas(),
+
 		Rewards: RewardsConfig{
 			Retries:       8,
 			RetryInterval: 6 * time.Hour,

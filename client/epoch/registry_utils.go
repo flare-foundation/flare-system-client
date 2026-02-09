@@ -275,7 +275,6 @@ func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *c
 		txOptions.GasPrice = gasPrice
 		return nil
 	case 2:
-
 		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
 		baseFeePerGas, err := chain.BaseFee(ctx, client)
 		cancelFunc()
