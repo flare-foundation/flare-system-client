@@ -145,34 +145,47 @@ base_fee_multiplier = 4 # (optional for type 2 tx) sets the base fee to be a mul
 
 
 [gas_relay] # applies to finalization transaction
-tx_type = 0
-gas_limit = 0
-gas_price_multiplier = 0
-gas_price_fixed = 0
-max_priority_fee_per_gas = "20000000000"
-base_fee_per_gas_cap = 0
+tx_type = 2
+max_priority_fee_multiplier = 2
+maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
+minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
+base_fee_multiplier = 4
+
+
+[gas_register] # applies to all voter registration transaction
+tx_type = 2
+max_priority_fee_multiplier = 2
+maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
+minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
+base_fee_multiplier = 4
+
+
+[gas_system_manager]
+tx_type = 2
+max_priority_fee_multiplier = 2
+maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
+minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
+base_fee_multiplier = 4
 ```
 
-Currently only type 0 transactions are supported for registration.
-
-```toml
-[gas_register] # applies to all voter registration transaction
-tx_type = 0
-gas_limit = 0
-gas_price_multiplier = 0
-gas_price_fixed = 0
-
-
-
 [rewards] # reward signing configuration - clients.enabled_reward_signing must be set to true
+
 # URL prefix for retrieving reward distribution data.
+
 # A full URL will be constructed by appending the epoch id and expected file name: <prefix>/<epochId>/reward-distribution-data.json
+
 #
+
 # For example, if reward data for an epoch can be retrieved at https://raw.githubusercontent.com/flare-foundation/fsp-rewards/refs/heads/main/songbird/240/reward-distribution-data.json,
+
 # then the url_prefix should be set to "https://raw.githubusercontent.com/flare-foundation/fsp-rewards/refs/heads/main/songbird"
+
 url_prefix = ""
 min_reward = 0 # minimum acceptable claim amount in wei for the identity address of this provider, default 0.
 max_reward = 0 # (optional) maximum acceptable claim amount in wei for the identity address of this provider. If 0 or not set, no maximum is enforced.
-retries = 8    # (optional) number of retries for fetching and signing reward data, default: 8.
+retries = 8 # (optional) number of retries for fetching and signing reward data, default: 8.
 retry_interval = "6h" # (optional) interval between retries, default: 6 hours.
+
+```
+
 ```
