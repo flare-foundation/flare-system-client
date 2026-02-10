@@ -135,7 +135,7 @@ func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, a
 			}
 		}
 		return nil, nil
-	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
 }
 
 func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.Int, address common.Address) error {

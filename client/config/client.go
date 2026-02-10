@@ -33,10 +33,10 @@ type Client struct {
 
 	Finalizer Finalizer `toml:"finalizer"`
 
-	SubmitGas        Gas `toml:"gas_submit"`
-	RegisterGas      Gas `toml:"gas_register"`
-	RelayGas         Gas `toml:"gas_relay"`
-	SystemManagerGas Gas `toml:"gas_system_manager"`
+	SubmitGas         Gas `toml:"gas_submit"`
+	RegisterGas       Gas `toml:"gas_register"`
+	RelayGas          Gas `toml:"gas_relay"`
+	SystemsManagerGas Gas `toml:"gas_systems_manager"`
 
 	Rewards RewardsConfig `toml:"rewards"`
 }
@@ -83,10 +83,10 @@ func defaultConfig() *Client {
 			Submit:   defaultSubmitConfig,
 			Deadline: 60 * time.Second,
 		},
-		SubmitGas:        DefaultGas(),
-		RelayGas:         DefaultGas(),
-		RegisterGas:      DefaultGas(),
-		SystemManagerGas: DefaultGas(),
+		SubmitGas:         DefaultGas(),
+		RelayGas:          DefaultGas(),
+		RegisterGas:       DefaultGas(),
+		SystemsManagerGas: DefaultGas(),
 
 		Rewards: RewardsConfig{
 			Retries:       8,
@@ -108,6 +108,10 @@ func (c *Client) validate() error {
 	err = c.RelayGas.validate()
 	if err != nil {
 		return fmt.Errorf("validating RelayGas: %v", err)
+	}
+	err = c.SystemsManagerGas.validate()
+	if err != nil {
+		return fmt.Errorf("validating SystemsManagerGas: %v", err)
 	}
 	err = c.validateContracts()
 	if err != nil {

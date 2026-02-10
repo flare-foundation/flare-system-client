@@ -160,7 +160,7 @@ minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
 base_fee_multiplier = 4
 
 
-[gas_system_manager]
+[gas_systems_manager]
 tx_type = 2
 max_priority_fee_multiplier = 2
 maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei

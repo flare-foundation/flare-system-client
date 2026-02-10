@@ -74,7 +74,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 
 	systemsManagerClient, err := NewSystemsManagerClient(
 		ethClient,
-		&cfg.SystemManagerGas,
+		&cfg.SystemsManagerGas,
 		cfg.ContractAddresses.SystemsManager,
 		senderTxOpts,
 		signerPk,

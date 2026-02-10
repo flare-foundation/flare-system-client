@@ -107,7 +107,7 @@ func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *b
 			return nil, errors.Wrap(err, "error sending sign new signing policy")
 		}
 		return nil, nil
-	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
 }
 
 func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
@@ -434,7 +434,7 @@ func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardH
 			return nil, errors.Wrap(err, "error sending sign rewards")
 		}
 		return nil, nil
-	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
 }
 
 func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
