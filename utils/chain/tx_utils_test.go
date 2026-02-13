@@ -133,16 +133,10 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			},
 		},
 		{
-			name: "empty type 2",
-			cfg:  config2.Gas{TxType: 2},
-			ri:   0,
-			expected: config2.Gas{
-				TxType:                2,
-				GasLimit:              0,
-				MaxPriorityMultiplier: big.NewInt(2),
-				BaseFeeMultiplier:     big.NewInt(3),
-				BaseFeePerGasCap:      nil,
-			},
+			name:     "empty type 2",
+			cfg:      config2.Gas{TxType: 2},
+			ri:       0,
+			expected: config2.DefaultGas(),
 		},
 		{
 			name: "zero type 2",
@@ -150,19 +144,12 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 				TxType:                2,
 				MaxPriorityMultiplier: big.NewInt(0),
 				BaseFeeMultiplier:     big.NewInt(0),
-				BaseFeePerGasCap:      big.NewInt(0),
 			},
-			ri: 0,
-			expected: config2.Gas{
-				TxType:                2,
-				GasLimit:              0,
-				MaxPriorityMultiplier: big.NewInt(2),
-				BaseFeeMultiplier:     big.NewInt(3),
-				BaseFeePerGasCap:      big.NewInt(0),
-			},
+			ri:       0,
+			expected: config2.DefaultGas(),
 		},
 		{
-			name: "zero type 2",
+			name: "zero type 2,2 ",
 			cfg: config2.Gas{
 				TxType:                2,
 				MaxPriorityMultiplier: big.NewInt(6),
@@ -176,10 +163,31 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 				MaxPriorityMultiplier: big.NewInt(8),
 				BaseFeeMultiplier:     big.NewInt(4),
 				BaseFeePerGasCap:      big.NewInt(0),
+				MaximalMaxPriorityFee: big.NewInt(6160500000000),
+				MinimalMaxPriorityFee: big.NewInt(123210000000),
+			},
+		},
+		{
+			name: "type 2",
+			cfg: config2.Gas{
+				TxType:                2,
+				GasLimit:              0,
+				BaseFeeMultiplier:     big.NewInt(2),
+				MaxPriorityMultiplier: big.NewInt(6),
+				MaximalMaxPriorityFee: big.NewInt(1000),
+				MinimalMaxPriorityFee: big.NewInt(100),
+			},
+			ri: 2,
+			expected: config2.Gas{
+				TxType:                2,
+				GasLimit:              0,
+				BaseFeeMultiplier:     big.NewInt(4),
+				MaxPriorityMultiplier: big.NewInt(8),
+				MaximalMaxPriorityFee: big.NewInt(1232),
+				MinimalMaxPriorityFee: big.NewInt(123),
 			},
 		},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := chain.GasConfigForAttempt(&test.cfg, test.ri)
@@ -196,8 +204,10 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 				}
 			case 2:
 				require.Equal(t, test.expected.BaseFeeMultiplier, got.BaseFeeMultiplier)
-				require.Equal(t, test.expected.MaxPriorityMultiplier, got.MaxPriorityMultiplier)
+				require.Equal(t, test.expected.MaxPriorityMultiplier, got.MaxPriorityMultiplier, "primul")
 				require.Equal(t, test.expected.BaseFeePerGasCap, got.BaseFeePerGasCap)
+				require.Equal(t, test.expected.MaximalMaxPriorityFee, got.MaximalMaxPriorityFee, "mincap")
+				require.Equal(t, test.expected.MinimalMaxPriorityFee, got.MinimalMaxPriorityFee, "maxcap")
 			}
 		})
 	}

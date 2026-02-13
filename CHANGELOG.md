@@ -1,5 +1,11 @@
 # Changelog
 
+## [UNRELEASED]
+
+### Changed
+
+- For type 2 gas configs, both MaximalMaxPriorityFe and MinimalMaxPriorityFee are increased by 11% on each retry to ensure valid replacement transactions
+
 ## [v1.0.6] - 2026-2-13
 
 ### Added

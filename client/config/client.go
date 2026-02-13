@@ -258,6 +258,14 @@ type Gas struct {
 	BaseFeePerGasCap  *big.Int `toml:"base_fee_per_gas_cap"` // LEAVE UNSET UNLESS YOU KNOW WHAT YOU ARE DOING.
 }
 
+var (
+	DefaultMaxPriorityMultiplier = big.NewInt(2)
+	DefaultMaximalMaxPriorityFee = big.NewInt(5000e9) // 5000 Gwei
+	DefaultMinimalMaxPriorityFee = big.NewInt(100e9)  // 100 Gwei
+
+	DefaultBaseFeeMultiplier = big.NewInt(4)
+)
+
 // DefaultGas
 func DefaultGas() Gas {
 	return Gas{
@@ -265,11 +273,11 @@ func DefaultGas() Gas {
 
 		GasLimit: 0,
 
-		MaxPriorityMultiplier: big.NewInt(2),
-		MinimalMaxPriorityFee: big.NewInt(100e9),
-		MaximalMaxPriorityFee: big.NewInt(5000e9),
+		MaxPriorityMultiplier: DefaultMaxPriorityMultiplier,
+		MinimalMaxPriorityFee: DefaultMinimalMaxPriorityFee,
+		MaximalMaxPriorityFee: DefaultMaximalMaxPriorityFee,
 
-		BaseFeeMultiplier: big.NewInt(4),
+		BaseFeeMultiplier: DefaultBaseFeeMultiplier,
 	}
 }
 

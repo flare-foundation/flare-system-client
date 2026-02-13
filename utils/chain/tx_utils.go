@@ -31,6 +31,9 @@ const (
 	defaultTipMultiplier = 2
 
 	baseFeeCapMultiplier = 4
+
+	multiplierBumpTimes100 = 111
+	normalizer             = 100
 )
 
 var (
@@ -331,7 +334,8 @@ func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.D
 // up to a maximum of 10x the original value.
 // If GasPriceFixed is used, the retry multiplier will not be applied.
 //
-// For type 2 transaction, MaxPriorityFeePerGas on the n-the attempt is n-th power of 1,2 times the MaxPriorityFeePerGas of the initial attempt.
+// For type 2 transaction on i-th attempt,
+// the multipliers are increased by i, and caps are increased by 11% per attempt.
 func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 	switch cfg.TxType {
 	case 0:
@@ -364,16 +368,43 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 			baseFeeMultiplier.Set(cfg.BaseFeeMultiplier)
 			baseFeeMultiplier.Add(baseFeeMultiplier, attemptBig)
 		} else {
-			baseFeeMultiplier = big.NewInt(3 + int64(attempt))
+			baseFeeMultiplier.Add(config.DefaultBaseFeeMultiplier, attemptBig)
 		}
+
+		maxMaxPriorityFee := new(big.Int)
+		if cfg.MaximalMaxPriorityFee != nil && cfg.MaximalMaxPriorityFee.Cmp(common.Big0) == 1 {
+			maxMaxPriorityFee.Set(cfg.MaximalMaxPriorityFee)
+		} else {
+			maxMaxPriorityFee.Set(config.DefaultMaximalMaxPriorityFee)
+		}
+
+		minMaxPriorityFee := new(big.Int)
+		if cfg.MinimalMaxPriorityFee != nil && cfg.MinimalMaxPriorityFee.Cmp(common.Big0) == 1 {
+			minMaxPriorityFee.Set(cfg.MinimalMaxPriorityFee)
+		} else {
+			minMaxPriorityFee.Set(config.DefaultMinimalMaxPriorityFee)
+		}
+
+		// Increase caps by 11% per retry
+		if attempt > 0 {
+			multiplier := new(big.Int).Exp(big.NewInt(multiplierBumpTimes100), attemptBig, nil)
+			normalizer := new(big.Int).Exp(big.NewInt(normalizer), attemptBig, nil)
+
+			maxMaxPriorityFee.Mul(maxMaxPriorityFee, multiplier)
+			maxMaxPriorityFee.Div(maxMaxPriorityFee, normalizer)
+
+			minMaxPriorityFee.Mul(minMaxPriorityFee, multiplier)
+			minMaxPriorityFee.Div(minMaxPriorityFee, normalizer)
+		}
+
 		return &config.Gas{
 			TxType:   2,
 			GasLimit: cfg.GasLimit,
 
 			BaseFeeMultiplier:     baseFeeMultiplier,
 			MaxPriorityMultiplier: maxPriorityMultiplier,
-			MaximalMaxPriorityFee: cfg.MaximalMaxPriorityFee,
-			MinimalMaxPriorityFee: cfg.MinimalMaxPriorityFee,
+			MaximalMaxPriorityFee: maxMaxPriorityFee,
+			MinimalMaxPriorityFee: minMaxPriorityFee,
 
 			BaseFeePerGasCap: cfg.BaseFeePerGasCap,
 		}
