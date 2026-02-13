@@ -8,7 +8,6 @@ import (
 	flarectx "github.com/flare-foundation/flare-system-client/client/context"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/config"
-	"github.com/flare-foundation/flare-system-client/utils/chain"
 	"github.com/flare-foundation/flare-system-client/utils/credentials"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -65,13 +64,22 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 		return nil, errors.Wrap(err, "error creating sender register tx opts")
 	}
 
-	signerPk, err := config.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
-		cfg.Credentials.SigningPolicyPrivateKey)
+	signerPk, err := config.PrivateKeyFromConfig(
+		cfg.Credentials.SigningPolicyPrivateKeyFile,
+		cfg.Credentials.SigningPolicyPrivateKey,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating signer private key")
 	}
 
-	systemsManagerClient, err := NewSystemsManagerClient(ethClient, cfg.ContractAddresses.SystemsManager, senderTxOpts, signerPk, chainCfg.ChainID)
+	systemsManagerClient, err := NewSystemsManagerClient(
+		ethClient,
+		&cfg.SystemsManagerGas,
+		cfg.ContractAddresses.SystemsManager,
+		senderTxOpts,
+		signerPk,
+		chainCfg.ChainID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +105,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 	}
 
 	identityAddress := cfg.Identity.Address
-	if identityAddress == chain.EmptyAddress {
+	if identityAddress == (common.Address{}) {
 		return nil, errors.New("no identity address provided")
 	}
 	logger.Debugf("Identity address %v", identityAddress)

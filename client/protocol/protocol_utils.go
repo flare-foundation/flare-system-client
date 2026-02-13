@@ -56,7 +56,7 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	client := http.Client{
 		Timeout: timeout,
 	}
-	req, err := http.NewRequest("GET", url.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating protocol client API request")
 	}

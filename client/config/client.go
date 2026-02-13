@@ -33,11 +33,116 @@ type Client struct {
 
 	Finalizer Finalizer `toml:"finalizer"`
 
-	SubmitGas   Gas `toml:"gas_submit"`
-	RegisterGas Gas `toml:"gas_register"`
-	RelayGas    Gas `toml:"gas_relay"`
+	SubmitGas         Gas `toml:"gas_submit"`
+	RegisterGas       Gas `toml:"gas_register"`
+	RelayGas          Gas `toml:"gas_relay"`
+	SystemsManagerGas Gas `toml:"gas_systems_manager"`
 
 	Rewards RewardsConfig `toml:"rewards"`
+}
+
+func Build(cfgFileName string) (*Client, error) {
+	cfg := defaultConfig()
+	err := config.ParseConfigFile(cfg, cfgFileName, false)
+	if err != nil {
+		return nil, err
+	}
+	err = config.ReadEnv(cfg)
+	if err != nil {
+		return nil, err
+	}
+	err = cfg.validate()
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// methods to satisfy config.Global interface
+
+func (c Client) ChainConfig() config.Chain {
+	return c.Chain
+}
+
+func (c Client) LoggerConfig() logger.Config {
+	return c.Logger
+}
+
+func defaultConfig() *Client {
+	return &Client{
+		Chain: config.Chain{
+			EthRPCURL: "http://localhost:9650/ext/C/rpc",
+		},
+		Finalizer: Finalizer{
+			StartOffset:        7 * 24 * time.Hour,
+			VoterThresholdBIPS: 500,
+		},
+		Submit1: defaultSubmitConfig,
+		Submit2: defaultSubmitConfig,
+		SubmitSignatures: SubmitSignatures{
+			Submit:   defaultSubmitConfig,
+			Deadline: 60 * time.Second,
+		},
+		SubmitGas:         DefaultGas(),
+		RelayGas:          DefaultGas(),
+		RegisterGas:       DefaultGas(),
+		SystemsManagerGas: DefaultGas(),
+
+		Rewards: RewardsConfig{
+			Retries:       8,
+			RetryInterval: 6 * time.Hour,
+		},
+	}
+}
+
+// validate checks consistency of configurations.
+func (c *Client) validate() error {
+	err := c.SubmitGas.validate()
+	if err != nil {
+		return fmt.Errorf("validating SubmitGas: %v", err)
+	}
+	err = c.RegisterGas.validate()
+	if err != nil {
+		return fmt.Errorf("validating RegisterGas: %v", err)
+	}
+	err = c.RelayGas.validate()
+	if err != nil {
+		return fmt.Errorf("validating RelayGas: %v", err)
+	}
+	err = c.SystemsManagerGas.validate()
+	if err != nil {
+		return fmt.Errorf("validating SystemsManagerGas: %v", err)
+	}
+	err = c.validateContracts()
+	if err != nil {
+		return fmt.Errorf("validating contracts: %v", err)
+	}
+	return nil
+}
+
+func (cfg *Client) validateContracts() error {
+	var zeroAddress common.Address
+
+	if cfg.ContractAddresses.Submission == zeroAddress {
+		return errors.New("submission contract address not set")
+	}
+	if cfg.ContractAddresses.SystemsManager == zeroAddress {
+		return errors.New("systems_manager contract address not set")
+	}
+
+	if cfg.Clients.EnabledPreregistration && cfg.ContractAddresses.VoterPreRegistry == zeroAddress {
+		return errors.New("pre-registration enabled but voter_preregistry contract address not set")
+	}
+
+	if cfg.Clients.EnabledRegistration && cfg.ContractAddresses.VoterRegistry == zeroAddress {
+		return errors.New("registration enabled but voter_registry contract address not set")
+	}
+
+	if cfg.Clients.EnabledFinalizer && cfg.ContractAddresses.Relay == zeroAddress {
+		return errors.New("finalizer enabled but relay contract address not set")
+	}
+
+	return nil
 }
 
 type Metrics struct {
@@ -119,19 +224,101 @@ type Finalizer struct {
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 
+// Gas dictates how gas for the transaction is set.
+//
+// TxType decides the type of the transaction. The available options are 0 and 2.
+// It is recommended to use type 2.
+//
+// For type 0, there are two options. If GasPriceFixed is set, it is used as it is.
+// ONLY SET GasPriceFixed IF YOU KNOW WHAT YOU ARE DOING.
+// If GasPriceFixed is not set, a gas price recommended by the node is multiplied by GasPriceMultiplier.
+//
+// For type 2, two values have to be set. GasFeeCap and GasTipCap.
+// The actual gas is minimum of GasFeeCap and GasTipCap + baseFee. BaseFee is defined by the block.
+// GasTipCap is set to MaxPriorityMultiplier times the estimation of the baseFee and is capped by
+// MaximalMaxPriorityFee and MinimalMaxPriorityFee from above and below, respectively.
+// GasFeeCap as a sum GasTipCap and baseFeeCap.
+// If BaseFeePerGasCap is set (IT IS RECOMMENDED TO LEAVE IT UNSET), it is used as baseFeeCap, otherwise
+// baseFeeCap is baseFee estimated by the node multiplied by BaseFeeMultiplier.
 type Gas struct {
 	TxType uint8 `toml:"tx_type"` // 0 for legacy, 2 for eip-1559
 
-	GasLimit int `toml:"gas_limit"`
+	GasLimit int `toml:"gas_limit"` // LEAVE UNSET OR SET TO 0 UNLESS YOU KNOW WHAT YOU ARE DOING.
 
 	// type 0
 	GasPriceMultiplier float32  `toml:"gas_price_multiplier"`
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
 
 	// type 2
-	MaxPriorityFeePerGas *big.Int `toml:"max_priority_fee_per_gas"`
-	BaseFeeMultiplier    *big.Int `toml:"base_fee_multiplier"`
-	BaseFeePerGasCap     *big.Int `toml:"base_fee_per_gas_cap"`
+	MaxPriorityMultiplier *big.Int `toml:"max_priority_fee_multiplier"`
+	MaximalMaxPriorityFee *big.Int `toml:"maximal_max_priority_fee"`
+	MinimalMaxPriorityFee *big.Int `toml:"minimal_max_priority_fee"`
+
+	BaseFeeMultiplier *big.Int `toml:"base_fee_multiplier"`
+	BaseFeePerGasCap  *big.Int `toml:"base_fee_per_gas_cap"` // LEAVE UNSET UNLESS YOU KNOW WHAT YOU ARE DOING.
+}
+
+// DefaultGas
+func DefaultGas() Gas {
+	return Gas{
+		TxType: 2,
+
+		GasLimit: 0,
+
+		MaxPriorityMultiplier: big.NewInt(2),
+		MinimalMaxPriorityFee: big.NewInt(100e9),
+		MaximalMaxPriorityFee: big.NewInt(5000e9),
+
+		BaseFeeMultiplier: big.NewInt(4),
+	}
+}
+
+// EnforceMaxPriorityFeeCaps returns capped fee.
+// A new value is returned and the underlying value of the fee is unchanged/
+func (g *Gas) EnforceMaxPriorityFeeCaps(fee *big.Int) *big.Int {
+	out := new(big.Int)
+
+	if g.MaximalMaxPriorityFee.Cmp(fee) == -1 {
+		out.Set(g.MaximalMaxPriorityFee)
+	} else if g.MinimalMaxPriorityFee.Cmp(fee) == 1 {
+		out.Set(g.MinimalMaxPriorityFee)
+	} else {
+		out.Set(fee)
+	}
+
+	return out
+}
+
+// validate checks viability of gas configurations.
+func (g *Gas) validate() error {
+	if g.GasPriceMultiplier != 0.0 && g.GasPriceMultiplier < 1 {
+		return errors.New("if set, gas_price_multiplier value cannot be less than 1")
+	}
+
+	switch g.TxType {
+	case 0:
+
+		if g.GasPriceFixed.Cmp(common.Big0) != 0 && g.GasPriceMultiplier != 0.0 {
+			return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value for type 0 transaction")
+		}
+
+	case 2:
+		if g.BaseFeeMultiplier.Cmp(common.Big0) == -1 {
+			return errors.New("negative base fee multiplier")
+		}
+
+		if g.MaximalMaxPriorityFee.Cmp(g.MinimalMaxPriorityFee) == -1 {
+			return errors.New("MaximalMaxPriorityFee cannot be less than MinimalMaxPriorityFee")
+		}
+
+		if g.MinimalMaxPriorityFee.Cmp(common.Big0) == -1 {
+			return errors.New("negative MinimalMaxPriorityFee")
+		}
+	default:
+		return errors.New("unsupported tx_type")
+	}
+
+	return nil
 }
 
 type RewardsConfig struct {
@@ -142,123 +329,4 @@ type RewardsConfig struct {
 
 	Retries       int           `toml:"retries"`
 	RetryInterval time.Duration `toml:"retry_interval"`
-}
-
-func new() *Client {
-	return &Client{
-		Chain: config.Chain{
-			EthRPCURL: "http://localhost:9650/ext/C/rpc",
-		},
-		Finalizer: Finalizer{
-			StartOffset:        7 * 24 * time.Hour,
-			VoterThresholdBIPS: 500,
-		},
-		Submit1: defaultSubmitConfig,
-		Submit2: defaultSubmitConfig,
-		SubmitSignatures: SubmitSignatures{
-			Submit:   defaultSubmitConfig,
-			Deadline: 60 * time.Second,
-		},
-		SubmitGas:   Gas{GasPriceFixed: big.NewInt(0)},
-		RegisterGas: Gas{GasPriceFixed: big.NewInt(0)},
-		Rewards: RewardsConfig{
-			Retries:       8,
-			RetryInterval: 6 * time.Hour,
-		},
-	}
-}
-
-// methods to satisfy config.Global interface
-
-func (c Client) ChainConfig() config.Chain {
-	return c.Chain
-}
-
-func (c Client) LoggerConfig() logger.Config {
-	return c.Logger
-}
-
-func Build(cfgFileName string) (*Client, error) {
-	cfg := new()
-	err := config.ParseConfigFile(cfg, cfgFileName, false)
-	if err != nil {
-		return nil, err
-	}
-	err = config.ReadEnv(cfg)
-	if err != nil {
-		return nil, err
-	}
-	err = validate(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
-
-// validate checks consistency of configurations.
-func validate(cfg *Client) error {
-	err := validateGas(&cfg.SubmitGas)
-	if err != nil {
-		return fmt.Errorf("validating SubmitGas: %v", err)
-	}
-	err = validateGas(&cfg.RegisterGas)
-	if err != nil {
-		return fmt.Errorf("validating RegisterGas: %v", err)
-	}
-	err = validateGas(&cfg.RelayGas)
-	if err != nil {
-		return fmt.Errorf("validating RelayGas: %v", err)
-	}
-	err = validateContracts(cfg)
-	if err != nil {
-		return fmt.Errorf("validating contracts: %v", err)
-	}
-	return nil
-}
-
-func validateContracts(cfg *Client) error {
-	if cfg.ContractAddresses.Submission == (common.Address{}) {
-		return errors.New("submission contract address not set")
-	}
-	if cfg.ContractAddresses.SystemsManager == (common.Address{}) {
-		return errors.New("systems_manager contract address not set")
-	}
-	if cfg.Clients.EnabledPreregistration {
-		if cfg.ContractAddresses.VoterPreRegistry == (common.Address{}) {
-			return errors.New("pre-registration enabled but voter_preregistry contract address not set")
-		}
-	}
-	if cfg.Clients.EnabledRegistration {
-		if cfg.ContractAddresses.VoterRegistry == (common.Address{}) {
-			return errors.New("registration enabled but voter_registry contract address not set")
-		}
-	}
-	if cfg.Clients.EnabledFinalizer {
-		if cfg.ContractAddresses.Relay == (common.Address{}) {
-			return errors.New("finalizer enabled but relay contract address not set")
-		}
-	}
-	return nil
-}
-
-// validateGas checks viability of gas configurations.
-func validateGas(cfg *Gas) error {
-	if cfg.TxType != 0 && cfg.TxType != 2 {
-		return errors.New("unsupported tx_type")
-	}
-
-	if cfg.TxType == 2 && cfg.BaseFeePerGasCap.Cmp(common.Big0) == 1 {
-		logger.Warnf("a fixed BaseFeePerGasCap %v is used", cfg.BaseFeePerGasCap)
-	}
-	if cfg.TxType == 2 && cfg.BaseFeeMultiplier.Cmp(common.Big0) == -1 {
-		return errors.New("negative base fee multiplier")
-	}
-
-	if cfg.TxType == 0 && cfg.GasPriceFixed.Cmp(common.Big0) != 0 && cfg.GasPriceMultiplier != 0.0 {
-		return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value for type 0 transaction")
-	}
-	if cfg.GasPriceMultiplier != 0.0 && cfg.GasPriceMultiplier < 1 {
-		return errors.New("if set, gas_price_multiplier value cannot be less than 1")
-	}
-	return nil
 }

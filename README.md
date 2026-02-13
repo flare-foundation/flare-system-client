@@ -1,6 +1,20 @@
+<div align="center">
+  <a href="https://flare.network/" target="blank">
+    <img src="https://content.flare.network/Flare-2.svg" width="300" alt="Flare Logo" />
+  </a>
+  <br />
+  <a href="CONTRIBUTING.md">Contributing</a>
+  ·
+  <a href="SECURITY.md">Security</a>
+  ·
+  <a href="CHANGELOG.md">Changelog</a>
+</div>
+
 # Flare Systems Protocol Client
 
 ...
+
+[![API Reference](https://pkg.go.dev/badge/github.com/flare-foundation/flare-system-client)](https://pkg.go.dev/github.com/flare-foundation/flare-system-client?tab=doc)
 
 ## Configuration
 
@@ -123,38 +137,53 @@ gas_limit = 0                          # (optional) gas limit for transaction. D
 gas_price_multiplier = 0               # (optional for type 0 tx) sets the gas price to be a multiplier of the estimated gas price. Defaults to 0, which will simply use the estimate, OR a fixed gas price if gas_price_fixed is set (!= 0).
 gas_price_fixed = 0                    # (optional for type 0 tx) sets a fixed gas price for the transaction. Defaults to 0, which will use an estimate OR a multiplier of the estimate if gas_price_multiplier is set (!= 0).
 # type 2 settings
-max_priority_fee_per_gas = "20000000000" # (optional for type 2 tx) sets priority fee per gas for a transaction in wei. Defaults to 20GWei.
-base_fee_per_gas_cap = 0               # (optional for type 2 tx) sets base fee per gas cap. Defaults to 3 times estimation of needed base fee to be included in the block. !!! It is strongly recommended to keep it default. Any fixed amount may prevent the transaction from being accepted !!!
+max_priority_fee_multiplier = 2 # (optional for type 2 tx) sets the max priority fee per gas to be a multiple of the estimated base fee. Defaults to 2.
+maximal_max_priority_fee_per_gas = 5000_000_000_000 # (optional for type 2 tx) maximal max priority fee per gas. Defaults to 5000 Gwei.
+minimal_max_priority_fee =100_000_000_000 # (optional for type 2 tx) minimal max priority fee per gas. Defaults to 100 Gwei.
+base_fee_multiplier = 4 # (optional for type 2 tx) sets the base fee to be a multiple of the estimated base fee. Defaults to 4.
+
+
 
 [gas_relay] # applies to finalization transaction
-tx_type = 0
-gas_limit = 0
-gas_price_multiplier = 0
-gas_price_fixed = 0
-max_priority_fee_per_gas = "20000000000"
-base_fee_per_gas_cap = 0
+tx_type = 2
+max_priority_fee_multiplier = 2
+maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
+minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
+base_fee_multiplier = 4
+
+
+[gas_register] # applies to all voter registration transaction
+tx_type = 2
+max_priority_fee_multiplier = 2
+maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
+minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
+base_fee_multiplier = 4
+
+
+[gas_systems_manager] # applies to transactions to FlareSystemsManager contract
+tx_type = 2
+max_priority_fee_multiplier = 2
+maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
+minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
+base_fee_multiplier = 4
 ```
 
-Currently only type 0 transactions are supported for registration.
-
 ```toml
-[gas_register] # applies to all voter registration transaction
-tx_type = 0
-gas_limit = 0
-gas_price_multiplier = 0
-gas_price_fixed = 0
-
-
-
 [rewards] # reward signing configuration - clients.enabled_reward_signing must be set to true
 # URL prefix for retrieving reward distribution data.
+
 # A full URL will be constructed by appending the epoch id and expected file name: <prefix>/<epochId>/reward-distribution-data.json
+
 #
+
 # For example, if reward data for an epoch can be retrieved at https://raw.githubusercontent.com/flare-foundation/fsp-rewards/refs/heads/main/songbird/240/reward-distribution-data.json,
+
 # then the url_prefix should be set to "https://raw.githubusercontent.com/flare-foundation/fsp-rewards/refs/heads/main/songbird"
+
 url_prefix = ""
 min_reward = 0 # minimum acceptable claim amount in wei for the identity address of this provider, default 0.
 max_reward = 0 # (optional) maximum acceptable claim amount in wei for the identity address of this provider. If 0 or not set, no maximum is enforced.
-retries = 8    # (optional) number of retries for fetching and signing reward data, default: 8.
+retries = 8 # (optional) number of retries for fetching and signing reward data, default: 8.
 retry_interval = "6h" # (optional) interval between retries, default: 6 hours.
+
 ```

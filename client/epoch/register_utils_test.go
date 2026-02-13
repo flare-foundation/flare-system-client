@@ -34,9 +34,9 @@ func TestSetGas(t *testing.T) {
 		},
 		{
 			gasConfig: clconfig.Gas{
-				TxType:               2,
-				MaxPriorityFeePerGas: big.NewInt(25),
-				BaseFeeMultiplier:    big.NewInt(3),
+				TxType:                2,
+				MaxPriorityMultiplier: big.NewInt(2),
+				BaseFeeMultiplier:     big.NewInt(3),
 			},
 		}}
 

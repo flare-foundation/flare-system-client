@@ -27,15 +27,11 @@ func CredentialsFromPrivateKey(pk *ecdsa.PrivateKey, chainID int) (*bind.Transac
 }
 
 func PrivateKeyFromHex(privateKey string) (*ecdsa.PrivateKey, error) {
-	if len(privateKey) < 2 {
-		return nil, errors.New("privateKey is too short")
-	}
-
 	privateKey = strings.TrimPrefix(privateKey, "0x")
 
-	pk, err := crypto.HexToECDSA(privateKey)
+	privKey, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "crypto.HexToECDSA")
 	}
-	return pk, nil
+	return privKey, nil
 }
