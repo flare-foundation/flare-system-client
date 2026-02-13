@@ -160,7 +160,7 @@ minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
 base_fee_multiplier = 4
 
 
-[gas_systems_manager]
+[gas_systems_manager] # applies to transactions to FlareSystemsManager contract
 tx_type = 2
 max_priority_fee_multiplier = 2
 maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
@@ -168,8 +168,8 @@ minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
 base_fee_multiplier = 4
 ```
 
+```toml
 [rewards] # reward signing configuration - clients.enabled_reward_signing must be set to true
-
 # URL prefix for retrieving reward distribution data.
 
 # A full URL will be constructed by appending the epoch id and expected file name: <prefix>/<epochId>/reward-distribution-data.json
@@ -185,7 +185,5 @@ min_reward = 0 # minimum acceptable claim amount in wei for the identity address
 max_reward = 0 # (optional) maximum acceptable claim amount in wei for the identity address of this provider. If 0 or not set, no maximum is enforced.
 retries = 8 # (optional) number of retries for fetching and signing reward data, default: 8.
 retry_interval = "6h" # (optional) interval between retries, default: 6 hours.
-
-```
 
 ```
