@@ -336,6 +336,8 @@ func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.D
 //
 // For type 2 transaction on i-th attempt,
 // the multipliers are increased by i, and caps are increased by 11% per attempt.
+//
+// Any unset values will be set to default.
 func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 	switch cfg.TxType {
 	case 0:
@@ -352,63 +354,26 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 			GasPriceMultiplier: max(1.0, cfg.GasPriceMultiplier) * float32(retryMultiplier),
 			GasPriceFixed:      cfg.GasPriceFixed,
 		}
-	case 2:
+	default: // type 2 and invalid types
 		attemptBig := big.NewInt(int64(attempt))
 
-		maxPriorityMultiplier := new(big.Int)
-		if cfg.MaxPriorityMultiplier != nil && cfg.MaxPriorityMultiplier.Cmp(common.Big0) == 1 {
-			maxPriorityMultiplier.Set(cfg.MaxPriorityMultiplier)
-			maxPriorityMultiplier.Add(maxPriorityMultiplier, attemptBig)
-		} else {
-			maxPriorityMultiplier.SetInt64(defaultTipMultiplier + int64(attempt))
-		}
+		c := cfg.CopyAndDefault()
 
-		baseFeeMultiplier := new(big.Int)
-		if cfg.BaseFeeMultiplier != nil && cfg.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
-			baseFeeMultiplier.Set(cfg.BaseFeeMultiplier)
-			baseFeeMultiplier.Add(baseFeeMultiplier, attemptBig)
-		} else {
-			baseFeeMultiplier.Add(config.DefaultBaseFeeMultiplier, attemptBig)
-		}
-
-		maxMaxPriorityFee := new(big.Int)
-		if cfg.MaximalMaxPriorityFee != nil && cfg.MaximalMaxPriorityFee.Cmp(common.Big0) == 1 {
-			maxMaxPriorityFee.Set(cfg.MaximalMaxPriorityFee)
-		} else {
-			maxMaxPriorityFee.Set(config.DefaultMaximalMaxPriorityFee)
-		}
-
-		minMaxPriorityFee := new(big.Int)
-		if cfg.MinimalMaxPriorityFee != nil && cfg.MinimalMaxPriorityFee.Cmp(common.Big0) == 1 {
-			minMaxPriorityFee.Set(cfg.MinimalMaxPriorityFee)
-		} else {
-			minMaxPriorityFee.Set(config.DefaultMinimalMaxPriorityFee)
-		}
+		c.MaxPriorityMultiplier.Add(c.MaxPriorityMultiplier, attemptBig)
+		c.BaseFeeMultiplier.Add(c.BaseFeeMultiplier, attemptBig)
 
 		// Increase caps by 11% per retry
 		if attempt > 0 {
 			multiplier := new(big.Int).Exp(big.NewInt(multiplierBumpTimes100), attemptBig, nil)
 			normalizer := new(big.Int).Exp(big.NewInt(normalizer), attemptBig, nil)
 
-			maxMaxPriorityFee.Mul(maxMaxPriorityFee, multiplier)
-			maxMaxPriorityFee.Div(maxMaxPriorityFee, normalizer)
+			c.MaximalMaxPriorityFee.Mul(c.MaximalMaxPriorityFee, multiplier)
+			c.MaximalMaxPriorityFee.Div(c.MaximalMaxPriorityFee, normalizer)
 
-			minMaxPriorityFee.Mul(minMaxPriorityFee, multiplier)
-			minMaxPriorityFee.Div(minMaxPriorityFee, normalizer)
+			c.MinimalMaxPriorityFee.Mul(c.MinimalMaxPriorityFee, multiplier)
+			c.MinimalMaxPriorityFee.Div(c.MinimalMaxPriorityFee, normalizer)
 		}
 
-		return &config.Gas{
-			TxType:   2,
-			GasLimit: cfg.GasLimit,
-
-			BaseFeeMultiplier:     baseFeeMultiplier,
-			MaxPriorityMultiplier: maxPriorityMultiplier,
-			MaximalMaxPriorityFee: maxMaxPriorityFee,
-			MinimalMaxPriorityFee: minMaxPriorityFee,
-
-			BaseFeePerGasCap: cfg.BaseFeePerGasCap,
-		}
-	default:
-		return cfg
+		return c
 	}
 }

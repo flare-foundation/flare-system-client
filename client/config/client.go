@@ -281,6 +281,46 @@ func DefaultGas() Gas {
 	}
 }
 
+// CopyAndDefault copy Gas and sets default values for any unset configs.
+func (g *Gas) CopyAndDefault() *Gas {
+	switch g.TxType {
+	case 0:
+		return &Gas{
+			TxType:             0,
+			GasLimit:           g.GasLimit,
+			GasPriceMultiplier: g.GasPriceMultiplier,
+			GasPriceFixed:      g.GasPriceFixed,
+		}
+	default: // TxType 2
+		newGas := &Gas{
+			TxType:           2,
+			GasLimit:         g.GasLimit,
+			BaseFeePerGasCap: g.BaseFeePerGasCap,
+		}
+		if g.MaxPriorityMultiplier != nil {
+			newGas.MaxPriorityMultiplier = g.MaxPriorityMultiplier
+		} else {
+			newGas.MaxPriorityMultiplier = DefaultMaxPriorityMultiplier
+		}
+		if g.MinimalMaxPriorityFee != nil {
+			newGas.MinimalMaxPriorityFee = g.MinimalMaxPriorityFee
+		} else {
+			newGas.MinimalMaxPriorityFee = DefaultMinimalMaxPriorityFee
+		}
+		if g.MaximalMaxPriorityFee != nil {
+			newGas.MaximalMaxPriorityFee = g.MaximalMaxPriorityFee
+		} else {
+			newGas.MaximalMaxPriorityFee = DefaultMaximalMaxPriorityFee
+		}
+		if g.BaseFeeMultiplier != nil {
+			newGas.BaseFeeMultiplier = g.BaseFeeMultiplier
+		} else {
+			newGas.BaseFeeMultiplier = DefaultBaseFeeMultiplier
+		}
+		return newGas
+	}
+}
+
 // EnforceMaxPriorityFeeCaps returns capped fee.
 // A new value is returned and the underlying value of the fee is unchanged/
 func (g *Gas) EnforceMaxPriorityFeeCaps(fee *big.Int) *big.Int {
@@ -305,7 +345,6 @@ func (g *Gas) validate() error {
 
 	switch g.TxType {
 	case 0:
-
 		if g.GasPriceFixed.Cmp(common.Big0) != 0 && g.GasPriceMultiplier != 0.0 {
 			return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value for type 0 transaction")
 		}
