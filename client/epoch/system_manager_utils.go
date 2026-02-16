@@ -93,6 +93,7 @@ func NewSystemsManagerClient(
 		address:             address,
 		flareSystemsManager: flareSystemsManager,
 		senderTxOpts:        senderTxOpts,
+		gasCfg:              gasCfg,
 		txVerifier:          chain.NewTxVerifier(ethClient),
 		signerPrivateKey:    signerPrivateKey,
 		chainID:             chainID,
