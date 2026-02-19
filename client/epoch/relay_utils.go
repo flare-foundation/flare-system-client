@@ -64,12 +64,12 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClien
 			}
 
 			if req, newAddress := finalizer.RequiresNewRelayAddress(r.address); req {
-				oldLogs, err := db.FetchLogsByAddressAndTopic0Timestamp(newAddress, topic0, eventRangeStart, now)
+				newLogs, err := db.FetchLogsByAddressAndTopic0Timestamp(newAddress, topic0, eventRangeStart, now)
 				if err != nil {
 					logger.Errorf("Error fetching old logs %v", err)
 					continue
 				}
-				logs = append(logs, oldLogs...)
+				logs = append(logs, newLogs...)
 			}
 
 			if len(logs) > 0 {

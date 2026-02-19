@@ -167,6 +167,7 @@ func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startT
 		if err := c.signingPolicyStorage.Add(policy); err != nil {
 			logger.Warnf("Error adding signing policy %v", err)
 		}
+
 		logger.Infof("New signing policy received for epoch %v", policy.RewardEpochID)
 
 		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.lowestRoundStored) // remove signingPolicies that will never be used again

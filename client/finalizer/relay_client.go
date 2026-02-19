@@ -143,13 +143,13 @@ func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int6
 
 	allLogs = append(allLogs, logs...)
 
-	if requires, newAddress := RequiresNewRelayAddress(address); requires {
-		oldLogs, err := db.FetchLogsByAddressAndTopic0(newAddress, r.topic0SPI, from, to)
+	if req, newAddress := RequiresNewRelayAddress(address); req {
+		newLogs, err := db.FetchLogsByAddressAndTopic0(newAddress, r.topic0SPI, from, to)
 		if err != nil {
 			return nil, err
 		}
 
-		allLogs = append(allLogs, oldLogs...)
+		allLogs = append(allLogs, newLogs...)
 	}
 
 	result := make([]signingPolicyListenerResponse, 0, len(allLogs))
@@ -184,13 +184,13 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 			}
 
 			if requires, newAddress := RequiresNewRelayAddress(address); requires {
-				oldLogs, err := db.FetchLogsByAddressAndTopic0(newAddress, r.topic0SPI, eventRangeStart, now)
+				newLogs, err := db.FetchLogsByAddressAndTopic0(newAddress, r.topic0SPI, eventRangeStart, now)
 				if err != nil {
 					logger.Errorf("Error fetching old logs %v", err)
 					continue
 				}
 
-				logs = append(logs, oldLogs...)
+				logs = append(logs, newLogs...)
 			}
 
 			for _, log := range logs {

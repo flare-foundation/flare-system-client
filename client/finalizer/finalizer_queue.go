@@ -185,7 +185,7 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		return
 	}
 
-	if ok, newAddress := shouldUpdateRelayAddress(p.relayClient.address, data.signingPolicy.RewardEpochID, &p.relayClient.addressMutex); ok {
+	if req, newAddress := shouldUpdateRelayAddress(p.relayClient.address, data.signingPolicy.RewardEpochID, &p.relayClient.addressMutex); req {
 		p.relayClient.addressMutex.Lock()
 		logger.Infof("relay address changed from %v to %v", p.relayClient.address, newAddress)
 		p.relayClient.address = newAddress
