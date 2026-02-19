@@ -130,6 +130,17 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 			continue
 		}
 
+		data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
+		if exists {
+			req, newAddress := shouldUpdateRelayAddress(p.relayClient.address, data.signingPolicy.RewardEpochID, &p.relayClient.addressMutex)
+			if req {
+				p.relayClient.addressMutex.Lock()
+				logger.Infof("relay address changed from %v to %v", p.relayClient.address, newAddress)
+				p.relayClient.address = newAddress
+				p.relayClient.addressMutex.Unlock()
+			}
+		}
+
 		if p.isVoterForCurrentEpoch(item) {
 			logger.Infof("Finalizer with address %v was selected for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
@@ -183,13 +194,6 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 	if !exists {
 		logger.Warnf("finalization data for protocol %d for round %d missing", item.protocolID, item.votingRoundID)
 		return
-	}
-
-	if req, newAddress := shouldUpdateRelayAddress(p.relayClient.address, data.signingPolicy.RewardEpochID, &p.relayClient.addressMutex); req {
-		p.relayClient.addressMutex.Lock()
-		logger.Infof("relay address changed from %v to %v", p.relayClient.address, newAddress)
-		p.relayClient.address = newAddress
-		p.relayClient.addressMutex.Unlock()
 	}
 
 	finalizationData, err := PrepareFinalizationResults(data)
