@@ -185,6 +185,13 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		return
 	}
 
+	if ok, newAddress := shouldUpdateRelayAddress(p.relayClient.address, data.signingPolicy.RewardEpochID, &p.relayClient.addressMutex); ok {
+		p.relayClient.addressMutex.Lock()
+		logger.Infof("relay address changed from %v to %v", p.relayClient.address, newAddress)
+		p.relayClient.address = newAddress
+		p.relayClient.addressMutex.Unlock()
+	}
+
 	finalizationData, err := PrepareFinalizationResults(data)
 	if err != nil {
 		logger.Warnf("finalization data preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
@@ -199,6 +206,32 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 
 	logger.Infof("Relaying for round %d for protocol %d", item.votingRoundID, item.protocolID)
 	p.relayClient.SubmitPayloads(ctx, txInput, isDelayed, item.protocolID)
+}
+
+func shouldUpdateRelayAddress(address common.Address, rewardEpochID int64, lock *sync.RWMutex) (bool, common.Address) {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	switch address {
+	case RelayFlareOld:
+		if rewardEpochID >= RewardEpochChangeFlare {
+			return true, RelayFlareNew
+		}
+	case RelayCoston2Old:
+		if rewardEpochID >= RewardEpochChangeCoston2 {
+			return true, RelayCoston2New
+		}
+	case RelaySongbirdOld:
+		if rewardEpochID >= RewardEpochChangeSongbird {
+			return true, RelaySongbirdNew
+		}
+	case RelayCostonOld:
+		if rewardEpochID >= RewardEpochChangeCoston {
+			return true, RelayCostonNew
+		}
+	}
+
+	return false, address
 }
 
 func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
