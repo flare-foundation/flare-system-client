@@ -3,6 +3,7 @@ package epoch
 import (
 	"time"
 
+	"github.com/flare-foundation/flare-system-client/client/finalizer"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/utils"
 	"github.com/flare-foundation/flare-system-client/utils/chain"
@@ -61,6 +62,16 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClien
 				logger.Errorf("Error fetching logs %v", err)
 				continue
 			}
+
+			if req, newAddress := finalizer.RequiresNewRelayAddress(r.address); req {
+				newLogs, err := db.FetchLogsByAddressAndTopic0Timestamp(newAddress, topic0, eventRangeStart, now)
+				if err != nil {
+					logger.Errorf("Error fetching old logs %v", err)
+					continue
+				}
+				logs = append(logs, newLogs...)
+			}
+
 			if len(logs) > 0 {
 				policyData, err := r.parseSigningPolicyInitializedEvent(logs[len(logs)-1])
 				if err != nil {

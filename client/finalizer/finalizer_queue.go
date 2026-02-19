@@ -130,6 +130,17 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 			continue
 		}
 
+		data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
+		if exists {
+			req, newAddress := shouldUpdateRelayAddress(p.relayClient.address, data.signingPolicy.RewardEpochID, &p.relayClient.addressMutex)
+			if req {
+				p.relayClient.addressMutex.Lock()
+				logger.Infof("relay address changed from %v to %v", p.relayClient.address, newAddress)
+				p.relayClient.address = newAddress
+				p.relayClient.addressMutex.Unlock()
+			}
+		}
+
 		if p.isVoterForCurrentEpoch(item) {
 			logger.Infof("Finalizer with address %v was selected for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
@@ -199,6 +210,32 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 
 	logger.Infof("Relaying for round %d for protocol %d", item.votingRoundID, item.protocolID)
 	p.relayClient.SubmitPayloads(ctx, txInput, isDelayed, item.protocolID)
+}
+
+func shouldUpdateRelayAddress(address common.Address, rewardEpochID int64, lock *sync.RWMutex) (bool, common.Address) {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	switch address {
+	case RelayFlareOld:
+		if rewardEpochID >= RewardEpochChangeFlare {
+			return true, RelayFlareNew
+		}
+	case RelayCoston2Old:
+		if rewardEpochID >= RewardEpochChangeCoston2 {
+			return true, RelayCoston2New
+		}
+	case RelaySongbirdOld:
+		if rewardEpochID >= RewardEpochChangeSongbird {
+			return true, RelaySongbirdNew
+		}
+	case RelayCostonOld:
+		if rewardEpochID >= RewardEpochChangeCoston {
+			return true, RelayCostonNew
+		}
+	}
+
+	return false, address
 }
 
 func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
