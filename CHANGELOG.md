@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.0.8] - 2026-2-19
+
+### Changed
+
+- Addressed change of Relay contract address on all chains.
+
 ## [v1.0.7] - 2026-2-17
 
 ### Changed
