@@ -285,18 +285,24 @@ func DefaultGas() Gas {
 func (g *Gas) CopyAndDefault() *Gas {
 	switch g.TxType {
 	case 0:
-		return &Gas{
+		newGas := &Gas{
 			TxType:             0,
 			GasLimit:           g.GasLimit,
 			GasPriceMultiplier: g.GasPriceMultiplier,
-			GasPriceFixed:      g.GasPriceFixed,
 		}
+
+		if g.GasPriceFixed != nil {
+			newGas.GasPriceFixed = new(big.Int).Set(g.GasPriceFixed)
+		}
+
+		return newGas
+
 	default: // TxType 2
 		newGas := &Gas{
-			TxType:           2,
-			GasLimit:         g.GasLimit,
-			BaseFeePerGasCap: g.BaseFeePerGasCap,
+			TxType:   2,
+			GasLimit: g.GasLimit,
 		}
+
 		if g.MaxPriorityMultiplier != nil {
 			newGas.MaxPriorityMultiplier = new(big.Int).Set(g.MaxPriorityMultiplier)
 		} else {
@@ -317,6 +323,11 @@ func (g *Gas) CopyAndDefault() *Gas {
 		} else {
 			newGas.BaseFeeMultiplier = new(big.Int).Set(DefaultBaseFeeMultiplier)
 		}
+
+		if g.BaseFeePerGasCap != nil {
+			newGas.BaseFeePerGasCap = new(big.Int).Set(g.BaseFeePerGasCap)
+		}
+
 		return newGas
 	}
 }
