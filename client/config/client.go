@@ -285,38 +285,49 @@ func DefaultGas() Gas {
 func (g *Gas) CopyAndDefault() *Gas {
 	switch g.TxType {
 	case 0:
-		return &Gas{
+		newGas := &Gas{
 			TxType:             0,
 			GasLimit:           g.GasLimit,
 			GasPriceMultiplier: g.GasPriceMultiplier,
-			GasPriceFixed:      g.GasPriceFixed,
 		}
+
+		if g.GasPriceFixed != nil {
+			newGas.GasPriceFixed = new(big.Int).Set(g.GasPriceFixed)
+		}
+
+		return newGas
+
 	default: // TxType 2
 		newGas := &Gas{
-			TxType:           2,
-			GasLimit:         g.GasLimit,
-			BaseFeePerGasCap: g.BaseFeePerGasCap,
+			TxType:   2,
+			GasLimit: g.GasLimit,
 		}
+
 		if g.MaxPriorityMultiplier != nil {
-			newGas.MaxPriorityMultiplier = g.MaxPriorityMultiplier
+			newGas.MaxPriorityMultiplier = new(big.Int).Set(g.MaxPriorityMultiplier)
 		} else {
-			newGas.MaxPriorityMultiplier = DefaultMaxPriorityMultiplier
+			newGas.MaxPriorityMultiplier = new(big.Int).Set(DefaultMaxPriorityMultiplier)
 		}
 		if g.MinimalMaxPriorityFee != nil {
-			newGas.MinimalMaxPriorityFee = g.MinimalMaxPriorityFee
+			newGas.MinimalMaxPriorityFee = new(big.Int).Set(g.MinimalMaxPriorityFee)
 		} else {
-			newGas.MinimalMaxPriorityFee = DefaultMinimalMaxPriorityFee
+			newGas.MinimalMaxPriorityFee = new(big.Int).Set(DefaultMinimalMaxPriorityFee)
 		}
 		if g.MaximalMaxPriorityFee != nil {
-			newGas.MaximalMaxPriorityFee = g.MaximalMaxPriorityFee
+			newGas.MaximalMaxPriorityFee = new(big.Int).Set(g.MaximalMaxPriorityFee)
 		} else {
-			newGas.MaximalMaxPriorityFee = DefaultMaximalMaxPriorityFee
+			newGas.MaximalMaxPriorityFee = new(big.Int).Set(DefaultMaximalMaxPriorityFee)
 		}
 		if g.BaseFeeMultiplier != nil {
-			newGas.BaseFeeMultiplier = g.BaseFeeMultiplier
+			newGas.BaseFeeMultiplier = new(big.Int).Set(g.BaseFeeMultiplier)
 		} else {
-			newGas.BaseFeeMultiplier = DefaultBaseFeeMultiplier
+			newGas.BaseFeeMultiplier = new(big.Int).Set(DefaultBaseFeeMultiplier)
 		}
+
+		if g.BaseFeePerGasCap != nil {
+			newGas.BaseFeePerGasCap = new(big.Int).Set(g.BaseFeePerGasCap)
+		}
+
 		return newGas
 	}
 }
