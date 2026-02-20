@@ -298,24 +298,24 @@ func (g *Gas) CopyAndDefault() *Gas {
 			BaseFeePerGasCap: g.BaseFeePerGasCap,
 		}
 		if g.MaxPriorityMultiplier != nil {
-			newGas.MaxPriorityMultiplier = g.MaxPriorityMultiplier
+			newGas.MaxPriorityMultiplier = new(big.Int).Set(g.MaxPriorityMultiplier)
 		} else {
-			newGas.MaxPriorityMultiplier = DefaultMaxPriorityMultiplier
+			newGas.MaxPriorityMultiplier = new(big.Int).Set(DefaultMaxPriorityMultiplier)
 		}
 		if g.MinimalMaxPriorityFee != nil {
-			newGas.MinimalMaxPriorityFee = g.MinimalMaxPriorityFee
+			newGas.MinimalMaxPriorityFee = new(big.Int).Set(g.MinimalMaxPriorityFee)
 		} else {
-			newGas.MinimalMaxPriorityFee = DefaultMinimalMaxPriorityFee
+			newGas.MinimalMaxPriorityFee = new(big.Int).Set(DefaultMinimalMaxPriorityFee)
 		}
 		if g.MaximalMaxPriorityFee != nil {
-			newGas.MaximalMaxPriorityFee = g.MaximalMaxPriorityFee
+			newGas.MaximalMaxPriorityFee = new(big.Int).Set(g.MaximalMaxPriorityFee)
 		} else {
-			newGas.MaximalMaxPriorityFee = DefaultMaximalMaxPriorityFee
+			newGas.MaximalMaxPriorityFee = new(big.Int).Set(DefaultMaximalMaxPriorityFee)
 		}
 		if g.BaseFeeMultiplier != nil {
-			newGas.BaseFeeMultiplier = g.BaseFeeMultiplier
+			newGas.BaseFeeMultiplier = new(big.Int).Set(g.BaseFeeMultiplier)
 		} else {
-			newGas.BaseFeeMultiplier = DefaultBaseFeeMultiplier
+			newGas.BaseFeeMultiplier = new(big.Int).Set(DefaultBaseFeeMultiplier)
 		}
 		return newGas
 	}
