@@ -1,10 +1,16 @@
 include:
   - component: $CI_SERVER_FQDN/flarenetwork/infra-public/ci-components/dependency-track@~latest
+  - component: gitlab.com/flarenetwork/ci-components-private/ai-code-review@2
+    inputs:
+      use_cursor_cli: false
+      rules_condition: $CI_MERGE_REQUEST_IID != null && $GITLAB_USER_NAME != "SealBot" && $CI_MERGE_REQUEST_EVENT_TYPE != "merge_train"
+      rules_when: always
 
 stages:
   - build
   - test
   - sbom
+  - report
 
 variables:
   GOPATH: /go
