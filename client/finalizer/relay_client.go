@@ -3,7 +3,6 @@ package finalizer
 import (
 	"context"
 	"crypto/ecdsa"
-	"sync"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -14,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 
-	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
@@ -49,24 +47,8 @@ var (
 	RewardEpochChangeCoston = int64(5236)
 )
 
-func RequiresNewRelayAddress(address common.Address) (bool, common.Address) {
-	switch address {
-	case RelayFlareOld:
-		return true, RelayFlareNew
-	case RelayCoston2Old:
-		return true, RelayCoston2New
-	case RelaySongbirdOld:
-		return true, RelaySongbirdNew
-	case RelayCostonOld:
-		return true, RelayCostonNew
-	default:
-		return false, address
-	}
-}
-
 type relayContractClient struct {
-	addressMutex sync.RWMutex
-	address      common.Address
+	address common.Address
 
 	chainClient chain.Client
 	gasConfig   *config.Gas
@@ -130,30 +112,13 @@ func NewRelayContractClient(
 
 // FetchSigningPolicies fetches signing policies emitted by in SigningPolicyInitialized events from Relay smart contract with timestamps in the interval (from,to].
 func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
-	var allLogs []database.Log
-
-	r.addressMutex.RLock()
-	address := r.address
-	r.addressMutex.RUnlock()
-
-	logs, err := db.FetchLogsByAddressAndTopic0(address, r.topic0SPI, from, to)
+	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
 
-	allLogs = append(allLogs, logs...)
-
-	if req, newAddress := RequiresNewRelayAddress(address); req {
-		newLogs, err := db.FetchLogsByAddressAndTopic0(newAddress, r.topic0SPI, from, to)
-		if err != nil {
-			return nil, err
-		}
-
-		allLogs = append(allLogs, newLogs...)
-	}
-
-	result := make([]signingPolicyListenerResponse, 0, len(allLogs))
-	for _, log := range allLogs {
+	result := make([]signingPolicyListenerResponse, 0, len(logs))
+	for _, log := range logs {
 		policyData, err := shared.ParseSigningPolicyInitializedEvent(r.relay, log)
 		if err != nil {
 			logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)
@@ -173,24 +138,10 @@ func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, s
 			<-ticker.C
 			now := time.Now().Unix()
 
-			r.addressMutex.RLock()
-			address := r.address
-			r.addressMutex.RUnlock()
-
-			logs, err := db.FetchLogsByAddressAndTopic0(address, r.topic0SPI, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
-			}
-
-			if requires, newAddress := RequiresNewRelayAddress(address); requires {
-				newLogs, err := db.FetchLogsByAddressAndTopic0(newAddress, r.topic0SPI, eventRangeStart, now)
-				if err != nil {
-					logger.Errorf("Error fetching old logs %v", err)
-					continue
-				}
-
-				logs = append(logs, newLogs...)
 			}
 
 			for _, log := range logs {
@@ -224,8 +175,6 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 			return "", errors.Wrap(err, "Error sending relay tx")
 		}
 
-		r.addressMutex.RLock()
-		defer r.addressMutex.RUnlock()
 		err = r.chainClient.SendRawTx(r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
@@ -247,9 +196,6 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 
 // ProtocolMessageRelayed returns a set of pairs of protocol and round that have been finalized.
 func (r *relayContractClient) ProtocolMessageRelayed(db finalizerDB, from time.Time, to time.Time) (map[queueItem]bool, error) {
-	r.addressMutex.RLock()
-	defer r.addressMutex.RUnlock()
-
 	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0PMR, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
