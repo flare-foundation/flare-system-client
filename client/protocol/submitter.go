@@ -423,6 +423,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentRound int64, protocols
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 
 	ticker := time.NewTicker(s.cycleDuration)
+	defer ticker.Stop()
 
 	for j := 0; j < s.maxCycles && len(protocolsToQuery) > 0; j++ {
 		for i, protocol := range s.subProtocols {
