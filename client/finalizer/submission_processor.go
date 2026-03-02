@@ -21,11 +21,13 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 	inputBytes, err := hex.DecodeString(tx.Input)
 	if err != nil {
 		logger.Infof("Invalid submitSignatures tx sent by %s: %v, skipping", tx.FromAddress, err)
+		return nil
 	}
 	payloads, err := ExtractPayloads(inputBytes)
 	if err != nil {
 		// if input cannot be decoded, it is not a valid submission and should be skipped
 		logger.Infof("Invalid submitSignatures input sent by %s: %v, skipping", tx.FromAddress, err)
+		return nil
 	}
 
 	signaturePayloads := []*submitSignaturesPayload{}

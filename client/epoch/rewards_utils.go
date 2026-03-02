@@ -45,7 +45,7 @@ var (
 	}
 	weightClaimsType, _ = abi.NewType("tuple[]", "", []abi.ArgumentMarshaling{
 		{Name: "RewardManagerId", Type: "uint256"},
-		{Name: "NoOfWeightBasedClaims", Type: "uint265"},
+		{Name: "NoOfWeightBasedClaims", Type: "uint256"},
 	})
 	weightClaimsArgs = abi.Arguments{
 		{Type: weightClaimsType},
