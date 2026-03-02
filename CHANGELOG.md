@@ -6,6 +6,10 @@
 
 - Automated releases on GitHub.
 
+### Changed
+
+- Config examples and template fully moved from README to cong.toml.
+
 ### Fixed
 
 - Minor issues found by AI review.

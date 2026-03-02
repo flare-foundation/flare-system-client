@@ -1,103 +1,171 @@
-# This file serves as a template for the configuration file. Copy it and edit the values as needed.
-# Use --config parameter to specify the path to the configuration file.
+# This is an example configuration file for the flare-system-client.
+# It contains all the possible configuration options with comments.
+# For a minimal configuration, you can remove the options that you don't need to change from their default values.
 
-# Database filled with data from the ftso (c-chain) indexer
+# Database configuration for the indexer.
 [db]
 host = "localhost"
-port = 3306
-database = "flare_ftso_indexer"
-username = "indexeruser"
-password = "P.a.s.s.W.O.R.D"
-# log_queries = true
+port = 5432
+user = "user"
+password = "password"
+dbname = "flare-system-client"
 
+# Logger configuration.
 [logger]
-level = "DEBUG"
-file = "./logs/fsp.log"
+level = "INFO" # Log level: "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "PANIC"
+encoding = "console" # "console" or "json"
+# file = "./logs/fsp.log"
 console = true
 
-[metrics]
-# prometheus_address = "localhost:2112"
-
+# Chain configuration.
 [chain]
-eth_rpc_url = "http://127.0.0.1:8545/ext/C/rpc"
-chain_id = 31337
+eth_rpc_url = "http://localhost:9650/ext/C/rpc" # Ethereum RPC URL of the C-chain.
+chain_id = 114 # Chain ID of the network (14 for Flare, 114 for Coston2, 19 for Songbird, 16 for Coston).
 
-[contract_addresses]
-submission = "0x18b9306737eaf6e8fc8e737f488a1ae077b18053"
-systems_manager = "0xa4bcdf64cdd5451b6ac3743b414124a6299b65ff"
-voter_registry = "0xb00cc45b4a7d3e1fee684cfc4417998a1c183e6d"
-relay = "0x5a0773ff307bf7c71a832dbb5312237fd3437f9f"
+# Metrics configuration for Prometheus.
+[metrics]
+prometheus_address = "localhost:9680" # Address to expose Prometheus metrics.
 
-[identity]
-address = "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf" # identity account not private key
-
-[credentials]
-system_client_sender_private_key_file = "../credentials/sender-private-key.txt"                   # any account
-signing_policy_private_key_file = "../credentials/policy-private-key.txt"                         # for signing and submitting votes
-protocol_manager_submit_private_key_file = "../credentials/submit-private-key.txt"
-protocol_manager_submit_signatures_private_key_file = "../credentials/signatures-private-key.txt"
+# Configuration for enabling/disabling different clients.
 [clients]
-enabled_registration = true
-enabled_protocol_voting = true
-enabled_finalizer = true
+enabled_registration = true     # Enable voter registration.
+enabled_pre_registration = true # Enable voter pre-registration.
+enabled_uptime_voting = true    # Enable uptime voting.
+enabled_reward_signing = true   # Enable reward signing.
+enabled_protocol_voting = true  # Enable protocol voting (submit1, submit2, submitSignatures)
+enabled_finalizer = true        # Enable finalizer.
 
-[protocol.ftso1]
-id = 1
-api_url = "http://localhost:3100/"
-type = 0
+# Contract addresses on the C-chain.
+[contract_addresses]
+submission = "0x..."
+systems_manager = "0x..."
+voter_registry = "0x..."
+voter_preregistry = "0x..."
+relay = "0x..."
 
+# Identity configuration.
+[identity]
+address = "0x..." # The address of the data provider's identity.
+
+# Credentials configuration.
+# Private keys can be provided directly or via a file path.
+# It is recommended to use environment variables for private keys for security.
+# e.g., export SIGNING_POLICY_PRIVATE_KEY="your_private_key"
+[credentials]
+# Private key for signing data (e.g., for submitSignatures).
+signing_policy_private_key_file = "/path/to/signing_policy_private_key"
+# signing_policy_private_key = "..." # envconfig:"SIGNING_POLICY_PRIVATE_KEY"
+
+# Private key for sending transactions like RegisterVoter and SignNewSigningPolicy.
+system_client_sender_private_key_file = "/path/to/system_client_sender_private_key"
+# system_client_sender_private_key = "..." # envconfig:"SYSTEM_CLIENT_SENDER_PRIVATE_KEY"
+
+# Private key for submitting protocol data (submit1, submit2).
+protocol_manager_submit_private_key_file = "/path/to/protocol_manager_submit_private_key"
+# protocol_manager_submit_private_key = "..." # envconfig:"PROTOCOL_MANAGER_SUBMIT_PRIVATE_KEY"
+
+# Private key for submitting protocol signatures.
+protocol_manager_submit_signatures_private_key_file = "/path/to/protocol_manager_submit_signatures_private_key"
+# protocol_manager_submit_signatures_private_key = "..." # envconfig:"PROTOCOL_MANAGER_SUBMIT_SIGNATURES_PRIVATE_KEY"
+
+# Protocol configurations. You can define multiple protocols.
+[protocol.ftso]
+id = 0
+api_endpoint = "http://localhost:3100" # url where subptotocol clients exposes endpoints
+type = 1 # Type of submitSignature payload
+# To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_${id} (PROTOCOL_X_API_KEY_0) env var
+
+
+[protocol.fdc]
+id = 200
+api_endpoint = "http://localhost:8080/fsp"
+type = 1 # Type of submitSignature payload
+# To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_${id} (PROTOCOL_X_API_KEY_200) env var
+
+
+# Configuration for the submit1 operation.
 [submit1]
 enabled = true
-start_offset = "2s"
-tx_submit_retries = 1
+start_offset = "75s" # Offset from the start of the epoch.
+tx_submit_retries = 2
+tx_submit_timeout = "5s"
 data_fetch_retries = 1
 data_fetch_timeout = "5s"
 
+# Configuration for the submit2 operation.
 [submit2]
 enabled = true
-start_offset = "5s"
-tx_submit_retries = 1
+start_offset = "20s" # Offset from the start of the epoch.
+tx_submit_retries = 2
+tx_submit_timeout = "5s"
 data_fetch_retries = 1
 data_fetch_timeout = "5s"
 
+# Configuration for the submitSignatures operation.
 [submit_signatures]
 enabled = true
-start_offset = "12s"
-tx_submit_retries = 1
+start_offset = "45s" # Offset from the start of the epoch.
+tx_submit_retries = 5
+tx_submit_timeout = "5s"
 data_fetch_retries = 1
-data_fetch_timeout = "5s"
-max_rounds = 3
+data_fetch_timeout = "2s"
+deadline = "58s" # Deadline from the start of the epoch for sending submitSignatures tx.
+max_cycles = 5 # Maximal number of query cycles after the deadline.
+cycle_duration = "2" # Minimal duration of a cycle after the deadline.
 
+# Finalizer configuration.
 [finalizer]
-starting_reward_epoch = 0
-starting_voting_round = 1005
-start_offset = "500s"
-grace_period_end_offset = "17s"
+starting_reward_epoch = 0 # The reward epoch from which to start processing.
+starting_voting_round = 0 # The voting round from which to start processing. 0 means current.
+start_offset = "168h" # 7 days. How far in the past to start fetching reward epochs from the indexer.
+voter_threshold_bips = 500 # Voter threshold in basis points for selecting voters.
+grace_period_end_offset = "65s" # Offset from the start of the voting round to define the end of the grace period.
 
+# Gas configuration for submitting protocol data.
 [gas_submit]
-tx_type = 2
-max_priority_fee_multiplier = 2
-maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
-minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
-base_fee_multiplier = 4
+tx_type = 2 # 0 for legacy, 2 for EIP-1559 (recommended).
+gas_limit = 0 # 0 for auto-estimation. Set only if you know what you are doing.
+# Type 0 tx gas settings
+# gas_price_multiplier = 1.0
+# gas_price_fixed = "100000000000" # Use a fixed gas price. Overrides multiplier.
+# Type 2 tx gas settings
+max_priority_fee_multiplier = "2"
+minimal_max_priority_fee = "100000000000" # 100 Gwei
+maximal_max_priority_fee = "5000000000000" # 5000 Gwei
+base_fee_multiplier = "4"
+# base_fee_per_gas_cap = "..." # LEAVE UNSET UNLESS YOU KNOW WHAT YOU ARE DOING.
 
+# Gas configuration for voter registration.
 [gas_register]
 tx_type = 2
-max_priority_fee_multiplier = 2
-maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
-minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
-base_fee_multiplier = 4
+gas_limit = 0
+max_priority_fee_multiplier = "2"
+minimal_max_priority_fee = "100000000000"
+maximal_max_priority_fee = "5000000000000"
+base_fee_multiplier = "4"
 
+# Gas configuration for relaying finalization transactions.
 [gas_relay]
 tx_type = 2
-max_priority_fee_multiplier = 2
-maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
-minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
-base_fee_multiplier = 4
+gas_limit = 0
+max_priority_fee_multiplier = "2"
+minimal_max_priority_fee = "100000000000"
+maximal_max_priority_fee = "5000000000000"
+base_fee_multiplier = "4"
 
+# Gas configuration for SystemsManager contract interactions.
 [gas_systems_manager]
 tx_type = 2
-max_priority_fee_multiplier = 2
-maximal_max_priority_fee = 5000_000_000_000 # 5000 Gwei
-minimal_max_priority_fee = 100_000_000_000 # 100 Gwei
-base_fee_multiplier = 4
+gas_limit = 0
+max_priority_fee_multiplier = "2"
+minimal_max_priority_fee = "100000000000"
+maximal_max_priority_fee = "5000000000000"
+base_fee_multiplier = "4"
+
+# Rewards signing configuration.
+# [rewards]
+# url_prefix = "https://reward-data.flare.network/" # URL prefix for fetching reward distribution data.
+# min_reward = "0" # Minimum reward amount in wei to sign for.
+# max_reward = "0" # Maximum reward amount in wei to sign for. 0 means no limit.
+# retries = 8
+# retry_interval = "6h"
