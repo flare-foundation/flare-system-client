@@ -25,7 +25,11 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/registry"
 )
 
-const breakingEpochCoston2 = 5338
+const (
+	chainIDCoston2 = 114
+
+	breakingEpochCoston2 = 5338
+)
 
 const (
 	newRegistryCoston2Addr = "0x6a0AF07b7972177B176d3D422555cbc98DfDe914"
@@ -148,18 +152,22 @@ func NewRegistryContractClient(
 ) (*registryContractClientImpl, error) {
 	registryBinding, err := registry.NewRegistry(registryAddress, ethClient)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("registry binding: %w", err)
 	}
 	preregistryBinding, err := preregistry.NewPreregistry(preregistryAddress, ethClient)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pre registry binding: %w", err)
 	}
 
 	var oldRegistryBinding *registry.Registry
 	if registryAddress == newRegistryCoston2 {
 		oldRegistryBinding, err = registry.NewRegistry(oldRegistryCoston2, ethClient)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("registry binding old: %w", err)
+		}
+
+		if chainID != chainIDCoston2 {
+			return nil, errors.New("registry contract for coston2 on different chain")
 		}
 	}
 
@@ -167,7 +175,11 @@ func NewRegistryContractClient(
 	if preregistryAddress == newPreRegistryCoston2 {
 		oldPreRegistryBinding, err = preregistry.NewPreregistry(oldPreRegistryCoston2, ethClient)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("pre registry binding old: %w", err)
+		}
+
+		if chainID != chainIDCoston2 {
+			return nil, errors.New("pre registry contract for coston2 on different chain")
 		}
 	}
 
@@ -212,7 +224,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochID *big.In
 		err       error
 	)
 
-	if old {
+	if old || r.chainID != chainIDCoston2 {
 		rAddress = oldAddress
 		signature, err = r.createSignatureOld(epochID, address)
 		if err != nil {
@@ -304,11 +316,11 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochID *big
 		err       error
 	)
 
-	if old {
+	if old || r.chainID != chainIDCoston2 {
 		prAddress = oldAddress
 		signature, err = r.createSignatureOld(epochID, address)
 		if err != nil {
-			return fmt.Errorf("creating pre registry signature old: %w", err)
+			return fmt.Errorf("creating registry signature old: %w", err)
 		}
 	} else {
 		signature, err = r.createSignatureNew(r.chainID, epochID, address)
