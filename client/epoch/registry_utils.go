@@ -24,10 +24,16 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/registry"
 )
 
+const (
+	chainIDCoston2 = 114
+)
+
 var (
-	registratorArguments abi.Arguments
-	registryAbi          *abi.ABI
-	preregistryAbi       *abi.ABI
+	registratorArguments    abi.Arguments
+	registratorArgumentsNew abi.Arguments
+
+	registryAbi    *abi.ABI
+	preregistryAbi *abi.ABI
 
 	fallbackGasPrice = big.NewInt(50 * 1e9) // 50 GWei
 )
@@ -56,8 +62,27 @@ func init() {
 		// panic, this error is fatal
 		panic(err)
 	}
+
+	uint256Ty, err := abi.NewType("uint256", "uint256", nil)
+	if err != nil {
+		// panic, this error is fatal
+		panic(err)
+	}
+
 	registratorArguments = abi.Arguments{
-		{ // nextRewardEpochId
+		{ // nextRewardEpochIDs
+			Type: uint32Ty,
+		},
+		{ // address
+			Type: addressTy,
+		},
+	}
+
+	registratorArgumentsNew = abi.Arguments{
+		{ // chainID
+			Type: uint256Ty,
+		},
+		{ // nextRewardEpochID
 			Type: uint32Ty,
 		},
 		{ // address
@@ -84,7 +109,7 @@ type registryContractClient interface {
 
 type registryContractClientImpl struct {
 	ethClient          *ethclient.Client
-	address            common.Address
+	registryAddress    common.Address
 	preregistryAddress common.Address
 	registry           *registry.Registry
 	preregistry        *preregistry.Preregistry
@@ -92,6 +117,7 @@ type registryContractClientImpl struct {
 	gasCfg             *config.Gas
 	txVerifier         *chain.TxVerifier
 	signerPrivateKey   *ecdsa.PrivateKey
+	chainID            int
 }
 
 func NewRegistryContractClient(
@@ -101,32 +127,35 @@ func NewRegistryContractClient(
 	preregistryAddress common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPk *ecdsa.PrivateKey,
+	chainID int,
 ) (*registryContractClientImpl, error) {
-	registry, err := registry.NewRegistry(registryAddress, ethClient)
+	registryBinding, err := registry.NewRegistry(registryAddress, ethClient)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("registry binding: %w", err)
 	}
-	preregistry, err := preregistry.NewPreregistry(preregistryAddress, ethClient)
+	preregistryBinding, err := preregistry.NewPreregistry(preregistryAddress, ethClient)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pre registry binding: %w", err)
 	}
+
 	return &registryContractClientImpl{
 		ethClient:          ethClient,
-		address:            registryAddress,
+		registryAddress:    registryAddress,
 		preregistryAddress: preregistryAddress,
-		registry:           registry,
-		preregistry:        preregistry,
+		registry:           registryBinding,
+		preregistry:        preregistryBinding,
 		senderTxOpts:       senderTxOpts,
 		gasCfg:             gasCfg,
 		txVerifier:         chain.NewTxVerifier(ethClient),
 		signerPrivateKey:   signerPk,
+		chainID:            chainID,
 	}, nil
 }
 
 // RegisterVoter tries to register voter on VoterRegistry smart contract.
-func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
+func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochID *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
-		err := r.sendRegisterVoter(nextRewardEpochId, address)
+		err := r.sendRegisterVoter(nextRewardEpochID, address)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRegisterErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending register voter: %v", err)
@@ -138,12 +167,26 @@ func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochId *big.Int, a
 	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
 }
 
-func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.Int, address common.Address) error {
-	epochId := uint32(nextRewardEpochId.Uint64())
-	signature, err := r.createSignature(epochId, address)
-	if err != nil {
-		return err
+func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochID *big.Int, address common.Address) error {
+	epochID := uint32(nextRewardEpochID.Uint64())
+
+	var (
+		signature []byte
+		err       error
+	)
+
+	if r.chainID != chainIDCoston2 {
+		signature, err = r.createSignature(epochID, address)
+		if err != nil {
+			return fmt.Errorf("creating registry signature old: %w", err)
+		}
+	} else {
+		signature, err = r.createSignatureNew(r.chainID, epochID, address)
+		if err != nil {
+			return fmt.Errorf("creating registry signature new: %w", err)
+		}
 	}
+
 	vrsSignature := registry.IVoterRegistrySignature{
 		R: [32]byte(signature[0:32]),
 		S: [32]byte(signature[32:64]),
@@ -159,7 +202,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 		r.ethClient,
 		chain.DefaultTxTimeout,
 		r.senderTxOpts.From,
-		r.address,
+		r.registryAddress,
 		common.Big0,
 		registryAbi,
 		"registerVoter",
@@ -178,13 +221,14 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochId *big.In
 
 	tx, err := r.registry.RegisterVoter(r.senderTxOpts, address, vrsSignature)
 	if err != nil {
-		return err
+		return fmt.Errorf("sending registry tx: %w", err)
 	}
+
 	err = r.txVerifier.WaitUntilMined(r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
-	logger.Infof("Voter %s registered for epoch %v", address, nextRewardEpochId)
+	logger.Infof("Voter %s registered for epoch %v", address, nextRewardEpochID)
 	return nil
 }
 
@@ -203,12 +247,26 @@ func (r *registryContractClientImpl) PreregisterVoter(nextRewardEpochId *big.Int
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochId *big.Int, address common.Address) error {
-	epochId := uint32(nextRewardEpochId.Uint64())
-	signature, err := r.createSignature(epochId, address)
-	if err != nil {
-		return err
+func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochID *big.Int, address common.Address) error {
+	epochID := uint32(nextRewardEpochID.Uint64())
+
+	var (
+		signature []byte
+		err       error
+	)
+
+	if r.chainID != chainIDCoston2 {
+		signature, err = r.createSignature(epochID, address)
+		if err != nil {
+			return fmt.Errorf("creating pre registry signature old: %w", err)
+		}
+	} else {
+		signature, err = r.createSignatureNew(r.chainID, epochID, address)
+		if err != nil {
+			return fmt.Errorf("creating pre registry signature new: %w", err)
+		}
 	}
+
 	vrsSignature := preregistry.IVoterRegistrySignature{
 		R: [32]byte(signature[0:32]),
 		S: [32]byte(signature[32:64]),
@@ -217,7 +275,7 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochId *big
 
 	err = SetGas(r.senderTxOpts, r.ethClient, r.gasCfg)
 	if err != nil {
-		return err
+		return fmt.Errorf("setting gas pre registry:%w", err)
 	}
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
@@ -243,19 +301,32 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochId *big
 
 	tx, err := r.preregistry.PreRegisterVoter(r.senderTxOpts, address, vrsSignature)
 	if err != nil {
-		return err
+		return fmt.Errorf("sending preregistry tx: %w", err)
 	}
+
 	err = r.txVerifier.WaitUntilMined(r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
-	logger.Infof("Voter %s pre-registered for epoch %v", address, nextRewardEpochId)
+	logger.Infof("Voter %s pre-registered for epoch %v", address, nextRewardEpochID)
 	return nil
 }
 
-// createSignature creates ECDSA message signature keccak256(abi.encode(nextRewardEpochId, address)) with signerPrivateKey
-func (r *registryContractClientImpl) createSignature(nextRewardEpochId uint32, address common.Address) ([]byte, error) {
-	message, err := registratorArguments.Pack(nextRewardEpochId, address)
+// createSignature creates ECDSA message signature keccak256(abi.encode(nextRewardEpochID, address)) with signerPrivateKey
+func (r *registryContractClientImpl) createSignature(nextRewardEpochID uint32, address common.Address) ([]byte, error) {
+	message, err := registratorArguments.Pack(nextRewardEpochID, address)
+	if err != nil {
+		return nil, err
+	}
+	messageHash := crypto.Keccak256(message)
+	return crypto.Sign(accounts.TextHash(messageHash), r.signerPrivateKey)
+}
+
+// createSignatureNew creates ECDSA message signature keccak256(abi.encode(chainID, nextRewardEpochID, address)) with signerPrivateKey
+func (r *registryContractClientImpl) createSignatureNew(chainID int, nextRewardEpochID uint32, address common.Address) ([]byte, error) {
+	chainIDB := big.NewInt(int64(chainID))
+
+	message, err := registratorArgumentsNew.Pack(chainIDB, nextRewardEpochID, address)
 	if err != nil {
 		return nil, err
 	}

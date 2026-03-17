@@ -99,6 +99,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 		cfg.ContractAddresses.VoterPreRegistry,
 		senderTxOpts,
 		signerPk,
+		chainCfg.ChainID,
 	)
 	if err != nil {
 		return nil, err
