@@ -176,14 +176,14 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochID *big.In
 	)
 
 	if r.chainID != chainIDCoston2 {
-		signature, err = r.createSignatureOld(epochID, address)
+		signature, err = r.createSignature(epochID, address)
 		if err != nil {
 			return fmt.Errorf("creating registry signature old: %w", err)
 		}
 	} else {
 		signature, err = r.createSignatureNew(r.chainID, epochID, address)
 		if err != nil {
-			return fmt.Errorf("creating pre registry signature new: %w", err)
+			return fmt.Errorf("creating registry signature new: %w", err)
 		}
 	}
 
@@ -256,9 +256,9 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochID *big
 	)
 
 	if r.chainID != chainIDCoston2 {
-		signature, err = r.createSignatureOld(epochID, address)
+		signature, err = r.createSignature(epochID, address)
 		if err != nil {
-			return fmt.Errorf("creating registry signature old: %w", err)
+			return fmt.Errorf("creating pre registry signature old: %w", err)
 		}
 	} else {
 		signature, err = r.createSignatureNew(r.chainID, epochID, address)
@@ -312,8 +312,8 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochID *big
 	return nil
 }
 
-// createSignatureOld creates ECDSA message signature keccak256(abi.encode(nextRewardEpochID, address)) with signerPrivateKey
-func (r *registryContractClientImpl) createSignatureOld(nextRewardEpochID uint32, address common.Address) ([]byte, error) {
+// createSignature creates ECDSA message signature keccak256(abi.encode(nextRewardEpochID, address)) with signerPrivateKey
+func (r *registryContractClientImpl) createSignature(nextRewardEpochID uint32, address common.Address) ([]byte, error) {
 	message, err := registratorArguments.Pack(nextRewardEpochID, address)
 	if err != nil {
 		return nil, err
@@ -322,7 +322,7 @@ func (r *registryContractClientImpl) createSignatureOld(nextRewardEpochID uint32
 	return crypto.Sign(accounts.TextHash(messageHash), r.signerPrivateKey)
 }
 
-// createSignatureOld creates ECDSA message signature keccak256(abi.encode(chainID, nextRewardEpochID, address)) with signerPrivateKey
+// createSignatureNew creates ECDSA message signature keccak256(abi.encode(chainID, nextRewardEpochID, address)) with signerPrivateKey
 func (r *registryContractClientImpl) createSignatureNew(chainID int, nextRewardEpochID uint32, address common.Address) ([]byte, error) {
 	chainIDB := big.NewInt(int64(chainID))
 
