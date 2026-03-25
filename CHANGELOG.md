@@ -1,6 +1,6 @@
 # Changelog
 
-## [v.1.0.11](https://github.com/flare-foundation/flare-system-client/tree/v1.0.11) - 2026-3-?
+## [v.1.0.11](https://github.com/flare-foundation/flare-system-client/tree/v1.0.11) - 2026-3-25
 
 ### Added
 
