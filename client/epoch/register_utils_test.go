@@ -14,7 +14,7 @@ import (
 
 func TestSetGas(t *testing.T) {
 	chainCfg := config.Chain{
-		EthRPCURL: "https://coston2-api.flare.network/ext/C/rpc",
+		EthRPCURL: "https://flare-api.flare.network/ext/C/rpc",
 	}
 	cl, err := chainCfg.DialETH()
 	require.NoError(t, err)
