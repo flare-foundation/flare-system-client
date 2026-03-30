@@ -138,7 +138,10 @@ func (sp *SubProtocol) fetchDataWithRetryChan(
 		logger.Errorf("building url for protocol %v: %s", sp.ID, err)
 		out := make(chan shared.ExecuteStatus[*SubProtocolResponse])
 		go func() {
-			out <- shared.ExecuteStatus[*SubProtocolResponse]{Success: false, Message: fmt.Sprintf("initial error: %s", err)}
+			out <- shared.ExecuteStatus[*SubProtocolResponse]{
+				Success: false,
+				Message: fmt.Sprintf("initial error: %s", err),
+			}
 		}()
 
 		return out

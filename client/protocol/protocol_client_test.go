@@ -128,7 +128,7 @@ func TestSubmitter(t *testing.T) {
 		}
 
 		epochID := int64(1)
-		submitter.RunEpoch(epochID)
+		submitter.RunEpoch(t.Context(), epochID)
 
 		t.Logf("sentTxs: %v", chainClient.sentTxs)
 		require.Len(t, chainClient.sentTxs, 1)
@@ -152,7 +152,7 @@ func TestSubmitter(t *testing.T) {
 		submitter.subProtocols = []*SubProtocol{subProtocolType1}
 
 		epochID := int64(1)
-		submitter.RunEpoch(epochID)
+		submitter.RunEpoch(t.Context(), epochID)
 
 		t.Logf("sentTxs: %v", chainClient.sentTxs)
 		require.Len(t, chainClient.sentTxs, 1)
@@ -178,7 +178,7 @@ func TestSubmitter(t *testing.T) {
 		}
 
 		epochID := int64(1)
-		submitter.RunEpoch(epochID)
+		submitter.RunEpoch(t.Context(), epochID)
 
 		t.Logf("sentTxs: %v", chainClient.sentTxs)
 		require.Empty(t, chainClient.sentTxs)

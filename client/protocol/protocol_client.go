@@ -184,7 +184,7 @@ L:
 			if c.signatureSubmitter != nil {
 				go func() {
 					time.Sleep(ticker.Epoch.Period + c.signatureSubmitter.startOffset)
-					c.signatureSubmitter.RunEpoch(currentEpoch)
+					c.signatureSubmitter.RunEpoch(ctx, currentEpoch)
 
 					if c.submitter2 != nil {
 						wg.Done()
