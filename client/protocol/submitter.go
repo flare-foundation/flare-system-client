@@ -343,14 +343,14 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 
 	finished := make(chan int, len(s.subProtocols))
 
-	ctx, cancel := context.WithTimeout(ctx, deadline)
+	deadlineCtx, cancel := context.WithTimeout(ctx, deadline)
 
 	for i, protocol := range s.subProtocols {
 		protocolsToQuery[i] = true
 
 		go func() {
 			response := protocol.fetchDataWithRetry(
-				ctx,
+				deadlineCtx,
 				round,
 				"submitSignatures",
 				s.protocolContext.submitSignaturesAddress.Hex(),
@@ -409,7 +409,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 			}
 		default:
 			select {
-			case <-ctx.Done():
+			case <-deadlineCtx.Done():
 				logger.Debugf("Tx for submitter %s for round %v triggered by the deadline", s.name, round)
 				readyToSend = true
 			case i := <-finished:

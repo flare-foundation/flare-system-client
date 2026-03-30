@@ -27,7 +27,7 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 	wg.Go(func() {
 		err := r.Run(ctx)
 		if err != nil {
-			logger.Errorf("Unexpected error, terminating: %v", err)
+			logger.Errorf("Stopping: %v", err)
 			cancel()
 		}
 	})
