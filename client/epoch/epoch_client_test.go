@@ -258,7 +258,7 @@ func TestEpochClientRegisterErr(t *testing.T) {
 type testDB struct{}
 
 func (db testDB) FetchLogsByAddressAndTopic0Timestamp(
-	address common.Address, topic0 common.Hash, from, to int64,
+	ctx context.Context, address common.Address, topic0 common.Hash, from, to int64,
 ) ([]database.Log, error) {
 	return nil, errors.New("not implemented")
 }
@@ -297,7 +297,7 @@ func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
 }
 
 func (c testSystemsManagerClient) SignNewSigningPolicy(
-	epochID *big.Int, policy []byte,
+	_ context.Context, epochID *big.Int, policy []byte,
 ) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		if c.signingErr != nil {
@@ -358,7 +358,7 @@ func newTestRegistryClient() testRegistryClient {
 }
 
 func (c testRegistryClient) RegisterVoter(
-	epochID *big.Int, address common.Address,
+	_ context.Context, epochID *big.Int, address common.Address,
 ) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		if c.registerErr != nil {
@@ -385,7 +385,7 @@ func (c testSystemsManagerClient) RewardEpochStartedListener(db epochClientDB, c
 	return make(chan *system.FlareSystemsManagerRewardEpochStarted)
 }
 
-func (c testRegistryClient) PreregisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
+func (c testRegistryClient) PreregisterVoter(_ context.Context, nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
@@ -395,7 +395,7 @@ func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB
 	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 }
 
-func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
+func (c testSystemsManagerClient) SignUptimeVote(_ context.Context, b *big.Int) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
@@ -405,7 +405,7 @@ func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epo
 	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 }
 
-func (c testSystemsManagerClient) SignRewards(b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
+func (c testSystemsManagerClient) SignRewards(_ context.Context, b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)

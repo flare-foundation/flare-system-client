@@ -89,7 +89,7 @@ func TestSubmitter(t *testing.T) {
 		}
 
 		epochID := int64(1)
-		submitter.RunEpoch(epochID)
+		submitter.RunEpoch(t.Context(), epochID)
 
 		t.Logf("sentTxs: %v", chainClient.sentTxs)
 		require.Len(t, chainClient.sentTxs, 1)
@@ -108,7 +108,7 @@ func TestSubmitter(t *testing.T) {
 		}
 
 		epochID := int64(1)
-		submitter.RunEpoch(epochID)
+		submitter.RunEpoch(t.Context(), epochID)
 
 		t.Logf("sentTxs: %v", chainClient.sentTxs)
 		require.Empty(t, chainClient.sentTxs)
@@ -204,7 +204,7 @@ type sentTxInfo struct {
 }
 
 func (c *testChainClient) SendRawTx(
-	privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, payload []byte, _ *clientConfig.Gas, _ time.Duration, _ bool,
+	_ context.Context, privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, payload []byte, _ *clientConfig.Gas, _ time.Duration, _ bool,
 ) error {
 	c.sentTxs = append(c.sentTxs, &sentTxInfo{
 		privateKey: privateKey,
@@ -214,7 +214,7 @@ func (c *testChainClient) SendRawTx(
 	return nil
 }
 
-func (c *testChainClient) Nonce(_ *ecdsa.PrivateKey, _ time.Duration) (uint64, error) {
+func (c *testChainClient) Nonce(_ context.Context, _ *ecdsa.PrivateKey, _ time.Duration) (uint64, error) {
 	return 10, nil
 }
 

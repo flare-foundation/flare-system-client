@@ -2,6 +2,7 @@ package finalizer
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/hex"
@@ -145,7 +146,7 @@ type sentTxInfo struct {
 	data       []byte
 }
 
-func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, data []byte, _ *config.Gas, _ time.Duration, _ bool) error {
+func (eth *testEthClient) SendRawTx(_ context.Context, privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, data []byte, _ *config.Gas, _ time.Duration, _ bool) error {
 	eth.mu.Lock()
 	defer eth.mu.Unlock()
 
@@ -163,7 +164,7 @@ func (eth *testEthClient) SendRawTx(privateKey *ecdsa.PrivateKey, _ uint64, to c
 
 	return nil
 }
-func (eth *testEthClient) Nonce(privateKey *ecdsa.PrivateKey, timeout time.Duration) (uint64, error) {
+func (eth *testEthClient) Nonce(_ context.Context, _ *ecdsa.PrivateKey, _ time.Duration) (uint64, error) {
 	return 10, nil
 }
 
@@ -369,7 +370,7 @@ func encodeMessage(protocolID uint8, votingRoundID uint32, randomQualityScore bo
 }
 
 func (db *testDB) FetchTransactionsByAddressAndSelector(
-	address common.Address, selector []byte, from, to int64,
+	ctx context.Context, address common.Address, selector []byte, from, to int64,
 ) ([]database.Transaction, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -399,7 +400,7 @@ func (db *testDB) FetchTransactionsByAddressAndSelector(
 }
 
 func (db *testDB) FetchTransactionsByAddressAndSelectorFromBlockNumber(
-	address common.Address, selector []byte, fromBlockNum int64,
+	ctx context.Context, address common.Address, selector []byte, fromBlockNum int64,
 ) ([]database.Transaction, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -428,7 +429,7 @@ func (db *testDB) FetchTransactionsByAddressAndSelectorFromBlockNumber(
 }
 
 func (db *testDB) FetchLogsByAddressAndTopic0(
-	address common.Address, topic common.Hash, from, to int64,
+	ctx context.Context, address common.Address, topic common.Hash, from, to int64,
 ) ([]database.Log, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()

@@ -1,6 +1,7 @@
 package epoch
 
 import (
+	"context"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
@@ -56,7 +57,7 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClien
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(r.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), r.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue

@@ -32,16 +32,16 @@ func TestSendTx(t *testing.T) {
 	toAddress := common.HexToAddress(deadAddress)
 
 	gasConfigType2 := config2.DefaultGas()
-	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
-	nonce, err := cl.NonceAt(ctx, addr, nil)
+	nonceCtx, cancelNonce := context.WithTimeout(context.Background(), 5*time.Second)
+	nonce, err := cl.NonceAt(nonceCtx, addr, nil)
 	require.NoError(t, err)
-	cancelFunc()
+	cancelNonce()
 
-	err = chain.SendRawTx(cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 5*time.Second)
+	err = chain.SendRawTx(context.Background(), cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 5*time.Second)
 	require.NoError(t, err)
 
 	gasConfigType0 := config2.Gas{TxType: 0, GasPriceMultiplier: 3}
-	err = chain.SendRawTx(cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 5*time.Second)
+	err = chain.SendRawTx(context.Background(), cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 5*time.Second)
 	require.NoError(t, err)
 }
 

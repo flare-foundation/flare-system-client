@@ -1,6 +1,7 @@
 package epoch
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"math/big"
 	"math/rand"
@@ -54,13 +55,13 @@ type systemsManagerContractClient interface {
 	RewardEpochStartedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted
 
 	VotePowerBlockSelectedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
-	SignNewSigningPolicy(*big.Int, []byte) <-chan shared.ExecuteStatus[any]
+	SignNewSigningPolicy(ctx context.Context, epochID *big.Int, policy []byte) <-chan shared.ExecuteStatus[any]
 
 	SignUptimeVoteEnabledListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
-	SignUptimeVote(*big.Int) <-chan shared.ExecuteStatus[any]
+	SignUptimeVote(ctx context.Context, epochID *big.Int) <-chan shared.ExecuteStatus[any]
 
 	UptimeVoteSignedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned
-	SignRewards(*big.Int, *common.Hash, int) <-chan shared.ExecuteStatus[any]
+	SignRewards(ctx context.Context, epochID *big.Int, rewardHash *common.Hash, weightClaims int) <-chan shared.ExecuteStatus[any]
 	IsRewardHashSigned(*big.Int) bool
 
 	GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int]
@@ -101,9 +102,9 @@ func NewSystemsManagerClient(
 	}, nil
 }
 
-func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
+func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(ctx context.Context, rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
-		err := s.sendSignNewSigningPolicy(rewardEpochId, signingPolicy)
+		err := s.sendSignNewSigningPolicy(ctx, rewardEpochId, signingPolicy)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign new signing policy")
 		}
@@ -111,7 +112,7 @@ func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(rewardEpochId *b
 	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
 }
 
-func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochId *big.Int, signingPolicy []byte) error {
+func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.Context, rewardEpochId *big.Int, signingPolicy []byte) error {
 	newSigningPolicyHash := SigningPolicyHash(signingPolicy)
 	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.signerPrivateKey)
 	if err != nil {
@@ -125,6 +126,7 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 	}
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
+		ctx,
 		s.ethClient,
 		chain.DefaultTxTimeout,
 		s.senderTxOpts.From,
@@ -146,7 +148,7 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 	}
 	s.senderTxOpts.GasLimit = estimatedGasLimit
 
-	err = SetGas(s.senderTxOpts, s.ethClient, s.gasCfg)
+	err = SetGas(ctx, s.senderTxOpts, s.ethClient, s.gasCfg)
 	if err != nil {
 		return err
 	}
@@ -159,7 +161,7 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(rewardEpochI
 		}
 		return err
 	}
-	err = s.txVerifier.WaitUntilMined(s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -202,7 +204,7 @@ func (s *systemsManagerContractClientImpl) RewardEpochStartedListener(db epochCl
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), s.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -243,7 +245,7 @@ func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epo
 		for {
 			<-ticker.C
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), s.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -291,7 +293,7 @@ func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epoc
 			now := time.Now()
 			currentEpoch := epoch.EpochIndex(now)
 
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now.Unix())
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), s.address, topic0, eventRangeStart, now.Unix())
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -320,9 +322,9 @@ func (s *systemsManagerContractClientImpl) parseSignUptimeVoteEnabledEvent(dbLog
 	return s.flareSystemsManager.ParseSignUptimeVoteEnabled(*contractLog)
 }
 
-func (s *systemsManagerContractClientImpl) SignUptimeVote(rewardEpochId *big.Int) <-chan shared.ExecuteStatus[any] {
+func (s *systemsManagerContractClientImpl) SignUptimeVote(ctx context.Context, rewardEpochId *big.Int) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
-		err := s.sendSignUptimeVote(rewardEpochId)
+		err := s.sendSignUptimeVote(ctx, rewardEpochId)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign uptime vote")
 		}
@@ -330,13 +332,14 @@ func (s *systemsManagerContractClientImpl) SignUptimeVote(rewardEpochId *big.Int
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big.Int) error {
+func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Context, rewardEpochId *big.Int) error {
 	hash, signature, err := getUptimeSignature(rewardEpochId, s.signerPrivateKey)
 	if err != nil {
 		return err
 	}
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
+		ctx,
 		s.ethClient,
 		chain.DefaultTxTimeout,
 		s.senderTxOpts.From,
@@ -366,7 +369,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(rewardEpochId *big
 		}
 		return err
 	}
-	err = s.txVerifier.WaitUntilMined(s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -391,7 +394,7 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 			now := time.Now()
 			currentEpoch := epoch.EpochIndex(now)
 
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(s.address, topic0, eventRangeStart, now.Unix())
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), s.address, topic0, eventRangeStart, now.Unix())
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -428,9 +431,9 @@ func (s *systemsManagerContractClientImpl) IsRewardHashSigned(epochId *big.Int) 
 	return hash != [32]byte{}
 }
 
-func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) <-chan shared.ExecuteStatus[any] {
+func (s *systemsManagerContractClientImpl) SignRewards(ctx context.Context, epochId *big.Int, rewardHash *common.Hash, weightClaims int) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
-		err := s.sendSignRewards(epochId, rewardHash, weightClaims)
+		err := s.sendSignRewards(ctx, epochId, rewardHash, weightClaims)
 		if err != nil {
 			return nil, errors.Wrap(err, "error sending sign rewards")
 		}
@@ -438,7 +441,7 @@ func (s *systemsManagerContractClientImpl) SignRewards(epochId *big.Int, rewardH
 	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
 }
 
-func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
+func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
 	logger.Infof("Signing rewards for epoch %v, hash: %s", epochId, rewardHash.Hex())
 	packed := encodeRewardsData(epochId, s.chainID, rewardHash, weightClaims)
 
@@ -461,6 +464,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 	}
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
+		ctx,
 		s.ethClient,
 		chain.DefaultTxTimeout,
 		s.senderTxOpts.From,
@@ -491,7 +495,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(epochId *big.Int, rew
 		}
 		return err
 	}
-	err = s.txVerifier.WaitUntilMined(s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}

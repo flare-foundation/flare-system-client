@@ -103,8 +103,8 @@ func init() {
 }
 
 type registryContractClient interface {
-	RegisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any]
-	PreregisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any]
+	RegisterVoter(ctx context.Context, nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any]
+	PreregisterVoter(ctx context.Context, nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any]
 }
 
 type registryContractClientImpl struct {
@@ -153,9 +153,9 @@ func NewRegistryContractClient(
 }
 
 // RegisterVoter tries to register voter on VoterRegistry smart contract.
-func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochID *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
+func (r *registryContractClientImpl) RegisterVoter(ctx context.Context, nextRewardEpochID *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
-		err := r.sendRegisterVoter(nextRewardEpochID, address)
+		err := r.sendRegisterVoter(ctx, nextRewardEpochID, address)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRegisterErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending register voter: %v", err)
@@ -167,7 +167,7 @@ func (r *registryContractClientImpl) RegisterVoter(nextRewardEpochID *big.Int, a
 	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
 }
 
-func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochID *big.Int, address common.Address) error {
+func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, nextRewardEpochID *big.Int, address common.Address) error {
 	epochID := uint32(nextRewardEpochID.Uint64())
 
 	var (
@@ -193,12 +193,13 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochID *big.In
 		V: signature[64] + 27,
 	}
 
-	err = SetGas(r.senderTxOpts, r.ethClient, r.gasCfg)
+	err = SetGas(ctx, r.senderTxOpts, r.ethClient, r.gasCfg)
 	if err != nil {
 		return err
 	}
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
+		ctx,
 		r.ethClient,
 		chain.DefaultTxTimeout,
 		r.senderTxOpts.From,
@@ -224,7 +225,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochID *big.In
 		return fmt.Errorf("sending registry tx: %w", err)
 	}
 
-	err = r.txVerifier.WaitUntilMined(r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	err = r.txVerifier.WaitUntilMined(ctx, r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -233,9 +234,9 @@ func (r *registryContractClientImpl) sendRegisterVoter(nextRewardEpochID *big.In
 }
 
 // PreregisterVoter tries to pre-register voter on VoterPreRegistry smart contract.
-func (r *registryContractClientImpl) PreregisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
+func (r *registryContractClientImpl) PreregisterVoter(ctx context.Context, nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
-		err := r.sendPreRegisterVoter(nextRewardEpochId, address)
+		err := r.sendPreRegisterVoter(ctx, nextRewardEpochId, address)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalPreregisterErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending pre-register voter: %v", err)
@@ -247,7 +248,7 @@ func (r *registryContractClientImpl) PreregisterVoter(nextRewardEpochId *big.Int
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochID *big.Int, address common.Address) error {
+func (r *registryContractClientImpl) sendPreRegisterVoter(ctx context.Context, nextRewardEpochID *big.Int, address common.Address) error {
 	epochID := uint32(nextRewardEpochID.Uint64())
 
 	var (
@@ -273,12 +274,13 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochID *big
 		V: signature[64] + 27,
 	}
 
-	err = SetGas(r.senderTxOpts, r.ethClient, r.gasCfg)
+	err = SetGas(ctx, r.senderTxOpts, r.ethClient, r.gasCfg)
 	if err != nil {
 		return fmt.Errorf("setting gas pre registry:%w", err)
 	}
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
+		ctx,
 		r.ethClient,
 		chain.DefaultTxTimeout,
 		r.senderTxOpts.From,
@@ -304,7 +306,7 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(nextRewardEpochID *big
 		return fmt.Errorf("sending preregistry tx: %w", err)
 	}
 
-	err = r.txVerifier.WaitUntilMined(r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	err = r.txVerifier.WaitUntilMined(ctx, r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -335,10 +337,10 @@ func (r *registryContractClientImpl) createSignatureNew(chainID int, nextRewardE
 }
 
 // SetGas sets gas parameters in txOptions according to the gasConfig.
-func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *config.Gas) error {
+func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *config.Gas) error {
 	switch gasConfig.TxType {
 	case 0:
-		gasPrice, err := chain.GetGasPrice(gasConfig, client, chain.DefaultTxTimeout)
+		gasPrice, err := chain.GetGasPrice(ctx, gasConfig, client, chain.DefaultTxTimeout)
 		if err != nil {
 			logger.Warnf("Unable to obtain gas price: %v, using fallback %d", err, fallbackGasPrice)
 			gasPrice = new(big.Int).Set(fallbackGasPrice)
@@ -346,8 +348,8 @@ func SetGas(txOptions *bind.TransactOpts, client *ethclient.Client, gasConfig *c
 		txOptions.GasPrice = gasPrice
 		return nil
 	case 2:
-		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-		baseFeePerGas, err := chain.BaseFee(ctx, client)
+		feeCtx, cancelFunc := context.WithTimeout(ctx, chain.DefaultTxTimeout)
+		baseFeePerGas, err := chain.BaseFee(feeCtx, client)
 		cancelFunc()
 
 		if err != nil {

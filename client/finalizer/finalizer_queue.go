@@ -206,7 +206,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error 
 	currentEpoch := p.finalizerContext.votingRoundTiming.EpochIndex(now)
 	startTime := p.finalizerContext.votingRoundTiming.StartTime(currentEpoch)
 
-	relayedItems, err := p.relayClient.ProtocolMessageRelayed(p.db, startTime, now)
+	relayedItems, err := p.relayClient.ProtocolMessageRelayed(context.Background(), p.db, startTime, now)
 	if err != nil {
 		return err
 	}

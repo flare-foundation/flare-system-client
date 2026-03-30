@@ -68,12 +68,12 @@ type SignatureSubmitter struct {
 //
 // On retry, nonce is reused if deadline is exceeded and "nonce too low" is considered non fatal error in the next attempt
 // (it indicates that the transaction was accepted).
-func (s *SubmitterBase) submit(input []byte) bool {
+func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 	if len(input) <= 4 {
 		return false
 	}
 
-	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
+	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(ctx, s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
 	if !nonceResult.Success {
 		logger.Errorf("error getting nonce: %v", nonceResult.Message)
 		return false
@@ -85,7 +85,7 @@ func (s *SubmitterBase) submit(input []byte) bool {
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
-		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
+		err := s.chainClient.SendRawTx(ctx, s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
 		if err == nil {
 			return "", nil // Success
 		} else {
@@ -101,7 +101,7 @@ func (s *SubmitterBase) submit(input []byte) bool {
 				return "", err
 			// For all other errors, including "nonce too low" without prior timeout -> retry with updated nonce and gas config.
 			default:
-				newNonce, errNonce := s.chainClient.Nonce(s.submitPrivateKey, time.Second)
+				newNonce, errNonce := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
 				if errNonce != nil {
 					err = fmt.Errorf("%v, updating nonce :%v", err, errNonce)
 				} else {
@@ -164,7 +164,7 @@ func newSubmitter(
 }
 
 // GetPayload
-func (s *Submitter) GetPayload(currentEpoch int64) []byte {
+func (s *Submitter) GetPayload(ctx context.Context, currentEpoch int64) []byte {
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 	for i, protocol := range s.subProtocols {
 		channels[i] = protocol.fetchDataWithRetryChan(
@@ -182,7 +182,12 @@ func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 
 	dataReceived := false
 	for j, channel := range channels {
-		data := <-channel
+		var data shared.ExecuteStatus[*SubProtocolResponse]
+		select {
+		case <-ctx.Done():
+			return nil
+		case data = <-channel:
+		}
 		if !data.Success {
 			logger.Warnf("Error getting data for submitter %s for protocol %v: %s", s.name, s.subProtocols[j].ID, data.Message)
 			continue
@@ -202,13 +207,13 @@ func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 	return buffer.Bytes()
 }
 
-func (s *Submitter) RunEpoch(currentEpoch int64) {
+func (s *Submitter) RunEpoch(ctx context.Context, currentEpoch int64) {
 	logger.Debugf("Submitter %s running for epoch %d", s.name, currentEpoch)
 
-	payload := s.GetPayload(currentEpoch)
+	payload := s.GetPayload(ctx, currentEpoch)
 
 	if payload != nil {
-		s.submit(payload)
+		s.submit(ctx, payload)
 	} else {
 		logger.Infof("Submitter %s did not get any data, skipping submission", s.name)
 	}
@@ -416,7 +421,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 			cancel()
 
 			if protocolsDone > 0 {
-				txSent := s.submit(buffer.Bytes())
+				txSent := s.submit(ctx, buffer.Bytes())
 				if !txSent {
 					for i := range s.subProtocols {
 						protocolsToQuery[i] = true
@@ -497,7 +502,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round in
 			}
 		}
 		if len(protocolsSent) > 0 && buffer.Len() > 0 {
-			if s.submit(buffer.Bytes()) {
+			if s.submit(ctx, buffer.Bytes()) {
 				for _, i := range protocolsSent {
 					delete(protocolsToQuery, i)
 				}

@@ -1,6 +1,7 @@
 package epoch_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestSetGas(t *testing.T) {
 		txOptions := new(bind.TransactOpts)
 		txOptions.From = address
 
-		err = epoch.SetGas(txOptions, cl, &test.gasConfig)
+		err = epoch.SetGas(context.Background(), txOptions, cl, &test.gasConfig)
 
 		require.Equal(t, address, txOptions.From)
 

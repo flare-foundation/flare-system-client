@@ -13,9 +13,9 @@ import (
 )
 
 type Client interface {
-	SendRawTx(privateKey *ecdsa.PrivateKey, nonce uint64, to common.Address, payload []byte, gasConfig *config.Gas, timeout time.Duration, dryRun bool) error
+	SendRawTx(ctx context.Context, privateKey *ecdsa.PrivateKey, nonce uint64, to common.Address, payload []byte, gasConfig *config.Gas, timeout time.Duration, dryRun bool) error
 
-	Nonce(privateKey *ecdsa.PrivateKey, timeout time.Duration) (uint64, error)
+	Nonce(ctx context.Context, privateKey *ecdsa.PrivateKey, timeout time.Duration) (uint64, error)
 }
 
 type ClientImpl struct {
@@ -23,16 +23,16 @@ type ClientImpl struct {
 }
 
 // SendRawTx sends a transaction with payload signed by privateKey to to address.
-func (c ClientImpl) SendRawTx(privateKey *ecdsa.PrivateKey, nonce uint64, to common.Address, payload []byte, gasConfig *config.Gas, timeout time.Duration, dryRun bool) error {
-	return SendRawTx(c.EthClient, privateKey, nonce, to, payload, dryRun, gasConfig, timeout)
+func (c ClientImpl) SendRawTx(ctx context.Context, privateKey *ecdsa.PrivateKey, nonce uint64, to common.Address, payload []byte, gasConfig *config.Gas, timeout time.Duration, dryRun bool) error {
+	return SendRawTx(ctx, c.EthClient, privateKey, nonce, to, payload, dryRun, gasConfig, timeout)
 }
 
 // Nonce returns the nonce of the address corresponding to the privateKey from the latest known block.
-func (c ClientImpl) Nonce(privateKey *ecdsa.PrivateKey, timeout time.Duration) (uint64, error) {
+func (c ClientImpl) Nonce(ctx context.Context, privateKey *ecdsa.PrivateKey, timeout time.Duration) (uint64, error) {
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-	nonce, err := c.EthClient.NonceAt(ctx, address, nil)
+	nonceCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+	nonce, err := c.EthClient.NonceAt(nonceCtx, address, nil)
 	cancelFunc()
 	if err != nil {
 		return 0, err
