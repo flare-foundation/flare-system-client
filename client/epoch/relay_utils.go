@@ -18,7 +18,7 @@ import (
 )
 
 type relayContractClient interface {
-	SigningPolicyInitializedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *relay.RelaySigningPolicyInitialized
+	SigningPolicyInitializedListener(ctx context.Context, db epochClientDB, config *utils.EpochTimingConfig) <-chan *relay.RelaySigningPolicyInitialized
 }
 
 type relayContractClientImpl struct {
@@ -42,7 +42,7 @@ func NewRelayContractClient(
 	}, nil
 }
 
-func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *relay.RelaySigningPolicyInitialized {
+func (r *relayContractClientImpl) SigningPolicyInitializedListener(ctx context.Context, db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *relay.RelaySigningPolicyInitialized {
 	topic0, err := chain.EventIDFromMetadata(relay.RelayMetaData, "SigningPolicyInitialized")
 	if err != nil {
 		// panic, this error is fatal
@@ -55,9 +55,13 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(db epochClien
 		ticker := time.NewTicker(shared.EventListenerInterval)
 		eventRangeStart := rewardEpochTiming.StartTime(rewardEpochTiming.EpochIndex(time.Now()) - 1).Unix()
 		for {
-			<-ticker.C
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), r.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(ctx, r.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue

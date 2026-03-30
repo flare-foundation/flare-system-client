@@ -52,15 +52,15 @@ func init() {
 type systemsManagerContractClient interface {
 	RewardEpochTimingFromChain() (*utils.EpochTimingConfig, error)
 
-	RewardEpochStartedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted
+	RewardEpochStartedListener(ctx context.Context, db epochClientDB, config *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted
 
-	VotePowerBlockSelectedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
+	VotePowerBlockSelectedListener(ctx context.Context, db epochClientDB, config *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected
 	SignNewSigningPolicy(ctx context.Context, epochID *big.Int, policy []byte) <-chan shared.ExecuteStatus[any]
 
-	SignUptimeVoteEnabledListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
+	SignUptimeVoteEnabledListener(ctx context.Context, db epochClientDB, config *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled
 	SignUptimeVote(ctx context.Context, epochID *big.Int) <-chan shared.ExecuteStatus[any]
 
-	UptimeVoteSignedListener(epochClientDB, *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned
+	UptimeVoteSignedListener(ctx context.Context, db epochClientDB, config *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned
 	SignRewards(ctx context.Context, epochID *big.Int, rewardHash *common.Hash, weightClaims int) <-chan shared.ExecuteStatus[any]
 	IsRewardHashSigned(*big.Int) bool
 
@@ -190,7 +190,7 @@ func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochID() <-chan shar
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 }
 
-func (s *systemsManagerContractClientImpl) RewardEpochStartedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted {
+func (s *systemsManagerContractClientImpl) RewardEpochStartedListener(ctx context.Context, db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted {
 	out := make(chan *system.FlareSystemsManagerRewardEpochStarted)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "RewardEpochStarted")
 	if err != nil {
@@ -202,9 +202,13 @@ func (s *systemsManagerContractClientImpl) RewardEpochStartedListener(db epochCl
 		ticker := time.NewTicker(shared.EventListenerInterval)
 		eventRangeStart := rewardEpochTiming.StartTime(rewardEpochTiming.EpochIndex(time.Now())).Unix() - 60*60 // Expected epoch start - 1h
 		for {
-			<-ticker.C
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), s.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(ctx, s.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -231,7 +235,7 @@ func (s *systemsManagerContractClientImpl) parseRewardEpochStartedEvent(dbLog da
 	return s.flareSystemsManager.ParseRewardEpochStarted(*contractLog)
 }
 
-func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
+func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(ctx context.Context, db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
 	out := make(chan *system.FlareSystemsManagerVotePowerBlockSelected)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "VotePowerBlockSelected")
 	if err != nil {
@@ -243,9 +247,13 @@ func (s *systemsManagerContractClientImpl) VotePowerBlockSelectedListener(db epo
 		ticker := time.NewTicker(shared.EventListenerInterval)
 		eventRangeStart := rewardEpochTiming.StartTime(rewardEpochTiming.EpochIndex(time.Now()) - 1).Unix()
 		for {
-			<-ticker.C
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), s.address, topic0, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(ctx, s.address, topic0, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -276,7 +284,7 @@ func (s *systemsManagerContractClientImpl) RewardEpochTimingFromChain() (*utils.
 	return shared.RewardEpochTimingFromChain(s.flareSystemsManager)
 }
 
-func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(ctx context.Context, db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	out := make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "SignUptimeVoteEnabled")
 	if err != nil {
@@ -289,11 +297,15 @@ func (s *systemsManagerContractClientImpl) SignUptimeVoteEnabledListener(db epoc
 		startEpoch := epoch.EpochIndex(time.Now())
 		eventRangeStart := epoch.StartTime(startEpoch).Unix()
 		for {
-			<-ticker.C
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			now := time.Now()
 			currentEpoch := epoch.EpochIndex(now)
 
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), s.address, topic0, eventRangeStart, now.Unix())
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(ctx, s.address, topic0, eventRangeStart, now.Unix())
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -377,7 +389,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Contex
 	return nil
 }
 
-func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(ctx context.Context, db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	out := make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 	topic0, err := chain.EventIDFromMetadata(system.FlareSystemsManagerMetaData, "UptimeVoteSigned")
 	if err != nil {
@@ -390,11 +402,15 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(db epochClie
 		startEpoch := epoch.EpochIndex(time.Now())
 		eventRangeStart := epoch.StartTime(startEpoch).Unix()
 		for {
-			<-ticker.C
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			now := time.Now()
 			currentEpoch := epoch.EpochIndex(now)
 
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(context.Background(), s.address, topic0, eventRangeStart, now.Unix())
+			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(ctx, s.address, topic0, eventRangeStart, now.Unix())
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue

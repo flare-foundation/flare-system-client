@@ -124,10 +124,10 @@ func (c *client) Run(ctx context.Context) error {
 }
 
 func (c *client) fetchExistingSigningPolicies(
-	_ context.Context, startTime time.Time,
+	ctx context.Context, startTime time.Time,
 ) (time.Time, error) {
 	// Read current signing policies from the database and add them to the storage
-	spList, err := c.relayClient.FetchSigningPolicies(c.db, startTime.Unix(), time.Now().Unix())
+	spList, err := c.relayClient.FetchSigningPolicies(ctx, c.db, startTime.Unix(), time.Now().Unix())
 	if err != nil {
 		return startTime, err
 	}
@@ -150,7 +150,7 @@ func (c *client) fetchExistingSigningPolicies(
 }
 
 func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
-	spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
+	spListener := c.relayClient.SigningPolicyInitializedListener(ctx, c.db, startTime)
 	for {
 		var dbPolicy signingPolicyListenerResponse
 		select {

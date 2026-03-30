@@ -111,8 +111,8 @@ func NewRelayContractClient(
 }
 
 // FetchSigningPolicies fetches signing policies emitted by in SigningPolicyInitialized events from Relay smart contract with timestamps in the interval (from,to].
-func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
-	logs, err := db.FetchLogsByAddressAndTopic0(context.Background(), r.address, r.topic0SPI, from, to)
+func (r *relayContractClient) FetchSigningPolicies(ctx context.Context, db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
+	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -129,16 +129,20 @@ func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int6
 	return result, nil
 }
 
-func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, startTime time.Time) <-chan signingPolicyListenerResponse {
+func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Context, db finalizerDB, startTime time.Time) <-chan signingPolicyListenerResponse {
 	out := make(chan signingPolicyListenerResponse, listenerBufferSize)
 	go func() {
 		ticker := time.NewTicker(shared.EventListenerInterval)
 		eventRangeStart := startTime.Unix()
 		for {
-			<-ticker.C
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			now := time.Now().Unix()
 
-			logs, err := db.FetchLogsByAddressAndTopic0(context.Background(), r.address, r.topic0SPI, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue

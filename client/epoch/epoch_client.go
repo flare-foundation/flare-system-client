@@ -142,20 +142,20 @@ func (c *client) Run(ctx context.Context) error {
 	var uptimeSignedListener <-chan *system.FlareSystemsManagerUptimeVoteSigned
 
 	if c.preregistrationEnabled {
-		epochStartedListener = c.systemsManagerClient.RewardEpochStartedListener(c.db, rewardEpochTiming)
+		epochStartedListener = c.systemsManagerClient.RewardEpochStartedListener(ctx, c.db, rewardEpochTiming)
 	}
 	if c.registrationEnabled {
 		logger.Info("Waiting for VotePowerBlockSelected event to start registration")
-		vpbsListener = c.systemsManagerClient.VotePowerBlockSelectedListener(c.db, rewardEpochTiming)
-		policyListener = c.relayClient.SigningPolicyInitializedListener(c.db, rewardEpochTiming)
+		vpbsListener = c.systemsManagerClient.VotePowerBlockSelectedListener(ctx, c.db, rewardEpochTiming)
+		policyListener = c.relayClient.SigningPolicyInitializedListener(ctx, c.db, rewardEpochTiming)
 	}
 	if c.uptimeVotingEnabled {
 		logger.Info("Waiting for SignUptimeVoteEnabled event to start uptime vote signing")
-		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(c.db, rewardEpochTiming)
+		uptimeEnabledListener = c.systemsManagerClient.SignUptimeVoteEnabledListener(ctx, c.db, rewardEpochTiming)
 	}
 	if c.rewardsSigningEnabled {
 		logger.Info("Waiting for UptimeVoteSigned event to start rewards signing")
-		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(c.db, rewardEpochTiming)
+		uptimeSignedListener = c.systemsManagerClient.UptimeVoteSignedListener(ctx, c.db, rewardEpochTiming)
 	}
 
 	for {
