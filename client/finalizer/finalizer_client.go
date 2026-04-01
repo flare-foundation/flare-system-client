@@ -2,7 +2,6 @@ package finalizer
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	clientContext "github.com/flare-foundation/flare-system-client/client/context"
@@ -218,10 +217,10 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 			oldestSP := c.signingPolicyStorage.OldestStored()
 			if oldestSP != nil && protocolMessage.VotingRoundID < oldestSP.StartVotingRoundID {
 				// This is a submission for an old voting round, skip it
-				logger.Debugf("Ignoring message for voting round %d, protocolID  %d - before policy startVotingRoundID", protocolMessage.VotingRoundID, protocolMessage.ProtocolID)
+				logger.Warnf("Ignoring message for voting round %d, protocolID  %d - before policy startVotingRoundID", protocolMessage.VotingRoundID, protocolMessage.ProtocolID)
 				continue
 			}
-			return fmt.Errorf("no signing policy found for voting round %d", protocolMessage.VotingRoundID) // this stops the whole fsp client
+			logger.Panicf("messagesChannelListener: no signing policy found for voting round %d. Storage is empty: %v", protocolMessage.VotingRoundID, c.signingPolicyStorage.OldestStored() == nil) // this stops the whole fsp client, it only happens if there is no signing policy in the storage.
 		}
 		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp, threshold)
 

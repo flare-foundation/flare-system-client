@@ -2,7 +2,6 @@ package finalizer
 
 import (
 	"encoding/hex"
-	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -61,7 +60,7 @@ func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) erro
 
 		// Skip if voting round is in the future
 		if !c.checkVotingRoundTime(payloadItem.votingRoundID) {
-			logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - round not started yet", payloadItem.votingRoundID, payloadItem.protocolID)
+			logger.Debugf("ProcessSubmissionData: Ignoring submitted signature for voting round %d, protocolID  %d - round not started yet", payloadItem.votingRoundID, payloadItem.protocolID)
 			continue
 		}
 		sp, threshold := c.signingPolicyData(payloadItem.votingRoundID)
@@ -69,10 +68,10 @@ func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) erro
 			oldestSP := c.signingPolicyStorage.OldestStored()
 			if oldestSP != nil && payloadItem.votingRoundID < oldestSP.StartVotingRoundID {
 				// This is a submission for an old voting round, skip it
-				logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - before policy startVotingRoundID", payloadItem.votingRoundID, payloadItem.protocolID)
+				logger.Warnf("ProcessSubmissionData: Ignoring submitted signature for voting round %d, protocolID  %d - before policy startVotingRoundID", payloadItem.votingRoundID, payloadItem.protocolID)
 				continue
 			}
-			return fmt.Errorf("no signing policy found for voting round %d", payloadItem.votingRoundID) // this stops the whole fsp client
+			logger.Panicf("ProcessSubmissionData: no signing policy found for voting round %d. Storage is empty: %v", payloadItem.votingRoundID, c.signingPolicyStorage.OldestStored() == nil) // this stops the whole fsp client, it only happens if there is no signing policy in the storage.
 		}
 		finalizationReady, err := c.finalizationStorage.addPayload(payloadItem, sp, threshold)
 		if err != nil {
