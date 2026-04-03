@@ -2,7 +2,6 @@ package finalizer
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	clientContext "github.com/flare-foundation/flare-system-client/client/context"
@@ -124,10 +123,10 @@ func (c *client) Run(ctx context.Context) error {
 }
 
 func (c *client) fetchExistingSigningPolicies(
-	_ context.Context, startTime time.Time,
+	ctx context.Context, startTime time.Time,
 ) (time.Time, error) {
 	// Read current signing policies from the database and add them to the storage
-	spList, err := c.relayClient.FetchSigningPolicies(c.db, startTime.Unix(), time.Now().Unix())
+	spList, err := c.relayClient.FetchSigningPolicies(ctx, c.db, startTime.Unix(), time.Now().Unix())
 	if err != nil {
 		return startTime, err
 	}
@@ -150,7 +149,7 @@ func (c *client) fetchExistingSigningPolicies(
 }
 
 func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startTime time.Time) error {
-	spListener := c.relayClient.SigningPolicyInitializedListener(c.db, startTime)
+	spListener := c.relayClient.SigningPolicyInitializedListener(ctx, c.db, startTime)
 	for {
 		var dbPolicy signingPolicyListenerResponse
 		select {
@@ -218,10 +217,10 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 			oldestSP := c.signingPolicyStorage.OldestStored()
 			if oldestSP != nil && protocolMessage.VotingRoundID < oldestSP.StartVotingRoundID {
 				// This is a submission for an old voting round, skip it
-				logger.Debugf("Ignoring message for voting round %d, protocolID  %d - before policy startVotingRoundID", protocolMessage.VotingRoundID, protocolMessage.ProtocolID)
+				logger.Warnf("Ignoring message for voting round %d, protocolID  %d - before policy startVotingRoundID", protocolMessage.VotingRoundID, protocolMessage.ProtocolID)
 				continue
 			}
-			return fmt.Errorf("no signing policy found for voting round %d", protocolMessage.VotingRoundID) // this stops the whole fsp client
+			logger.Panicf("messagesChannelListener: no signing policy found for voting round %d. Storage is empty: %v", protocolMessage.VotingRoundID, c.signingPolicyStorage.OldestStored() == nil) // this stops the whole fsp client, it only happens if there is no signing policy in the storage.
 		}
 		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp, threshold)
 

@@ -86,7 +86,7 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 }
 
 func buildMessage(protocolID uint8, votingRoundID uint32, payload []byte) string {
-	message := make([]byte, 7)
+	message := make([]byte, 7, 7+len(payload))
 	message[0] = protocolID
 
 	binary.BigEndian.PutUint32(message[1:5], votingRoundID)

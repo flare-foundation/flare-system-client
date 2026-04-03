@@ -111,8 +111,8 @@ func NewRelayContractClient(
 }
 
 // FetchSigningPolicies fetches signing policies emitted by in SigningPolicyInitialized events from Relay smart contract with timestamps in the interval (from,to].
-func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
-	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, from, to)
+func (r *relayContractClient) FetchSigningPolicies(ctx context.Context, db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
+	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -129,16 +129,20 @@ func (r *relayContractClient) FetchSigningPolicies(db finalizerDB, from, to int6
 	return result, nil
 }
 
-func (r *relayContractClient) SigningPolicyInitializedListener(db finalizerDB, startTime time.Time) <-chan signingPolicyListenerResponse {
+func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Context, db finalizerDB, startTime time.Time) <-chan signingPolicyListenerResponse {
 	out := make(chan signingPolicyListenerResponse, listenerBufferSize)
 	go func() {
 		ticker := time.NewTicker(shared.EventListenerInterval)
 		eventRangeStart := startTime.Unix()
 		for {
-			<-ticker.C
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			now := time.Now().Unix()
 
-			logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0SPI, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -169,13 +173,13 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
 
-		nonce, err := r.chainClient.Nonce(r.privateKey, 2*time.Second)
+		nonce, err := r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
 		if err != nil {
 			logger.Error("error getting nonce: %v", err)
 			return "", errors.Wrap(err, "Error sending relay tx")
 		}
 
-		err = r.chainClient.SendRawTx(r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
+		err = r.chainClient.SendRawTx(ctx, r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
@@ -195,8 +199,8 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 }
 
 // ProtocolMessageRelayed returns a set of pairs of protocol and round that have been finalized.
-func (r *relayContractClient) ProtocolMessageRelayed(db finalizerDB, from time.Time, to time.Time) (map[queueItem]bool, error) {
-	logs, err := db.FetchLogsByAddressAndTopic0(r.address, r.topic0PMR, from.Unix(), to.Unix())
+func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (map[queueItem]bool, error) {
+	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0PMR, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}

@@ -158,7 +158,7 @@ L:
 						wg.Add(1)
 					}
 
-					c.submitter1.RunEpoch(currentEpoch)
+					c.submitter1.RunEpoch(ctx, currentEpoch)
 				}()
 			}
 
@@ -174,7 +174,7 @@ L:
 					// Submit2 processes the current epoch data in the following epoch
 					// so we wait a full epoch duration + offset before invoking.
 					// TODO: this assumes c.submitter2.epochOffset is always -1
-					c.submitter2.RunEpoch(currentEpoch + 1)
+					c.submitter2.RunEpoch(ctx, currentEpoch+1)
 
 					if c.submitter1 != nil {
 						wg.Done()
@@ -184,7 +184,7 @@ L:
 			if c.signatureSubmitter != nil {
 				go func() {
 					time.Sleep(ticker.Epoch.Period + c.signatureSubmitter.startOffset)
-					c.signatureSubmitter.RunEpoch(currentEpoch)
+					c.signatureSubmitter.RunEpoch(ctx, currentEpoch)
 
 					if c.submitter2 != nil {
 						wg.Done()

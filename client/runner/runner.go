@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"sync"
 
@@ -27,8 +26,8 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 
 	wg.Go(func() {
 		err := r.Run(ctx)
-		if err != nil && !errors.Is(err, context.Canceled) {
-			logger.Errorf("Unexpected error, terminating: %v", err)
+		if err != nil {
+			logger.Errorf("Stopping: %v", err)
 			cancel()
 		}
 	})
@@ -41,7 +40,10 @@ func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientConte
 		logger.Fatalf("Error creating registration client: %v", err)
 	}
 
-	messageChannel := make(chan shared.ProtocolMessage, 2*len(clientCtx.Config().Protocol)) // twice just to be on the safe side
+	var messageChannel chan shared.ProtocolMessage
+	if clientCtx.Config().Clients.EnabledProtocolVoting && clientCtx.Config().Clients.EnabledFinalizer {
+		messageChannel = make(chan shared.ProtocolMessage, 2*len(clientCtx.Config().Protocol)) // twice just to be on the safe side
+	}
 
 	protocolClient, err := protocol.NewClient(clientCtx, messageChannel)
 	if err != nil {

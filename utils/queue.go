@@ -1,13 +1,14 @@
 package utils
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
-type QueueProcessorFunc[T any] func([]T) error
+type QueueProcessorFunc[T any] func(context.Context, []T) error
 
 type DelayedQueueManager[T any] struct {
 	timeMap map[time.Time][]T
@@ -24,7 +25,7 @@ func NewDelayedQueueManager[T any](processor QueueProcessorFunc[T]) *DelayedQueu
 	}
 }
 
-func (l *DelayedQueueManager[T]) Add(t time.Time, item T) {
+func (l *DelayedQueueManager[T]) Add(ctx context.Context, t time.Time, item T) {
 	if t.Before(time.Now()) {
 		return
 	}
@@ -33,7 +34,7 @@ func (l *DelayedQueueManager[T]) Add(t time.Time, item T) {
 	defer l.Unlock()
 
 	if _, ok := l.timeMap[t]; !ok {
-		l.createTimer(t)
+		l.createTimer(ctx, t)
 	}
 	l.timeMap[t] = append(l.timeMap[t], item)
 }
@@ -47,13 +48,17 @@ func (l *DelayedQueueManager[T]) Get(t time.Time) []T {
 	return items
 }
 
-func (l *DelayedQueueManager[T]) createTimer(t time.Time) {
+func (l *DelayedQueueManager[T]) createTimer(ctx context.Context, t time.Time) {
 	go func() {
 		timer := time.NewTimer(time.Until(t))
-		<-timer.C
-		items := l.Get(t)
-		if err := l.processor(items); err != nil {
-			logger.Errorf("DelayedQueueManager processor error: %s", err)
+		select {
+		case <-timer.C:
+			items := l.Get(t)
+			if err := l.processor(ctx, items); err != nil {
+				logger.Errorf("DelayedQueueManager processor error: %s", err)
+			}
+		case <-ctx.Done():
+			l.Get(t) // remove from map
 		}
 	}()
 }

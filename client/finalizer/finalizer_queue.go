@@ -147,7 +147,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 					logger.Debugf("Finalizer will send now for voting round %v for protocol %v", item.votingRoundID, item.protocolID)
 					p.processItem(ctx, item, true)
 				}
-				p.delayedQueues.Add(st, item)
+				p.delayedQueues.Add(ctx, st, item)
 			} else {
 				logger.Errorf("Finalizer missing finalization data for protocol %v in votingRound %v", item.protocolID, item.votingRoundID)
 			}
@@ -201,12 +201,12 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 	p.relayClient.SubmitPayloads(ctx, txInput, isDelayed, item.protocolID)
 }
 
-func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error {
+func (p *finalizerQueueProcessor) processDelayedQueue(ctx context.Context, items []*queueItem) error {
 	now := time.Now()
 	currentEpoch := p.finalizerContext.votingRoundTiming.EpochIndex(now)
 	startTime := p.finalizerContext.votingRoundTiming.StartTime(currentEpoch)
 
-	relayedItems, err := p.relayClient.ProtocolMessageRelayed(p.db, startTime, now)
+	relayedItems, err := p.relayClient.ProtocolMessageRelayed(ctx, p.db, startTime, now)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(items []*queueItem) error 
 			continue
 		}
 		logger.Infof("Finalizer processes delayed queue item for round %v for protocol %v", item.votingRoundID, item.protocolID)
-		p.processItem(context.TODO(), item, true)
+		p.processItem(ctx, item, true)
 	}
 	return nil
 }

@@ -258,7 +258,7 @@ func TestEpochClientRegisterErr(t *testing.T) {
 type testDB struct{}
 
 func (db testDB) FetchLogsByAddressAndTopic0Timestamp(
-	address common.Address, topic0 common.Hash, from, to int64,
+	ctx context.Context, address common.Address, topic0 common.Hash, from, to int64,
 ) ([]database.Log, error) {
 	return nil, errors.New("not implemented")
 }
@@ -291,13 +291,13 @@ func (c testSystemsManagerClient) RewardEpochTimingFromChain() (*utils.EpochTimi
 }
 
 func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
-	db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig,
+	_ context.Context, db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig,
 ) <-chan *system.FlareSystemsManagerVotePowerBlockSelected {
 	return c.vpbsChan
 }
 
 func (c testSystemsManagerClient) SignNewSigningPolicy(
-	epochID *big.Int, policy []byte,
+	_ context.Context, epochID *big.Int, policy []byte,
 ) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		if c.signingErr != nil {
@@ -341,7 +341,7 @@ func (c testRelayClient) sendTestPolicy(policy *relay.RelaySigningPolicyInitiali
 }
 
 func (c testRelayClient) SigningPolicyInitializedListener(
-	db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig,
+	_ context.Context, db epochClientDB, rewardEpochTiming *utils.EpochTimingConfig,
 ) <-chan *relay.RelaySigningPolicyInitialized {
 	return c.policyChan
 }
@@ -358,7 +358,7 @@ func newTestRegistryClient() testRegistryClient {
 }
 
 func (c testRegistryClient) RegisterVoter(
-	epochID *big.Int, address common.Address,
+	_ context.Context, epochID *big.Int, address common.Address,
 ) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		if c.registerErr != nil {
@@ -381,31 +381,31 @@ func (c testRegistryClient) RegisterVoter(
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) RewardEpochStartedListener(db epochClientDB, config *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted {
+func (c testSystemsManagerClient) RewardEpochStartedListener(_ context.Context, db epochClientDB, config *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerRewardEpochStarted {
 	return make(chan *system.FlareSystemsManagerRewardEpochStarted)
 }
 
-func (c testRegistryClient) PreregisterVoter(nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
+func (c testRegistryClient) PreregisterVoter(_ context.Context, nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
+func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(_ context.Context, db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerSignUptimeVoteEnabled {
 	return make(chan *system.FlareSystemsManagerSignUptimeVoteEnabled)
 }
 
-func (c testSystemsManagerClient) SignUptimeVote(b *big.Int) <-chan shared.ExecuteStatus[any] {
+func (c testSystemsManagerClient) SignUptimeVote(_ context.Context, b *big.Int) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }
 
-func (c testSystemsManagerClient) UptimeVoteSignedListener(db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
+func (c testSystemsManagerClient) UptimeVoteSignedListener(_ context.Context, db epochClientDB, epoch *utils.EpochTimingConfig) <-chan *system.FlareSystemsManagerUptimeVoteSigned {
 	return make(chan *system.FlareSystemsManagerUptimeVoteSigned)
 }
 
-func (c testSystemsManagerClient) SignRewards(b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
+func (c testSystemsManagerClient) SignRewards(_ context.Context, b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		return nil, nil
 	}, 1, 0)

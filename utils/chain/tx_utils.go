@@ -49,8 +49,8 @@ func NewTxVerifier(eth *ethclient.Client) *TxVerifier {
 	return &TxVerifier{eth: eth}
 }
 
-func (t TxVerifier) WaitUntilMined(from common.Address, tx *types.Transaction, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func (t TxVerifier) WaitUntilMined(ctx context.Context, from common.Address, tx *types.Transaction, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	receipt, err := bind.WaitMined(ctx, t.eth, tx)
@@ -116,13 +116,13 @@ func BaseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 }
 
 // SendRawTx sends a transaction to toAddress with input data with prescribed nonce and gasConfig.
-func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
+func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	value := big.NewInt(0)
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-	chainID, err := client.NetworkID(ctx)
+	chainIDCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+	chainID, err := client.NetworkID(chainIDCtx)
 	cancelFunc()
 	if err != nil {
 		return err
@@ -131,25 +131,25 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uin
 	var gasLimit uint64
 	if dryRun && gasConfig.GasLimit > 0 {
 		gasLimit = uint64(gasConfig.GasLimit)
-		_, err = DryRunTx(client, fromAddress, toAddress, value, data, timeout)
+		_, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
 	} else if dryRun {
-		gasLimit, err = DryRunTx(client, fromAddress, toAddress, value, data, timeout)
+		gasLimit, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
 			return errors.Wrap(err, "dry run failed")
 		}
 	} else {
-		gasLimit = getGasLimit(gasConfig, client, fromAddress, toAddress, value, data, timeout)
+		gasLimit = getGasLimit(ctx, gasConfig, client, fromAddress, toAddress, value, data, timeout)
 	}
 
 	var signedTx *types.Transaction
 	switch gasConfig.TxType {
 	case 0:
-		signedTx, err = prepareAndSignType0(client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
+		signedTx, err = prepareAndSignType0(ctx, client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
 	case 2:
-		signedTx, err = prepareAndSignType2(client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
+		signedTx, err = prepareAndSignType2(ctx, client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
 	default:
 		return errors.New("unsupported tx type: set TxType to 0 or 2")
 	}
@@ -158,8 +158,8 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uin
 	}
 
 	logger.Debugf("Sending signed tx: %s, nonce: %d", signedTx.Hash().Hex(), nonce)
-	ctx, cancelFunc = context.WithTimeout(context.Background(), timeout)
-	err = client.SendTransaction(ctx, signedTx)
+	sendCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+	err = client.SendTransaction(sendCtx, signedTx)
 	cancelFunc()
 	if err != nil {
 		return err
@@ -167,7 +167,7 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uin
 
 	verifier := NewTxVerifier(client)
 
-	err = verifier.WaitUntilMined(fromAddress, signedTx, timeout)
+	err = verifier.WaitUntilMined(ctx, fromAddress, signedTx, timeout)
 	if err != nil {
 		return err
 	}
@@ -177,8 +177,8 @@ func SendRawTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uin
 }
 
 // prepareAndSignType0 prepares a type 0 (legacy) transaction and signs it.
-func prepareAndSignType0(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
-	gasPrice, err := GetGasPrice(gasConfig, client, timeout)
+func prepareAndSignType0(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+	gasPrice, err := GetGasPrice(ctx, gasConfig, client, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -202,9 +202,9 @@ func prepareAndSignType0(client *ethclient.Client, gasConfig *config.Gas, privat
 }
 
 // prepareAndSignType2 prepares a type 2 (eip 1559) transaction and signs it.
-func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
-	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-	baseFeePerGas, err := BaseFee(ctx, client)
+func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+	feeCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+	baseFeePerGas, err := BaseFee(feeCtx, client)
 	cancelFunc()
 	if err != nil {
 		logger.Debug("Error getting baseFee, %v", err)
@@ -253,21 +253,21 @@ func prepareAndSignType2(client *ethclient.Client, gasConfig *config.Gas, privat
 }
 
 // DryRunTx locally executes a transaction with the current state of blockchain and returns estimated Gas multiplied with 1.5 and potential errors.
-func DryRunTx(client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (uint64, error) {
-	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-	estimatedGas, err := estimateGas(ctx, client, fromAddress, toAddress, value, data)
+func DryRunTx(ctx context.Context, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (uint64, error) {
+	estCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+	estimatedGas, err := estimateGas(estCtx, client, fromAddress, toAddress, value, data)
 	cancelFunc()
 	return 3 * estimatedGas / 2, err
 }
 
 // DryRunTxAbi locally executes a transaction to method with arguments with the current state of blockchain and returns estimated Gas multiplied with 1.5 and potential errors.
-func DryRunTxAbi(client *ethclient.Client, timeout time.Duration, fromAddress common.Address, toAddress common.Address, value *big.Int, abi *abi.ABI, method string, arguments ...any) (uint64, error) {
+func DryRunTxAbi(ctx context.Context, client *ethclient.Client, timeout time.Duration, fromAddress common.Address, toAddress common.Address, value *big.Int, abi *abi.ABI, method string, arguments ...any) (uint64, error) {
 	data, err := abi.Pack(method, arguments...)
 	if err != nil {
 		return 0, errors.Wrap(err, "DryRunTxAbi packing")
 	}
-	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-	estimatedGas, err := estimateGas(ctx, client, fromAddress, toAddress, value, data)
+	estCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+	estimatedGas, err := estimateGas(estCtx, client, fromAddress, toAddress, value, data)
 	cancelFunc()
 	return 3 * estimatedGas / 2, err
 }
@@ -281,11 +281,11 @@ func estimateGas(ctx context.Context, client *ethclient.Client, from, to common.
 	})
 }
 
-func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) uint64 {
+func getGasLimit(ctx context.Context, gasConfig *config.Gas, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) uint64 {
 	var gasLimit uint64
 	if gasConfig.GasLimit == 0 {
-		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-		estimatedGas, err := client.EstimateGas(ctx, ethereum.CallMsg{
+		estCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+		estimatedGas, err := client.EstimateGas(estCtx, ethereum.CallMsg{
 			From:  fromAddress,
 			To:    &toAddress,
 			Value: value,
@@ -305,13 +305,13 @@ func getGasLimit(gasConfig *config.Gas, client *ethclient.Client, fromAddress co
 	return gasLimit
 }
 
-func GetGasPrice(gasConfig *config.Gas, client *ethclient.Client, timeout time.Duration) (*big.Int, error) {
+func GetGasPrice(ctx context.Context, gasConfig *config.Gas, client *ethclient.Client, timeout time.Duration) (*big.Int, error) {
 	var gasPrice *big.Int
 	if gasConfig.GasPriceFixed != nil && gasConfig.GasPriceFixed.Cmp(common.Big0) == 1 {
 		gasPrice = gasConfig.GasPriceFixed
 	} else {
-		ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-		suggestedPrice, err := client.SuggestGasPrice(ctx)
+		priceCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+		suggestedPrice, err := client.SuggestGasPrice(priceCtx)
 		cancelFunc()
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to estimate gas price")

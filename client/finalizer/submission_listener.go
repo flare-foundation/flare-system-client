@@ -49,7 +49,7 @@ func (s *submissionListener) SubmissionTxListen(
 			logger.Info("Submission tx listener stopped")
 			return ctx.Err()
 		}
-		txs, err = db.FetchTransactionsByAddressAndSelector(s.address, selector, startTime.Unix(), time.Now().Unix())
+		txs, err = db.FetchTransactionsByAddressAndSelector(ctx, s.address, selector, startTime.Unix(), time.Now().Unix())
 		if err != nil {
 			logger.Errorf("Error fetching transactions %v", err)
 		}
@@ -78,7 +78,7 @@ func (s *submissionListener) SubmissionTxListen(
 			return ctx.Err()
 		}
 
-		txs, err := db.FetchTransactionsByAddressAndSelectorFromBlockNumber(s.address, selector, int64(lastBlockChecked))
+		txs, err := db.FetchTransactionsByAddressAndSelectorFromBlockNumber(ctx, s.address, selector, int64(lastBlockChecked))
 		if err != nil {
 			logger.Errorf("Error fetching transactions %v", err)
 			continue

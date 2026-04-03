@@ -68,12 +68,12 @@ type SignatureSubmitter struct {
 //
 // On retry, nonce is reused if deadline is exceeded and "nonce too low" is considered non fatal error in the next attempt
 // (it indicates that the transaction was accepted).
-func (s *SubmitterBase) submit(input []byte) bool {
+func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 	if len(input) <= 4 {
 		return false
 	}
 
-	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
+	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(ctx, s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
 	if !nonceResult.Success {
 		logger.Errorf("error getting nonce: %v", nonceResult.Message)
 		return false
@@ -85,7 +85,7 @@ func (s *SubmitterBase) submit(input []byte) bool {
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
-		err := s.chainClient.SendRawTx(s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
+		err := s.chainClient.SendRawTx(ctx, s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
 		if err == nil {
 			return "", nil // Success
 		} else {
@@ -101,7 +101,7 @@ func (s *SubmitterBase) submit(input []byte) bool {
 				return "", err
 			// For all other errors, including "nonce too low" without prior timeout -> retry with updated nonce and gas config.
 			default:
-				newNonce, errNonce := s.chainClient.Nonce(s.submitPrivateKey, time.Second)
+				newNonce, errNonce := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
 				if errNonce != nil {
 					err = fmt.Errorf("%v, updating nonce :%v", err, errNonce)
 				} else {
@@ -164,7 +164,7 @@ func newSubmitter(
 }
 
 // GetPayload
-func (s *Submitter) GetPayload(currentEpoch int64) []byte {
+func (s *Submitter) GetPayload(ctx context.Context, currentEpoch int64) []byte {
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 	for i, protocol := range s.subProtocols {
 		channels[i] = protocol.fetchDataWithRetryChan(
@@ -182,7 +182,12 @@ func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 
 	dataReceived := false
 	for j, channel := range channels {
-		data := <-channel
+		var data shared.ExecuteStatus[*SubProtocolResponse]
+		select {
+		case <-ctx.Done():
+			return nil
+		case data = <-channel:
+		}
 		if !data.Success {
 			logger.Warnf("Error getting data for submitter %s for protocol %v: %s", s.name, s.subProtocols[j].ID, data.Message)
 			continue
@@ -202,13 +207,13 @@ func (s *Submitter) GetPayload(currentEpoch int64) []byte {
 	return buffer.Bytes()
 }
 
-func (s *Submitter) RunEpoch(currentEpoch int64) {
+func (s *Submitter) RunEpoch(ctx context.Context, currentEpoch int64) {
 	logger.Debugf("Submitter %s running for epoch %d", s.name, currentEpoch)
 
-	payload := s.GetPayload(currentEpoch)
+	payload := s.GetPayload(ctx, currentEpoch)
 
 	if payload != nil {
-		s.submit(payload)
+		s.submit(ctx, payload)
 	} else {
 		logger.Infof("Submitter %s did not get any data, skipping submission", s.name)
 	}
@@ -313,16 +318,16 @@ func (s *SignatureSubmitter) WritePayload(
 // In this cycle, the not yet successful queries are retried at most dataFetchRetries times.
 // If any subprotocols are queried successfully, their payload is submitted at the end of the cycle.
 // The processes is repeated until all subprotocols are queried successfully or at most maxCycles of times.
-func (s *SignatureSubmitter) RunEpoch(round int64) {
+func (s *SignatureSubmitter) RunEpoch(ctx context.Context, round int64) {
 	logger.Infof("%s fetching data for %d", s.name, round)
-	protocolsToRetry, err := s.RunEpochBeforeDeadline(round, s.deadline)
+	protocolsToRetry, err := s.RunEpochBeforeDeadline(ctx, round, s.deadline)
 	if err != nil {
 		logger.Errorf("error before Deadline %v", err)
 	}
 
 	if len(protocolsToRetry) > 0 {
 		logger.Debugf("running %s for %v after deadline for protocols", s.name, round)
-		s.RunEpochAfterDeadline(round, protocolsToRetry)
+		s.RunEpochAfterDeadline(ctx, round, protocolsToRetry)
 	}
 }
 
@@ -331,21 +336,21 @@ func (s *SignatureSubmitter) RunEpoch(round int64) {
 // Messages are also passed to finalizers.
 // Once all subprotocols are successfully queried or the deadline has passed the transaction with constructed input is sent to the submission contract.
 // A set of indexes of unsuccessfully queried subprotocols is returned.
-func (s *SignatureSubmitter) RunEpochBeforeDeadline(round int64, deadline time.Duration) (map[int]bool, error) {
+func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round int64, deadline time.Duration) (map[int]bool, error) {
 	protocolsToQuery := make(map[int]bool)
 
 	results := make([]*SubProtocolResponse, len(s.subProtocols))
 
 	finished := make(chan int, len(s.subProtocols))
 
-	ctx, cancel := context.WithTimeout(context.Background(), deadline)
+	deadlineCtx, cancel := context.WithTimeout(ctx, deadline)
 
 	for i, protocol := range s.subProtocols {
 		protocolsToQuery[i] = true
 
 		go func() {
 			response := protocol.fetchDataWithRetry(
-				ctx,
+				deadlineCtx,
 				round,
 				"submitSignatures",
 				s.protocolContext.submitSignaturesAddress.Hex(),
@@ -379,7 +384,17 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(round int64, deadline time.D
 					logger.Errorf("Error writing payload for submitter %s for round %d for protocol %d : %s", s.name, round, s.subProtocols[i].ID, err)
 				} else {
 					logger.Debugf("%s received data for round %d for protocol %d", s.name, round, s.subProtocols[i].ID)
-					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(round), Message: results[i].Data}
+					if s.messageChannel != nil {
+						select {
+						case s.messageChannel <- shared.ProtocolMessage{
+							ProtocolID:    s.subProtocols[i].ID,
+							VotingRoundID: uint32(round),
+							Message:       results[i].Data,
+						}:
+						default:
+							logger.Warnf("message channel full. Dropping message round %d for protocol %d after deadline", round, s.subProtocols[i].ID)
+						}
+					}
 				}
 			case payload.Empty:
 				logger.Warnf("Empty payload for for submitter %s for round %d for protocol %d", s.name, round, s.subProtocols[i].ID)
@@ -394,7 +409,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(round int64, deadline time.D
 			}
 		default:
 			select {
-			case <-ctx.Done():
+			case <-deadlineCtx.Done():
 				logger.Debugf("Tx for submitter %s for round %v triggered by the deadline", s.name, round)
 				readyToSend = true
 			case i := <-finished:
@@ -406,7 +421,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(round int64, deadline time.D
 			cancel()
 
 			if protocolsDone > 0 {
-				txSent := s.submit(buffer.Bytes())
+				txSent := s.submit(ctx, buffer.Bytes())
 				if !txSent {
 					for i := range s.subProtocols {
 						protocolsToQuery[i] = true
@@ -419,7 +434,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(round int64, deadline time.D
 	}
 }
 
-func (s *SignatureSubmitter) RunEpochAfterDeadline(currentRound int64, protocolsToQuery map[int]bool) {
+func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round int64, protocolsToQuery map[int]bool) {
 	channels := make([]<-chan shared.ExecuteStatus[*SubProtocolResponse], len(s.subProtocols))
 
 	ticker := time.NewTicker(s.cycleDuration)
@@ -431,7 +446,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentRound int64, protocols
 				continue
 			}
 			channels[i] = protocol.fetchDataWithRetryChan(
-				currentRound,
+				round,
 				"submitSignatures",
 				s.protocolContext.submitSignaturesAddress.Hex(),
 				s.dataFetchRetries,
@@ -440,7 +455,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentRound int64, protocols
 			)
 		}
 
-		protocolsSent := []int{}
+		protocolsSent := make([]int, 0, len(protocolsToQuery))
 
 		buffer := bytes.NewBuffer(nil)
 		buffer.Write(s.selector)
@@ -449,31 +464,45 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(currentRound int64, protocols
 				continue
 			}
 
-			data := <-channels[i]
-			if !data.Success {
-				logger.Warnf("Error getting data for submitter %s: %s", s.name, data.Message)
-				continue
-			}
-
-			switch data.Value.Status {
-			case payload.Ok:
-				err := s.WritePayload(buffer, currentRound, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
-				if err != nil {
-					logger.Errorf("Error writing payload for submitter %s for round %d for protocol %d : %s", s.name, currentRound, s.subProtocols[i].ID, err)
-				} else {
-					// send message to finalizer
-					s.messageChannel <- shared.ProtocolMessage{ProtocolID: s.subProtocols[i].ID, VotingRoundID: uint32(currentRound), Message: data.Value.Data}
+			select {
+			case <-ctx.Done():
+				return
+			case data := <-channels[i]:
+				if !data.Success {
+					logger.Warnf("Error getting data for submitter %s: %s", s.name, data.Message)
+					continue
 				}
-			case payload.Empty:
-				logger.Warnf("Empty submit signature payload for submitter %s for protocol %v ", s.name, s.subProtocols[i].ID)
-			default:
-				logger.Errorf("Unknown success status %s for submitter %s for protocol %v ", data.Value.Status, s.name, s.subProtocols[i].ID)
-			}
 
-			protocolsSent = append(protocolsSent, i)
+				switch data.Value.Status {
+				case payload.Ok:
+					err := s.WritePayload(buffer, round, data.Value, s.subProtocols[i].ID, s.subProtocols[i].Type)
+					if err != nil {
+						logger.Errorf("Error writing payload for submitter %s for round %d for protocol %d : %s", s.name, round, s.subProtocols[i].ID, err)
+					} else {
+						logger.Debugf("%s received data for round %d for protocol %d after deadline", s.name, round, s.subProtocols[i].ID)
+						if s.messageChannel != nil {
+							select {
+							case s.messageChannel <- shared.ProtocolMessage{
+								ProtocolID:    s.subProtocols[i].ID,
+								VotingRoundID: uint32(round),
+								Message:       data.Value.Data,
+							}:
+							default:
+								logger.Warnf("message channel full. Dropping message round %d for protocol %d after deadline", round, s.subProtocols[i].ID)
+							}
+						}
+					}
+				case payload.Empty:
+					logger.Warnf("Empty submit signature payload for submitter %s for protocol %v ", s.name, s.subProtocols[i].ID)
+				default:
+					logger.Errorf("Unknown success status %s for submitter %s for protocol %v ", data.Value.Status, s.name, s.subProtocols[i].ID)
+				}
+
+				protocolsSent = append(protocolsSent, i)
+			}
 		}
 		if len(protocolsSent) > 0 && buffer.Len() > 0 {
-			if s.submit(buffer.Bytes()) {
+			if s.submit(ctx, buffer.Bytes()) {
 				for _, i := range protocolsSent {
 					delete(protocolsToQuery, i)
 				}
