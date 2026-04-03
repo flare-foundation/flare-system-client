@@ -1,5 +1,12 @@
 # Changelog
 
+## [v.1.0.12](https://github.com/flare-foundation/flare-system-client/tree/v1.0.12) - unreleased
+
+### Fixed
+
+- Issues pointed out by github [issue #4](https://github.com/flare-foundation/flare-system-client/issues/4).
+  Improved context handling, more decoupled submitter and finalizer client, and immediate client shutdown if an unexpected error in finalizer happens.
+
 ## [v.1.0.11](https://github.com/flare-foundation/flare-system-client/tree/v1.0.11) - 2026-3-25
 
 ### Added
