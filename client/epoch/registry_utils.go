@@ -36,10 +36,10 @@ const (
 
 const (
 	newRegistryCostonAddr = "0x4C797636FC2410e1BbA7CF4bf2e397d94e65DfB8"
-	oldRegistryCostonAddr = "0xE2c06DF29d175Aa0EcfcD10134eB96f8C94448A3"
+	oldRegistryCostonAddr = "0xB4B93a3A3ADa93a574E6efeb5f295bf882934cB6"
 
 	newPreRegistryCostonAddr = "0x8F8E788d3A019bA0F05aa7d6f596c564EEbeea7c"
-	oldPreRegistryCostonAddr = "0xD9e8Ee56CB5A06f2070A2793bf76C5dFb3fc3D52"
+	oldPreRegistryCostonAddr = "0xB4B93a3A3ADa93a574E6efeb5f295bf882934cB6"
 )
 
 var (
