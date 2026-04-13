@@ -39,7 +39,7 @@ const (
 	oldRegistryCostonAddr = "0xB4B93a3A3ADa93a574E6efeb5f295bf882934cB6"
 
 	newPreRegistryCostonAddr = "0x8F8E788d3A019bA0F05aa7d6f596c564EEbeea7c"
-	oldPreRegistryCostonAddr = "0xB4B93a3A3ADa93a574E6efeb5f295bf882934cB6"
+	oldPreRegistryCostonAddr = "0xF660984B8597e31437cA4b7dEa0A41677982563b"
 )
 
 var (
