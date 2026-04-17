@@ -1,6 +1,10 @@
 # Changelog
 
-## [v.1.0.12](https://github.com/flare-foundation/flare-system-client/tree/v1.0.12) - unreleased
+## [v.1.0.12](https://github.com/flare-foundation/flare-system-client/tree/v1.0.12) - 2026-4-17
+
+### Added
+
+- Smooth transition for Coston for voterRegistry and voterPreRegistry smart contracts
 
 ### Fixed
 
