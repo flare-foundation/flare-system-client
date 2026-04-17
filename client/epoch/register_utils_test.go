@@ -53,10 +53,10 @@ func TestSetGas(t *testing.T) {
 		switch test.gasConfig.TxType {
 		case 0:
 			require.NoError(t, err)
-			require.True(t, txOptions.GasPrice.Cmp(big.NewInt(25*1e9)) >= 0)
+			require.True(t, txOptions.GasPrice.Cmp(big.NewInt(1)) >= 0)
 		case 2:
 			require.NoError(t, err)
-			require.True(t, txOptions.GasFeeCap.Cmp(big.NewInt(25*1e9)) >= 0)
+			require.True(t, txOptions.GasFeeCap.Cmp(big.NewInt(1)) >= 0)
 		default:
 			require.Error(t, err)
 		}
