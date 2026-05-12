@@ -70,6 +70,9 @@ type submitSignaturesPayload struct {
 }
 
 func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) error {
+	if len(payloadMsg.payload) < 1 {
+		return errors.New("empty payload")
+	}
 	typeID := payloadMsg.payload[0]
 
 	var signatureStart, signatureEnd int

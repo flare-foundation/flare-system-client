@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Panic in `FromSignedPayload` when a submitSignatures transaction contained a zero-length payload; the empty slice is now rejected with an error and skipped by the caller.
+
 ## [v.1.0.12](https://github.com/flare-foundation/flare-system-client/tree/v1.0.12) - 2026-4-17
 
 ### Added
