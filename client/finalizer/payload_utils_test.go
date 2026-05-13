@@ -197,9 +197,6 @@ func TestRoundTripWithEncodePayload(t *testing.T) {
 	}
 }
 
-// TestExtractPayloadsZeroLength confirms ExtractPayloads accepts a header with
-// length=0 and that FromSignedPayload rejects the resulting empty payload
-// rather than panicking.
 func TestExtractPayloadsZeroLength(t *testing.T) {
 	// 4-byte selector + 1-byte protocol + 4-byte votingRound + 2-byte length=0
 	data := make([]byte, 4+1+4+2)
@@ -212,4 +209,22 @@ func TestExtractPayloadsZeroLength(t *testing.T) {
 
 	var s submitSignaturesPayload
 	require.Error(t, s.FromSignedPayload(payloads[0]))
+}
+
+func TestExtractUint16Overflow(t *testing.T) {
+	// 4-byte selector + 1-byte protocol + 4-byte votingRound + 2-byte length=0
+	data := make([]byte, 4+1+4+2)
+	binary.BigEndian.PutUint32(data[5:9], 1)
+	binary.BigEndian.PutUint16(data[9:11], 0xffff)
+
+	_, err := ExtractPayloads(data)
+	require.Error(t, err)
+
+	dataTrue := make([]byte, 4+1+4+2+0xffff)
+	binary.BigEndian.PutUint32(dataTrue[5:9], 1)
+	binary.BigEndian.PutUint16(dataTrue[9:11], 0xffff)
+
+	payloads, err := ExtractPayloads(dataTrue)
+	require.NoError(t, err)
+	require.Len(t, payloads, 1)
 }

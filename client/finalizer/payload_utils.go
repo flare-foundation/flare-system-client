@@ -34,8 +34,8 @@ func ExtractPayloads(data []byte) ([]payloadMessage, error) {
 		protocol := data[0]                               // 1 byte protocol ID
 		votingRound := binary.BigEndian.Uint32(data[1:5]) // 4 bytes votingRoundID
 		length := binary.BigEndian.Uint16(data[5:7])      // 2 bytes length of payload in bytes
-		end := 7 + length
-		if len(data) < int(end) {
+		end := 7 + int(length)
+		if len(data) < end {
 			return nil, errors.New("wrongly formatted tx input")
 		}
 
