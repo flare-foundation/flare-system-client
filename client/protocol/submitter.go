@@ -257,11 +257,21 @@ func newSignatureSubmitter(
 	}
 }
 
-// WritePayload encodes payload to buffer.
+// WritePayload encodes payload to buffer using the submitter's signing key.
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 66).
 // If an error is returned, the buffer is unchanged.
 func (s *SignatureSubmitter) WritePayload(
 	buffer *bytes.Buffer, epoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
+) error {
+	return EncodePayload(buffer, epoch, data, protocolID, protocolType, s.protocolContext.signerPrivateKey)
+}
+
+// EncodePayload encodes a signed submitSignatures payload to buffer.
+// Payload data should be valid (data length 38, additional data length <= maxuint16 - 66).
+// If an error is returned, the buffer is unchanged.
+func EncodePayload(
+	buffer *bytes.Buffer, epoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
+	signerPrivateKey *ecdsa.PrivateKey,
 ) error {
 	var dataLength int
 	switch protocolType {
@@ -274,7 +284,7 @@ func (s *SignatureSubmitter) WritePayload(
 	}
 
 	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
-	signature, err := crypto.Sign(dataHash, s.protocolContext.signerPrivateKey)
+	signature, err := crypto.Sign(dataHash, signerPrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "error signing submitSignatures data")
 	}

@@ -29,7 +29,7 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 		return nil
 	}
 
-	signaturePayloads := []*submitSignaturesPayload{}
+	signaturePayloads := make([]*submitSignaturesPayload, 0, len(payloads))
 	for i := range payloads {
 		signaturePayload := new(submitSignaturesPayload)
 		err := signaturePayload.FromSignedPayload(payloads[i])
