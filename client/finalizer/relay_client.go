@@ -198,20 +198,34 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	}
 }
 
-// ProtocolMessageRelayed returns a set of pairs of protocol and round that have been finalized.
-func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (map[queueItem]bool, error) {
+// relayedKey is the lookup key for ProtocolMessageRelayed events.
+//
+// It deliberately excludes the seed and msgHash fields of queueItem:
+// ProtocolMessageRelayed events identify a finalization uniquely by
+// (protocolID, votingRoundID), and using queueItem directly as a map
+// key would compare *big.Int by pointer identity — guaranteeing the
+// lookup in processDelayedQueue never matches.
+type relayedKey struct {
+	protocolID    uint8
+	votingRoundID uint32
+}
+
+// ProtocolMessageRelayed returns a set of (protocolID, votingRoundID)
+// pairs that have already been finalized on chain in the given time
+// range.
+func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (map[relayedKey]bool, error) {
 	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0PMR, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(map[queueItem]bool)
+	result := make(map[relayedKey]bool)
 	for _, log := range logs {
 		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
 		if err != nil {
 			return nil, err
 		}
-		result[queueItem{
+		result[relayedKey{
 			protocolID:    data.ProtocolId,
 			votingRoundID: data.VotingRoundId,
 		}] = true

@@ -212,7 +212,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(ctx context.Context, items
 	}
 
 	for _, item := range items {
-		if relayedItems[*item] {
+		if relayedItems[relayedKey{protocolID: item.protocolID, votingRoundID: item.votingRoundID}] {
 			continue
 		}
 		logger.Infof("Finalizer processes delayed queue item for round %v for protocol %v", item.votingRoundID, item.protocolID)
