@@ -6,6 +6,15 @@ include:
       rules_condition: $CI_MERGE_REQUEST_IID != null && $GITLAB_USER_NAME != "SealBot" && $CI_MERGE_REQUEST_EVENT_TYPE != "merge_train"
       rules_when: always
 
+# Run the full pipeline on both branch pushes and merge-request events,
+# but avoid duplicate runs: when there's an open MR for the branch, skip
+# the push-triggered pipeline so only the MR pipeline runs.
+workflow:
+  rules:
+    - if: '$CI_OPEN_MERGE_REQUESTS && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "webide")'
+      when: never
+    - when: always
+
 stages:
   - build
   - test
@@ -43,4 +52,17 @@ test:
   image: golang:${GOLANG_VERSION}
   needs: [build]
   script:
-    - go test -timeout 5m ./...
+    - go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
+    - go tool cover -func=coverage.out | tail -1
+    - go install github.com/boumenot/gocover-cobertura@v1.5.0
+    - ${GOPATH}/bin/gocover-cobertura < coverage.out > coverage.xml
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    when: always
+    paths:
+      - coverage.out
+      - coverage.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
