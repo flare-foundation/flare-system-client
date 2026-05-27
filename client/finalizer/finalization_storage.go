@@ -27,6 +27,7 @@ type protocolCollection struct {
 	messageChosenHash   common.Hash
 	signatureCollection map[common.Hash]*signaturesCollection
 	unprocessedPayloads []*submitSignaturesPayload
+	bufferedSenders     map[common.Address]struct{} // senders already buffered pre-message (DOS-01 cap)
 	signingPolicy       *policy.SigningPolicy
 	threshold           uint16
 }
@@ -113,12 +114,23 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 
 	//clear unprocessedPayloads
 	pc.unprocessedPayloads = nil
+	pc.bufferedSenders = nil
 
 	return thresholdReached, msgHsh, nil
 }
 
 func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool, common.Hash, error) {
 	if !pc.messageAdded && payload.typeID != 0 {
+		// DOS-01: cap each sender to one buffered payload per (round, protocol).
+		// This bounds unprocessedPayloads (and thus the synchronous ECDSA-recovery
+		// burst on drain) against submitSignatures spam.
+		if pc.bufferedSenders == nil {
+			pc.bufferedSenders = make(map[common.Address]struct{})
+		}
+		if _, seen := pc.bufferedSenders[payload.sender]; seen {
+			return false, common.Hash{}, nil
+		}
+		pc.bufferedSenders[payload.sender] = struct{}{}
 		pc.unprocessedPayloads = append(pc.unprocessedPayloads, payload)
 
 		return false, common.Hash{}, nil

@@ -56,6 +56,8 @@ func ExtractPayloads(data []byte) ([]payloadMessage, error) {
 
 // submitSignaturesPayload is a specialized structure used in submitSignatures calls to the chain.
 type submitSignaturesPayload struct {
+	sender common.Address // tx sender (submitSignatures address)
+
 	protocolID    uint8
 	votingRoundID uint32
 	typeID        uint8
