@@ -27,6 +27,7 @@ type protocolCollection struct {
 	messageChosenHash   common.Hash
 	signatureCollection map[common.Hash]*signaturesCollection
 	unprocessedPayloads []*submitSignaturesPayload
+	bufferedSenders     map[common.Address]struct{} // senders already buffered pre-message (DOS-01 cap)
 	signingPolicy       *policy.SigningPolicy
 	threshold           uint16
 }
@@ -98,6 +99,11 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 
 	thresholdReached := false
 
+	// reset bufferedSenders before re-running addPayload on the buffered set —
+	// they were counted on the first pass and would otherwise hit the cap again.
+	// The drain repopulates it, and it continues to bound post-message admits.
+	pc.bufferedSenders = nil
+
 	for _, up := range pc.unprocessedPayloads {
 		tr, msgHashCheck, err := pc.addPayload(up)
 		if err != nil {
@@ -118,6 +124,18 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 }
 
 func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool, common.Hash, error) {
+	// DOS-01: cap each sender to one payload per (round, protocol). Applied above
+	// the type/message-state branching to bound both attack vectors:
+	//   - pre-message TypeID-1 buffer (unprocessedPayloads + ECDSA burst on drain)
+	//   - TypeID-0 signatureCollection allocations keyed on attacker-controlled hashes
+	if pc.bufferedSenders == nil {
+		pc.bufferedSenders = make(map[common.Address]struct{})
+	}
+	if _, seen := pc.bufferedSenders[payload.sender]; seen {
+		return false, common.Hash{}, nil
+	}
+	pc.bufferedSenders[payload.sender] = struct{}{}
+
 	if !pc.messageAdded && payload.typeID != 0 {
 		pc.unprocessedPayloads = append(pc.unprocessedPayloads, payload)
 

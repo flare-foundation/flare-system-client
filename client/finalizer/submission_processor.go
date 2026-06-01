@@ -3,6 +3,8 @@ package finalizer
 import (
 	"encoding/hex"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
@@ -29,6 +31,7 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 		return nil
 	}
 
+	sender := common.HexToAddress(tx.FromAddress)
 	signaturePayloads := make([]*submitSignaturesPayload, 0, len(payloads))
 	for i := range payloads {
 		signaturePayload := new(submitSignaturesPayload)
@@ -36,9 +39,10 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 		if err != nil {
 			// if input cannot be decoded, it is not a valid submission and should be skipped
 			logger.Infof("Invalid submitSignatures payload sent by %s: %v, skipping", tx.FromAddress, err)
-		} else {
-			signaturePayloads = append(signaturePayloads, signaturePayload)
+			continue
 		}
+		signaturePayload.sender = sender
+		signaturePayloads = append(signaturePayloads, signaturePayload)
 	}
 
 	if len(signaturePayloads) > 0 {
