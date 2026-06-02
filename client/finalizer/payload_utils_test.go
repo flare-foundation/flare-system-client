@@ -2,14 +2,17 @@ package finalizer
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/binary"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/flare-foundation/flare-system-client/client/protocol"
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
+	"github.com/flare-foundation/go-flare-common/pkg/voters"
 )
 
 const (
@@ -227,4 +230,127 @@ func TestExtractUint16Overflow(t *testing.T) {
 	payloads, err := ExtractPayloads(dataTrue)
 	require.NoError(t, err)
 	require.Len(t, payloads, 1)
+}
+
+// --- AddSigner --------------------------------------------------------------
+//
+// Recovers the signer from a VRS-formatted signature, looks them up in the
+// active voter set, stores their index + weight. Three real branches matter:
+// happy path, signer-not-in-set, signature-fails-to-recover.
+
+// signVRS produces a 65-byte VRS-formatted signature in the wire format the
+// system-client receives via submitSignatures calldata (V at byte 0 with the
+// canonical +27 offset, then R||S).
+func signVRS(t *testing.T, hash []byte, priv *ecdsa.PrivateKey) []byte {
+	t.Helper()
+	rsv, err := crypto.Sign(hash, priv)
+	require.NoError(t, err)
+	require.Len(t, rsv, 65)
+	vrs := make([]byte, 65)
+	vrs[0] = rsv[64] + 27
+	copy(vrs[1:33], rsv[:32])
+	copy(vrs[33:65], rsv[32:64])
+	return vrs
+}
+
+func newKeyAndAddress(t *testing.T) (*ecdsa.PrivateKey, common.Address) {
+	t.Helper()
+	priv, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	return priv, crypto.PubkeyToAddress(priv.PublicKey)
+}
+
+func TestAddSigner_HappyPath(t *testing.T) {
+	priv, addr := newKeyAndAddress(t)
+	hash := crypto.Keccak256([]byte("any-message"))
+
+	pld := submitSignaturesPayload{
+		signature:  signVRS(t, hash, priv),
+		voterIndex: -1,
+	}
+
+	other := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	set := voters.NewSet(
+		[]common.Address{addr, other},
+		[]uint16{777, 222},
+		nil,
+	)
+
+	require.NoError(t, pld.AddSigner(hash, set))
+	require.Equal(t, 0, pld.voterIndex)
+	require.Equal(t, uint16(777), pld.weight)
+	require.Equal(t, addr, pld.signer)
+}
+
+func TestAddSigner_LooksUpCorrectIndexForNonZeroPosition(t *testing.T) {
+	// Pins that the index isn't hard-coded.
+	_, addr1 := newKeyAndAddress(t)
+	priv2, addr2 := newKeyAndAddress(t)
+
+	hash := crypto.Keccak256([]byte("msg"))
+	pld := submitSignaturesPayload{
+		signature:  signVRS(t, hash, priv2),
+		voterIndex: -1,
+	}
+	set := voters.NewSet(
+		[]common.Address{addr1, addr2},
+		[]uint16{100, 250},
+		nil,
+	)
+
+	require.NoError(t, pld.AddSigner(hash, set))
+	require.Equal(t, 1, pld.voterIndex)
+	require.Equal(t, uint16(250), pld.weight)
+}
+
+func TestAddSigner_RejectsSignerOutsideVoterSet(t *testing.T) {
+	priv, _ := newKeyAndAddress(t)
+	hash := crypto.Keccak256([]byte("msg"))
+
+	pld := submitSignaturesPayload{
+		signature:  signVRS(t, hash, priv),
+		voterIndex: -1,
+	}
+	stranger := common.HexToAddress("0x2222222222222222222222222222222222222222")
+	set := voters.NewSet([]common.Address{stranger}, []uint16{500}, nil)
+
+	err := pld.AddSigner(hash, set)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a registered voter")
+	require.Equal(t, -1, pld.voterIndex)
+	require.Equal(t, uint16(0), pld.weight)
+}
+
+func TestAddSigner_WrongMessageHashRecoversWrongAddress(t *testing.T) {
+	// Pins that AddSigner uses the SUPPLIED hash, not a stored one.
+	// Recovery against the wrong hash yields a different public key.
+	priv, addr := newKeyAndAddress(t)
+	hash1 := crypto.Keccak256([]byte("first"))
+	hash2 := crypto.Keccak256([]byte("second"))
+
+	pld := submitSignaturesPayload{
+		signature:  signVRS(t, hash1, priv),
+		voterIndex: -1,
+	}
+	set := voters.NewSet([]common.Address{addr}, []uint16{100}, nil)
+
+	err := pld.AddSigner(hash2, set)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a registered voter")
+}
+
+func TestAddSigner_RejectsSignatureWithInvalidVByte(t *testing.T) {
+	// V outside {27, 28} produces an out-of-range recovery byte after the
+	// VRS→RSV transform; crypto.SigToPub rejects.
+	priv, _ := newKeyAndAddress(t)
+	hash := crypto.Keccak256([]byte("msg"))
+	sig := signVRS(t, hash, priv)
+	sig[0] = 99 // garbage V
+
+	pld := submitSignaturesPayload{signature: sig, voterIndex: -1}
+	addr := common.HexToAddress("0x3333333333333333333333333333333333333333")
+	set := voters.NewSet([]common.Address{addr}, []uint16{1}, nil)
+
+	err := pld.AddSigner(hash, set)
+	require.Error(t, err)
 }
