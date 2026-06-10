@@ -348,6 +348,58 @@ func TestWaitUntilRegisteredTransientError(t *testing.T) {
 	require.GreaterOrEqual(t, currentEpoch, registry.registeredEpoch)
 }
 
+// TestRunShutdown exercises the Run loop with all three submitters enabled
+// (with no subprotocols, so epochs are no-ops) across several voting rounds
+// and then cancels the context. Run with -race: it pins that wg.Add does not
+// race with wg.Wait and that goroutines still sleeping out their start offset
+// do not block shutdown.
+func TestRunShutdown(t *testing.T) {
+	timing := utils.NewEpochConfig(time.Now(), 50*time.Millisecond)
+
+	c := &client{
+		votingRoundTiming: timing,
+		rewardEpochTiming: utils.NewEpochConfig(time.Now().Add(-time.Hour), time.Hour),
+		registry:          &testRegistry{expectedAddress: identityAddress},
+		identityAddress:   identityAddress,
+		submitter1: &Submitter{
+			SubmitterBase: SubmitterBase{name: "submit1", votingRoundTiming: timing},
+		},
+		submitter2: &Submitter{
+			SubmitterBase: SubmitterBase{name: "submit2", votingRoundTiming: timing},
+			epochOffset:   -1,
+		},
+		signatureSubmitter: &SignatureSubmitter{
+			SubmitterBase: SubmitterBase{name: "submitSignatures", votingRoundTiming: timing},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- c.Run(ctx) }()
+
+	// let a few voting rounds tick so submitter goroutines exist in mixed
+	// states: some finished, some still sleeping out their full-period offset
+	time.Sleep(180 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not shut down promptly; sleeping submitter goroutines were not released")
+	}
+}
+
+func TestSleepUnlessCancelled(t *testing.T) {
+	require.True(t, sleepUnlessCancelled(context.Background(), time.Millisecond))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	require.False(t, sleepUnlessCancelled(ctx, time.Hour))
+	require.Less(t, time.Since(start), time.Second)
+}
+
 type testRegistry struct {
 	expectedAddress     common.Address
 	registeredEpoch     int64
