@@ -2,6 +2,7 @@ package finalizer
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -50,7 +51,7 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 		}
 	}
 	if weight <= sc.threshold {
-		return FinalizationResult{}, fmt.Errorf("threshold not reached")
+		return FinalizationResult{}, errors.New("threshold not reached")
 	}
 
 	// sort selected by index
@@ -91,10 +92,10 @@ func encodeSignatures(signatures []IndexedSignature) ([]byte, error) {
 	prevIndex := -1
 	for _, signature := range signatures {
 		if signature.index < 0 {
-			return nil, fmt.Errorf("payload index not set")
+			return nil, errors.New("payload index not set")
 		}
 		if prevIndex >= signature.index {
-			return nil, fmt.Errorf("payloads not sorted by index")
+			return nil, errors.New("payloads not sorted by index")
 		}
 
 		indexBytes := shared.Uint16toBytes(uint16(signature.index))

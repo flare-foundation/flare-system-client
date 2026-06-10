@@ -130,7 +130,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 
 	rewardsUrl, err := url.JoinPath(config.UrlPrefix, epochId.Text(10), "reward-distribution-data.json")
 	if err != nil {
-		return nil, fmt.Errorf("cannot join url: %w", err)
+		return nil, fmt.Errorf("joining url: %w", err)
 	}
 
 	logger.Infof("Fetching reward data at: %s", rewardsUrl)
@@ -163,7 +163,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 	}, 3, 1*time.Second)
 
 	if !result.Success {
-		return nil, fmt.Errorf("unable to fetch reward data: %s", result.Message)
+		return nil, fmt.Errorf("fetching reward data: %s", result.Message)
 	}
 
 	return result.Value, nil

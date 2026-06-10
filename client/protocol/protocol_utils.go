@@ -92,7 +92,7 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	bodyString := strings.TrimPrefix(response.Data, "0x")
 	data, err := hex.DecodeString(bodyString)
 	if err != nil {
-		return nil, fmt.Errorf("cannot decode protocol client response body: %w", err)
+		return nil, fmt.Errorf("decoding protocol client response body: %w", err)
 	}
 
 	var addData []byte
@@ -100,7 +100,7 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	if len(addDataString) > 0 {
 		addData, err = hex.DecodeString(addDataString)
 		if err != nil {
-			return nil, fmt.Errorf("cannot decode protocol client response additional data: %w", err)
+			return nil, fmt.Errorf("decoding protocol client response additional data: %w", err)
 		}
 	}
 

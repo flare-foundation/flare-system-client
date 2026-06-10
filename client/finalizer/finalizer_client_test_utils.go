@@ -244,7 +244,7 @@ func newSPILog(voterAddress common.Address) (*database.Log, error) {
 		spiLog.Timestamp,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to pack data: %w", err)
+		return nil, fmt.Errorf("packing data: %w", err)
 	}
 
 	hexData := hex.EncodeToString(packedData)

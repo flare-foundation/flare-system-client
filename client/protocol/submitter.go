@@ -438,7 +438,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 					for i := range s.subProtocols {
 						protocolsToQuery[i] = true
 					}
-					return protocolsToQuery, fmt.Errorf("submitSignatures tx failed")
+					return protocolsToQuery, errors.New("submitSignatures tx failed")
 				}
 			}
 			return protocolsToQuery, nil

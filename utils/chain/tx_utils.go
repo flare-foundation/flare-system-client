@@ -160,12 +160,12 @@ func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.
 		gasLimit = uint64(gasConfig.GasLimit)
 		_, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
-			return fmt.Errorf("dry run failed: %w", err)
+			return fmt.Errorf("dry run: %w", err)
 		}
 	} else if dryRun {
 		gasLimit, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
-			return fmt.Errorf("dry run failed: %w", err)
+			return fmt.Errorf("dry run: %w", err)
 		}
 	} else {
 		gasLimit = getGasLimit(ctx, gasConfig, client, fromAddress, toAddress, value, data, timeout)
@@ -341,7 +341,7 @@ func GetGasPrice(ctx context.Context, gasConfig *config.Gas, client *ethclient.C
 		suggestedPrice, err := client.SuggestGasPrice(priceCtx)
 		cancelFunc()
 		if err != nil {
-			return nil, fmt.Errorf("unable to estimate gas price: %w", err)
+			return nil, fmt.Errorf("estimating gas price: %w", err)
 		}
 		if gasConfig.GasPriceMultiplier != 0 {
 			gasPriceFloat := new(big.Float).SetInt(suggestedPrice)

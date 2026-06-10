@@ -283,7 +283,7 @@ func (c *client) signRewards(ctx context.Context, epochId *big.Int) {
 		}
 		signingResult := <-c.systemsManagerClient.SignRewards(ctx, epochId, hash, weightClaims)
 		if !signingResult.Success {
-			return nil, fmt.Errorf("unable to send reward signature")
+			return nil, errors.New("unable to send reward signature")
 		}
 		return nil, nil
 	}, c.rewardsConfig.Retries, c.rewardsConfig.RetryInterval)

@@ -1,6 +1,7 @@
 package finalizer
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -74,7 +75,7 @@ func (sc *signaturesCollection) copy() *signaturesCollection {
 // addSignature adds signature to the signatures collection.
 func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, error) {
 	if p.voterIndex < 0 {
-		return false, fmt.Errorf("voter not recognized")
+		return false, errors.New("voter not recognized")
 	}
 
 	if len(sc.signatures[p.voterIndex]) != 0 {
@@ -94,7 +95,7 @@ func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, 
 
 func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.Hash, error) {
 	if pc.messageAdded {
-		return false, common.Hash{}, fmt.Errorf("message added twice")
+		return false, common.Hash{}, errors.New("message added twice")
 	}
 
 	msgHsh := common.Hash(message.Hash())
@@ -165,7 +166,7 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 		sigCollection = pc.signatureCollection[pc.messageChosenHash]
 		msgHash = sigCollection.message.Hash()
 	} else {
-		return false, common.Hash{}, fmt.Errorf("unexpected behavior, no message")
+		return false, common.Hash{}, errors.New("unexpected behavior, no message")
 	}
 
 	err := payload.AddSigner(msgHash, sigCollection.signingPolicy.Voters)

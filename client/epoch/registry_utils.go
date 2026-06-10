@@ -244,7 +244,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 		vrsSignature,
 	)
 	if err != nil {
-		return fmt.Errorf("dry run failed: %w", err)
+		return fmt.Errorf("dry run: %w", err)
 	}
 
 	if r.gasCfg.GasLimit != 0 {
