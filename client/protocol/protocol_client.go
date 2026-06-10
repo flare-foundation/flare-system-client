@@ -140,70 +140,68 @@ func (c *client) Run(ctx context.Context) error {
 		return err
 	}
 
-	done := make(chan bool, 1)
 	var wg sync.WaitGroup
 
 	logger.Info("Starting submitters, waiting for next voting round start.")
 	ticker := utils.NewEpochTicker(c.votingRoundTiming)
-L:
 	for {
 		select {
 		case currentEpoch := <-ticker.C:
+			// wg.Add is called here, before spawning, so that it cannot race
+			// with wg.Wait on shutdown. Goroutines still waiting for their
+			// start offset exit early on cancellation; goroutines already
+			// running an epoch are waited for.
 			if c.submitter1 != nil {
+				wg.Add(1)
 				go func() {
-					time.Sleep(c.submitter1.startOffset)
-					if c.submitter2 != nil {
-						// if running submitter1, and submitter2 is enabled,
-						// we need to wait for it to complete before shutdown.
-						wg.Add(1)
+					defer wg.Done()
+					if !sleepUnlessCancelled(ctx, c.submitter1.startOffset) {
+						return
 					}
-
 					c.submitter1.RunEpoch(ctx, currentEpoch)
 				}()
 			}
 
 			if c.submitter2 != nil {
+				wg.Add(1)
 				go func() {
-					time.Sleep(ticker.Epoch.Period + c.submitter2.startOffset)
-
-					if c.signatureSubmitter != nil {
-						// if running submitter2, and signatureSubmitter is enabled,
-						// we need to wait for it to complete before shutdown.
-						wg.Add(1)
-					}
+					defer wg.Done()
 					// Submit2 processes the current epoch data in the following epoch
 					// so we wait a full epoch duration + offset before invoking.
 					// TODO: this assumes c.submitter2.epochOffset is always -1
-					c.submitter2.RunEpoch(ctx, currentEpoch+1)
-
-					if c.submitter1 != nil {
-						wg.Done()
+					if !sleepUnlessCancelled(ctx, ticker.Epoch.Period+c.submitter2.startOffset) {
+						return
 					}
+					c.submitter2.RunEpoch(ctx, currentEpoch+1)
 				}()
 			}
 			if c.signatureSubmitter != nil {
+				wg.Add(1)
 				go func() {
-					time.Sleep(ticker.Epoch.Period + c.signatureSubmitter.startOffset)
-					c.signatureSubmitter.RunEpoch(ctx, currentEpoch)
-
-					if c.submitter2 != nil {
-						wg.Done()
+					defer wg.Done()
+					if !sleepUnlessCancelled(ctx, ticker.Epoch.Period+c.signatureSubmitter.startOffset) {
+						return
 					}
+					c.signatureSubmitter.RunEpoch(ctx, currentEpoch)
 				}()
 			}
 		case <-ctx.Done():
-			if c.submitter1 != nil && c.submitter2 != nil || c.submitter2 != nil && c.signatureSubmitter != nil {
-				logger.Warn("Stopping submitters. Making sure both submit1 & submit2 & signatureSubmitter have completed for the voting round.")
-				wg.Wait()
-			}
-
-			done <- true
-			break L
+			logger.Warn("Stopping submitters. Making sure submitters have completed for the voting round.")
+			wg.Wait()
+			return nil
 		}
 	}
+}
 
-	<-done
-	return nil
+// sleepUnlessCancelled waits for the given duration and returns true,
+// or returns false immediately if ctx is cancelled first.
+func sleepUnlessCancelled(ctx context.Context, d time.Duration) bool {
+	select {
+	case <-time.After(d):
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }
 
 func (c *client) waitUntilRegistered(ctx context.Context) error {
