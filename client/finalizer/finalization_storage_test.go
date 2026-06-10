@@ -187,3 +187,53 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	require.True(t, sc.thresholdReached)
 	require.Equal(t, uint16(voterCount), sc.weight)
 }
+
+// Regression: addMessage used to reassign sc.message on a collection that
+// already existed (created by a typeID-0 payload that arrived first) while
+// holding only the storage lock. The queue processor reads sc.message in
+// PrepareFinalizationResults holding only sc.mu, after get released the
+// storage lock — disjoint lock sets, a data race on the slice header. Run
+// with -race; the loop retries the one-shot window enough times to trip it.
+func TestAddMessageDoesNotRaceWithPrepare(t *testing.T) {
+	const round = uint32(50)
+	const protocolID = uint8(1)
+
+	priv, addr := newKeyAndAddress(t)
+	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{addr}, []uint16{1}, nil)}
+
+	message := make(shared.Message, 38)
+	_, err := rand.Read(message)
+	require.NoError(t, err)
+	msgHash := message.Hash()
+	sig := signVRS(t, msgHash, priv)
+
+	for range 2000 {
+		s := newFinalizationStorage()
+		// threshold 0: the single typeID-0 payload creates the collection and
+		// already reaches the threshold, so the reader gets past the weight
+		// check in PrepareFinalizationResults to the sc.message read.
+		ready, err := s.addPayload(&submitSignaturesPayload{
+			typeID:        0,
+			sender:        addr,
+			votingRoundID: round,
+			protocolID:    protocolID,
+			message:       message,
+			signature:     sig,
+		}, sp, 0)
+		require.NoError(t, err)
+		require.True(t, ready.thresholdReached)
+
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			_, _ = s.AddMessage(&shared.ProtocolMessage{ProtocolID: protocolID, VotingRoundID: round, Message: message}, sp, 0)
+		})
+		wg.Go(func() {
+			for range 20 {
+				if sc, exists := s.get(round, protocolID, common.Hash(msgHash)); exists {
+					_, _ = PrepareFinalizationResults(sc)
+				}
+			}
+		})
+		wg.Wait()
+	}
+}

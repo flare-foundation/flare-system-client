@@ -93,13 +93,16 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	}
 
 	msgHsh := common.Hash(message.Hash())
+	// An existing collection at msgHsh was created from a message with this
+	// same hash, so its message field already holds equal bytes. Do not
+	// reassign it here: message is read by PrepareFinalizationResults outside
+	// the storage lock, under sc.mu only, and must stay fixed after creation.
 	_, exists := pc.signatureCollection[msgHsh]
 	if !exists {
 		pc.signatureCollection[msgHsh] = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
 	}
 
 	pc.messageChosenHash = msgHsh
-	pc.signatureCollection[msgHsh].message = message
 	pc.messageAdded = true
 
 	thresholdReached := false
