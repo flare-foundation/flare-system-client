@@ -356,7 +356,9 @@ func (g *Gas) validate() error {
 
 	switch g.TxType {
 	case 0:
-		if g.GasPriceFixed.Cmp(common.Big0) != 0 && g.GasPriceMultiplier != 0.0 {
+		// GasPriceFixed is nil when not set in the config, which is a valid
+		// configuration: gas price recommended by the node is used instead.
+		if g.GasPriceFixed != nil && g.GasPriceFixed.Sign() != 0 && g.GasPriceMultiplier != 0.0 {
 			return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value for type 0 transaction")
 		}
 
