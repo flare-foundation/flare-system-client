@@ -27,6 +27,9 @@ type IndexedSignature struct {
 //
 // The signatures are chosen in a way to minimize the number of signatures needed for finalization.
 func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, error) {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+
 	availableSignatures := []IndexedSignature{}
 	selectedSignatures := []IndexedSignature{}
 
@@ -59,7 +62,11 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 		return p.index - q.index
 	})
 
-	return FinalizationResult{message: sc.message, signatures: selectedSignatures, signingPolicy: sc.signingPolicy}, nil
+	return FinalizationResult{
+		message:       sc.message,
+		signatures:    selectedSignatures,
+		signingPolicy: sc.signingPolicy,
+	}, nil
 }
 
 // PrepareFinalizationTxInput prepares a transaction input needed to finalize.

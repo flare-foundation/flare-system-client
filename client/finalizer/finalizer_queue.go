@@ -137,7 +137,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		} else {
 			logger.Infof("Finalizer with address %v will send outside grace period for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
-			_, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
+			_, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.msgHash)
 			if exists {
 				// Finalization for a votingRoundID should happen in the following voting round votingRoundID + 1
 				votingRoundStartTime := p.finalizerContext.votingRoundTiming.StartTime(int64(item.votingRoundID + 1))
@@ -160,7 +160,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	if item == nil {
 		return false
 	}
-	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
+	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.msgHash)
 	if !exists {
 		return false
 	}
@@ -179,7 +179,7 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		return
 	}
 
-	data, exists := p.finalizationStorage.Get(item.votingRoundID, item.protocolID, item.msgHash)
+	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.msgHash)
 	if !exists {
 		logger.Warnf("finalization data for protocol %d for round %d missing", item.protocolID, item.votingRoundID)
 		return

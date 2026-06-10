@@ -166,7 +166,7 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	for range 4 {
 		wg.Go(func() {
 			for range 200 {
-				if sc, exists := s.Get(round, protocolID, common.Hash(msgHash)); exists {
+				if sc, exists := s.get(round, protocolID, common.Hash(msgHash)); exists {
 					_, _ = PrepareFinalizationResults(sc)
 				}
 			}
@@ -182,7 +182,7 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// all signatures landed and the final state is consistent
-	sc, exists := s.Get(round, protocolID, common.Hash(msgHash))
+	sc, exists := s.get(round, protocolID, common.Hash(msgHash))
 	require.True(t, exists)
 	require.True(t, sc.thresholdReached)
 	require.Equal(t, uint16(voterCount), sc.weight)

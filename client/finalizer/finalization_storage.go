@@ -3,7 +3,6 @@ package finalizer
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"sync"
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
@@ -21,6 +20,8 @@ type signaturesCollection struct {
 	thresholdReached bool
 	signingPolicy    *policy.SigningPolicy
 	threshold        uint16
+
+	mu sync.RWMutex
 }
 
 type protocolCollection struct {
@@ -62,18 +63,11 @@ func NewSignatureCollection(message shared.Message, signingPolicy *policy.Signin
 	}
 }
 
-// copy returns a snapshot of the collection that is safe to read after the
-// storage lock is released. The outer signatures slice is cloned because
-// addSignature reassigns its elements; the element byte slices and the
-// signing policy are never mutated after being set, so sharing them is safe.
-func (sc *signaturesCollection) copy() *signaturesCollection {
-	cp := *sc
-	cp.signatures = slices.Clone(sc.signatures)
-	return &cp
-}
-
 // addSignature adds signature to the signatures collection.
 func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, error) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
 	if p.voterIndex < 0 {
 		return false, errors.New("voter not recognized")
 	}
@@ -253,12 +247,10 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	return FinalizationReady{thresholdReached: false}, nil
 }
 
-// Get returns a snapshot of the signatureCollection for votingRoundID and protocolID.
+// get returns the signatureCollection for votingRoundID and protocolID.
 // A boolean inductor of existence is also returned.
-//
-// A copy is returned because the stored collection keeps being mutated by the
-// listener goroutines under the storage lock, which the caller does not hold.
-func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
+// The mutex should be used to access or change: signatures, weight, or threshold reached, the rest of the fields are fixed and do not change.
+func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
 	round, exists := fs.stg[votingRoundID]
@@ -276,7 +268,7 @@ func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHa
 		return &signaturesCollection{}, false
 	}
 
-	return sigCollection.copy(), true
+	return sigCollection, true
 }
 
 // LowestRoundStored returns the lowest round that is still stored.
