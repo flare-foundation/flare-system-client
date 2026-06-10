@@ -169,7 +169,7 @@ func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startT
 
 		logger.Infof("New signing policy received for epoch %v", policy.RewardEpochID)
 
-		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.lowestRoundStored) // remove signingPolicies that will never be used again
+		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.LowestRoundStored()) // remove signingPolicies that will never be used again
 	}
 }
 

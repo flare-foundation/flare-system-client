@@ -3,6 +3,7 @@ package finalizer
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
@@ -59,6 +60,16 @@ func NewSignatureCollection(message shared.Message, signingPolicy *policy.Signin
 		signingPolicy: signingPolicy,
 		threshold:     threshold,
 	}
+}
+
+// copy returns a snapshot of the collection that is safe to read after the
+// storage lock is released. The outer signatures slice is cloned because
+// addSignature reassigns its elements; the element byte slices and the
+// signing policy are never mutated after being set, so sharing them is safe.
+func (sc *signaturesCollection) copy() *signaturesCollection {
+	cp := *sc
+	cp.signatures = slices.Clone(sc.signatures)
+	return &cp
 }
 
 // addSignature adds signature to the signatures collection.
@@ -242,8 +253,11 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	return FinalizationReady{thresholdReached: false}, nil
 }
 
-// Get returns the signatureCollection for votingRoundID and protocolID.
+// Get returns a snapshot of the signatureCollection for votingRoundID and protocolID.
 // A boolean inductor of existence is also returned.
+//
+// A copy is returned because the stored collection keeps being mutated by the
+// listener goroutines under the storage lock, which the caller does not hold.
 func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
@@ -262,25 +276,34 @@ func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHa
 		return &signaturesCollection{}, false
 	}
 
-	return sigCollection, true
+	return sigCollection.copy(), true
+}
+
+// LowestRoundStored returns the lowest round that is still stored.
+func (fs *finalizationStorage) LowestRoundStored() uint32 {
+	fs.RLock()
+	defer fs.RUnlock()
+
+	return fs.lowestRoundStored
 }
 
 // RemoveRoundsBefore deletes rounds before votingRoundID.
 func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
+	fs.Lock()
+	defer fs.Unlock()
+
 	// initial cleanup
 	if fs.lowestRoundStored == 0 && votingRoundID > 20 {
 		fs.lowestRoundStored = votingRoundID - 20
 	}
 
 	if votingRoundID > fs.lowestRoundStored {
-		fs.Lock()
-		defer fs.Unlock()
-
 		for i := fs.lowestRoundStored; i < votingRoundID; i++ {
 			logger.Debugf("Deleting round %d in finalization storage", i)
 			delete(fs.stg, i)
 		}
 
-		fs.lowestRoundStored = votingRoundID + 1
+		// votingRoundID is the lowest round that remains stored
+		fs.lowestRoundStored = votingRoundID
 	}
 }
