@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
-	"github.com/pkg/errors"
 )
 
 const maxRespSize = 100 * (1 << 20) // 100 MB for maximal response size
@@ -58,14 +58,14 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	}
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating protocol client API request")
+		return nil, fmt.Errorf("error creating protocol client API request: %w", err)
 	}
 	if len(sp.XApiKey) > 0 {
 		req.Header.Set("X-API-KEY", sp.XApiKey)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "error calling protocol client API")
+		return nil, fmt.Errorf("error calling protocol client API: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
@@ -92,7 +92,7 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	bodyString := strings.TrimPrefix(response.Data, "0x")
 	data, err := hex.DecodeString(bodyString)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot decode protocol client response body")
+		return nil, fmt.Errorf("cannot decode protocol client response body: %w", err)
 	}
 
 	var addData []byte
@@ -100,7 +100,7 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	if len(addDataString) > 0 {
 		addData, err = hex.DecodeString(addDataString)
 		if err != nil {
-			return nil, errors.Wrap(err, "cannot decode protocol client response additional data")
+			return nil, fmt.Errorf("cannot decode protocol client response additional data: %w", err)
 		}
 	}
 
@@ -219,11 +219,11 @@ func submitEndpointUrl(votingRound int64, apiEndpoint string, endpoint string, a
 		address,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating url path")
+		return nil, fmt.Errorf("error creating url path: %w", err)
 	}
 	url, err := url.Parse(baseURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating url")
+		return nil, fmt.Errorf("error creating url: %w", err)
 	}
 	// if len(signingAddress) > 0 {
 	// 	query := url.Query()

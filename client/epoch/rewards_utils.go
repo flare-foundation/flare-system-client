@@ -3,6 +3,8 @@ package epoch
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math/big"
@@ -16,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -90,7 +91,7 @@ type rewardClaim struct {
 func rewardClaimHash(epoch uint64, claim rewardClaimBody) (common.Hash, error) {
 	amount, ok := new(big.Int).SetString(claim.Amount, 10)
 	if !ok {
-		return common.Hash{}, errors.Errorf("invalid reward claim amount: %s", claim.Amount)
+		return common.Hash{}, fmt.Errorf("invalid reward claim amount: %s", claim.Amount)
 	}
 	encoded, err := rewardClaimArgs.Pack(
 		epoch,
@@ -99,7 +100,7 @@ func rewardClaimHash(epoch uint64, claim rewardClaimBody) (common.Hash, error) {
 		claim.Type,
 	)
 	if err != nil {
-		return common.Hash{}, errors.Wrap(err, "failed to pack reward claim arguments")
+		return common.Hash{}, fmt.Errorf("failed to pack reward claim arguments: %w", err)
 	}
 	return crypto.Keccak256Hash(encoded), nil
 }
@@ -129,7 +130,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 
 	rewardsUrl, err := url.JoinPath(config.UrlPrefix, epochId.Text(10), "reward-distribution-data.json")
 	if err != nil {
-		return nil, errors.Errorf("cannot join url: %s", err)
+		return nil, fmt.Errorf("cannot join url: %s", err)
 	}
 
 	logger.Infof("Fetching reward data at: %s", rewardsUrl)
@@ -146,7 +147,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 			return nil, nil // 404 is expected if data is not yet published, don't retry
 		}
 		if resp.StatusCode != http.StatusOK {
-			return nil, errors.Errorf("unexpected status code: %s", resp.Status)
+			return nil, fmt.Errorf("unexpected status code: %s", resp.Status)
 		}
 
 		respLimited := &io.LimitedReader{R: resp.Body, N: maxRespSize}
@@ -162,7 +163,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 	}, 3, 1*time.Second)
 
 	if !result.Success {
-		return nil, errors.Errorf("unable to fetch reward data")
+		return nil, fmt.Errorf("unable to fetch reward data")
 	}
 
 	return result.Value, nil
@@ -170,12 +171,12 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 
 func verifyRewardData(epochId *big.Int, identity common.Address, data *rewardDistributionData, rewardsConfig *config.RewardsConfig) (*common.Hash, int, error) {
 	if data.RewardEpochId != epochId.Uint64() {
-		return nil, 0, errors.Errorf("invalid rewards epoch id: %d, expected: %d", data.RewardEpochId, epochId)
+		return nil, 0, fmt.Errorf("invalid rewards epoch id: %d, expected: %d", data.RewardEpochId, epochId)
 	}
 
 	root, err := verifyRoot(data)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "invalid rewards merkle root")
+		return nil, 0, fmt.Errorf("invalid rewards merkle root: %w", err)
 	}
 
 	var myClaim *rewardClaim
@@ -186,28 +187,28 @@ func verifyRewardData(epochId *big.Int, identity common.Address, data *rewardDis
 	}
 
 	if myClaim == nil {
-		return nil, 0, errors.Errorf("reward claim for our identity address %s not found in reward distribution data", identity.Hex())
+		return nil, 0, fmt.Errorf("reward claim for our identity address %s not found in reward distribution data", identity.Hex())
 	}
 
 	claimHash, err := rewardClaimHash(data.RewardEpochId, myClaim.Body)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "unable to hash our reward claim")
+		return nil, 0, fmt.Errorf("unable to hash our reward claim: %w", err)
 	}
 	if !merkle.VerifyProof(claimHash, myClaim.MerkleProof, root) {
-		return nil, 0, errors.Errorf("invalid merkle proof for our reward claim: %+v", myClaim.Body)
+		return nil, 0, fmt.Errorf("invalid merkle proof for our reward claim: %+v", myClaim.Body)
 	}
 
 	rewardAmount, ok := new(big.Int).SetString(myClaim.Body.Amount, 10)
 	if !ok {
-		return nil, 0, errors.Errorf("invalid reward amount: %s", myClaim.Body.Amount)
+		return nil, 0, fmt.Errorf("invalid reward amount: %s", myClaim.Body.Amount)
 	}
 
 	// nil min/max (not set in config) means no bound, same as the zero default
 	if rewardsConfig.MinRewardWei != nil && rewardAmount.Cmp(rewardsConfig.MinRewardWei) < 0 {
-		return nil, 0, errors.Errorf("reward amount %s is less than min reward %s, will not sign", rewardAmount, rewardsConfig.MinRewardWei)
+		return nil, 0, fmt.Errorf("reward amount %s is less than min reward %s, will not sign", rewardAmount, rewardsConfig.MinRewardWei)
 	}
 	if rewardsConfig.MaxRewardWei != nil && rewardsConfig.MaxRewardWei.Sign() != 0 && rewardAmount.Cmp(rewardsConfig.MaxRewardWei) > 0 {
-		return nil, 0, errors.Errorf("reward amount %s is greater than max reward %s, will not sign", rewardAmount, rewardsConfig.MaxRewardWei)
+		return nil, 0, fmt.Errorf("reward amount %s is greater than max reward %s, will not sign", rewardAmount, rewardsConfig.MaxRewardWei)
 	}
 
 	return &root, data.WeightClaims, nil
@@ -223,23 +224,23 @@ func verifyRoot(data *rewardDistributionData) (common.Hash, error) {
 		}
 		hash, err := rewardClaimHash(data.RewardEpochId, body)
 		if err != nil {
-			return common.Hash{}, errors.Wrap(err, "unable to hash reward claim")
+			return common.Hash{}, fmt.Errorf("unable to hash reward claim: %w", err)
 		}
 		hashes = append(hashes, hash)
 	}
 
 	if weightBasedClaims != data.WeightClaims {
-		return common.Hash{}, errors.Errorf("weight based claims count does not match: %d, expected: %d", weightBasedClaims, data.WeightClaims)
+		return common.Hash{}, fmt.Errorf("weight based claims count does not match: %d, expected: %d", weightBasedClaims, data.WeightClaims)
 	}
 
 	merkleTree := merkle.Build(hashes, false)
 	root, err := merkleTree.Root()
 	if err != nil {
-		return common.Hash{}, errors.Wrap(err, "unable to calculate merkle root")
+		return common.Hash{}, fmt.Errorf("unable to calculate merkle root: %w", err)
 	}
 
 	if root.Hex() != data.MerkleRoot {
-		return common.Hash{}, errors.Errorf("computed merkle root does not match: %s, expected: %s", root.Hex(), data.MerkleRoot)
+		return common.Hash{}, fmt.Errorf("computed merkle root does not match: %s, expected: %s", root.Hex(), data.MerkleRoot)
 	}
 	return root, nil
 }

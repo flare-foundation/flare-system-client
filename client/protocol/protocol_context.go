@@ -2,13 +2,13 @@ package protocol
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
 	globalConfig "github.com/flare-foundation/flare-system-client/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/submission"
 )
@@ -41,19 +41,19 @@ func newProtocolContext(cfg *config.Client) (*protocolContext, error) {
 	ctx.signerPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
 		cfg.Credentials.SigningPolicyPrivateKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating signer private key")
+		return nil, fmt.Errorf("error creating signer private key: %w", err)
 	}
 
 	ctx.submitPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitPrivateKeyFile,
 		cfg.Credentials.ProtocolManagerSubmitPrivateKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating submit private key")
+		return nil, fmt.Errorf("error creating submit private key: %w", err)
 	}
 
 	ctx.submitSignaturesPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile,
 		cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading submit signatures private key")
+		return nil, fmt.Errorf("error reading submit signatures private key: %w", err)
 	}
 
 	// Addresses

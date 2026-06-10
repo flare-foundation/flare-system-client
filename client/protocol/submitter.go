@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
@@ -286,7 +286,7 @@ func EncodePayload(
 	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
 	signature, err := crypto.Sign(dataHash, signerPrivateKey)
 	if err != nil {
-		return errors.Wrap(err, "error signing submitSignatures data")
+		return fmt.Errorf("error signing submitSignatures data: %w", err)
 	}
 
 	epochBytes := shared.Uint32toBytes(uint32(epoch))
@@ -436,7 +436,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 					for i := range s.subProtocols {
 						protocolsToQuery[i] = true
 					}
-					return protocolsToQuery, errors.Errorf("submitSignatures tx failed")
+					return protocolsToQuery, fmt.Errorf("submitSignatures tx failed")
 				}
 			}
 			return protocolsToQuery, nil

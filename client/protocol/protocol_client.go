@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/registry"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
@@ -72,12 +72,12 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 
 	systemsManager, err := system.NewFlareSystemsManager(cfg.ContractAddresses.SystemsManager, cl)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating system manager contract")
+		return nil, fmt.Errorf("error creating system manager contract: %w", err)
 	}
 
 	votingRoundTiming, err := shared.VotingRoundTimingFromChain(systemsManager)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting voting round timing")
+		return nil, fmt.Errorf("error getting voting round timing: %w", err)
 	}
 
 	protocolContext, err := newProtocolContext(cfg)

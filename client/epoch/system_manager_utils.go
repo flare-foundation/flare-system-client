@@ -3,6 +3,7 @@ package epoch
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
@@ -18,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
@@ -106,7 +106,7 @@ func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(ctx context.Cont
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignNewSigningPolicy(ctx, rewardEpochId, signingPolicy)
 		if err != nil {
-			return nil, errors.Wrap(err, "error sending sign new signing policy")
+			return nil, fmt.Errorf("error sending sign new signing policy: %w", err)
 		}
 		return nil, nil
 	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
@@ -341,7 +341,7 @@ func (s *systemsManagerContractClientImpl) SignUptimeVote(ctx context.Context, r
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignUptimeVote(ctx, rewardEpochId)
 		if err != nil {
-			return nil, errors.Wrap(err, "error sending sign uptime vote")
+			return nil, fmt.Errorf("error sending sign uptime vote: %w", err)
 		}
 		return nil, nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
@@ -464,7 +464,7 @@ func (s *systemsManagerContractClientImpl) SignRewards(ctx context.Context, epoc
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignRewards(ctx, epochId, rewardHash, weightClaims)
 		if err != nil {
-			return nil, errors.Wrap(err, "error sending sign rewards")
+			return nil, fmt.Errorf("error sending sign rewards: %w", err)
 		}
 		return nil, nil
 	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)

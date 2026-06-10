@@ -10,7 +10,6 @@ require (
 	github.com/flare-foundation/go-flare-common v1.2.1
 	github.com/gorilla/mux v1.8.1
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.3
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.19.0
