@@ -232,6 +232,15 @@ func TestExtractUint16Overflow(t *testing.T) {
 	require.Len(t, payloads, 1)
 }
 
+// Regression: inputs shorter than the 4-byte function selector used to panic
+// on the unguarded data[4:] slice.
+func TestExtractPayloadsShorterThanSelector(t *testing.T) {
+	for _, length := range []int{0, 1, 2, 3} {
+		_, err := ExtractPayloads(make([]byte, length))
+		require.Error(t, err, "input of %d bytes must be rejected, not panic", length)
+	}
+}
+
 // --- AddSigner --------------------------------------------------------------
 //
 // Recovers the signer from a VRS-formatted signature, looks them up in the
