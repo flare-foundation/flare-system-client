@@ -95,7 +95,7 @@ var (
 
 func unpackError(result []byte) (string, error) {
 	if len(result) < 4 || !bytes.Equal(result[:4], errorSig) {
-		return "<tx result not Error(string)>", fmt.Errorf("unknown error signature: %x", result[:4])
+		return "<tx result not Error(string)>", fmt.Errorf("unknown error signature: %x", result)
 	}
 	vs, err := abi.Arguments{{Type: abiString}}.UnpackValues(result[4:])
 	if err != nil {
@@ -104,7 +104,7 @@ func unpackError(result []byte) (string, error) {
 
 	errStr, ok := vs[0].(string)
 	if !ok {
-		return "<invalid tx result>", errors.New("unexpected error type)")
+		return "<invalid tx result>", errors.New("unexpected error type")
 	}
 
 	return errStr, nil
