@@ -27,7 +27,7 @@ func ExecuteWithRetryChan[T any](f func() (T, error), maxRetries int, delay time
 				out <- ExecuteStatus[T]{Success: true, Value: result}
 				return
 			} else {
-				logger.Debugf("error executing in retry no. %d: %v", ri, err)
+				logger.Debugf("executing in retry no. %d: %v", ri, err)
 				finalError = err
 			}
 			time.Sleep(delay)
@@ -73,7 +73,7 @@ func ExecuteWithRetryAttempts[T any](f func(int) (T, error), maxRetries int, del
 				out <- ExecuteStatus[T]{Success: true, Value: result}
 				return
 			} else {
-				logger.Debugf("error executing in retry no. %d: %v", ri, err)
+				logger.Debugf("executing in retry no. %d: %v", ri, err)
 				finalError = err
 			}
 			time.Sleep(delay)

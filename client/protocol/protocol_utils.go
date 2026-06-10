@@ -58,14 +58,14 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	}
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("error creating protocol client API request: %w", err)
+		return nil, fmt.Errorf("creating protocol client API request: %w", err)
 	}
 	if len(sp.XApiKey) > 0 {
 		req.Header.Set("X-API-KEY", sp.XApiKey)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error calling protocol client API: %w", err)
+		return nil, fmt.Errorf("calling protocol client API: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
@@ -219,11 +219,11 @@ func submitEndpointUrl(votingRound int64, apiEndpoint string, endpoint string, a
 		address,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error creating url path: %w", err)
+		return nil, fmt.Errorf("creating url path: %w", err)
 	}
 	url, err := url.Parse(baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("error creating url: %w", err)
+		return nil, fmt.Errorf("creating url: %w", err)
 	}
 	// if len(signingAddress) > 0 {
 	// 	query := url.Query()

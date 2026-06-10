@@ -106,7 +106,7 @@ func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(ctx context.Cont
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignNewSigningPolicy(ctx, rewardEpochId, signingPolicy)
 		if err != nil {
-			return nil, fmt.Errorf("error sending sign new signing policy: %w", err)
+			return nil, fmt.Errorf("sending sign new signing policy: %w", err)
 		}
 		return nil, nil
 	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)
@@ -341,7 +341,7 @@ func (s *systemsManagerContractClientImpl) SignUptimeVote(ctx context.Context, r
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignUptimeVote(ctx, rewardEpochId)
 		if err != nil {
-			return nil, fmt.Errorf("error sending sign uptime vote: %w", err)
+			return nil, fmt.Errorf("sending sign uptime vote: %w", err)
 		}
 		return nil, nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
@@ -464,7 +464,7 @@ func (s *systemsManagerContractClientImpl) SignRewards(ctx context.Context, epoc
 	return shared.ExecuteWithRetryChan(func() (any, error) {
 		err := s.sendSignRewards(ctx, epochId, rewardHash, weightClaims)
 		if err != nil {
-			return nil, fmt.Errorf("error sending sign rewards: %w", err)
+			return nil, fmt.Errorf("sending sign rewards: %w", err)
 		}
 		return nil, nil
 	}, shared.MaxTxSendRetriesLong, shared.TxRetryIntervalLong)

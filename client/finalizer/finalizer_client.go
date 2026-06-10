@@ -53,7 +53,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 
 	relayContract, err := relay.NewRelay(cfg.ContractAddresses.Relay, ethClient)
 	if err != nil {
-		return nil, fmt.Errorf("error creating relay contract: %w", err)
+		return nil, fmt.Errorf("creating relay contract: %w", err)
 	}
 	finalizerContext, err := newFinalizerContext(cfg, relayContract)
 	if err != nil {
@@ -63,11 +63,11 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 	senderPkString, err := config.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
 		cfg.Credentials.SigningPolicyPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("error reading sender private key: %w", err)
+		return nil, fmt.Errorf("reading sender private key: %w", err)
 	}
 	txOpts, senderPk, err := credentials.CredentialsFromPrivateKey(senderPkString, chainCfg.ChainID)
 	if err != nil {
-		return nil, fmt.Errorf("error creating sender register tx opts: %w", err)
+		return nil, fmt.Errorf("creating sender register tx opts: %w", err)
 	}
 	relayClient, err := NewRelayContractClient(
 		ethClient,

@@ -76,7 +76,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 
 	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(ctx, s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
 	if !nonceResult.Success {
-		logger.Errorf("error getting nonce: %v", nonceResult.Message)
+		logger.Errorf("getting nonce: %v", nonceResult.Message)
 		return false
 	}
 	nonce := nonceResult.Value
@@ -287,7 +287,7 @@ func EncodePayload(
 	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
 	signature, err := crypto.Sign(dataHash, signerPrivateKey)
 	if err != nil {
-		return fmt.Errorf("error signing submitSignatures data: %w", err)
+		return fmt.Errorf("signing submitSignatures data: %w", err)
 	}
 
 	epochBytes := shared.Uint32toBytes(uint32(epoch))
@@ -334,7 +334,7 @@ func (s *SignatureSubmitter) RunEpoch(ctx context.Context, round int64) {
 	logger.Infof("%s fetching data for %d", s.name, round)
 	protocolsToRetry, err := s.RunEpochBeforeDeadline(ctx, round, s.deadline)
 	if err != nil {
-		logger.Errorf("error before Deadline %v", err)
+		logger.Errorf("before Deadline %v", err)
 	}
 
 	if len(protocolsToRetry) > 0 {

@@ -72,12 +72,12 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 
 	systemsManager, err := system.NewFlareSystemsManager(cfg.ContractAddresses.SystemsManager, cl)
 	if err != nil {
-		return nil, fmt.Errorf("error creating system manager contract: %w", err)
+		return nil, fmt.Errorf("creating system manager contract: %w", err)
 	}
 
 	votingRoundTiming, err := shared.VotingRoundTimingFromChain(systemsManager)
 	if err != nil {
-		return nil, fmt.Errorf("error getting voting round timing: %w", err)
+		return nil, fmt.Errorf("getting voting round timing: %w", err)
 	}
 
 	protocolContext, err := newProtocolContext(cfg)

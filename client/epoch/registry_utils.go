@@ -201,7 +201,7 @@ func (r *registryContractClientImpl) RegisterVoter(ctx context.Context, nextRewa
 			if shared.ExistsAsSubstring(nonFatalRegisterErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending register voter: %v", err)
 			} else {
-				return nil, fmt.Errorf("error sending register voter: %w", err)
+				return nil, fmt.Errorf("sending register voter: %w", err)
 			}
 		}
 		return nil, nil
@@ -283,7 +283,7 @@ func (r *registryContractClientImpl) PreregisterVoter(ctx context.Context, nextR
 			if shared.ExistsAsSubstring(nonFatalPreregisterErrors, err.Error()) {
 				logger.Debugf("Non fatal error sending pre-register voter: %v", err)
 			} else {
-				return nil, fmt.Errorf("error sending pre-register voter: %w", err)
+				return nil, fmt.Errorf("sending pre-register voter: %w", err)
 			}
 		}
 		return nil, nil

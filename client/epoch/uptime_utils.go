@@ -36,7 +36,7 @@ func getUptimeSignature(rewardEpochId *big.Int, privateKey *ecdsa.PrivateKey) (c
 
 	toSign, err := uptimeVoteArguments.Pack(rewardEpochId.Int64(), zeroHash)
 	if err != nil {
-		return zeroHash, nil, fmt.Errorf("error packing uptime vote arguments: %v, %v: %w", rewardEpochId, zeroHash, err)
+		return zeroHash, nil, fmt.Errorf("packing uptime vote arguments: %v, %v: %w", rewardEpochId, zeroHash, err)
 	}
 
 	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(toSign)), privateKey)

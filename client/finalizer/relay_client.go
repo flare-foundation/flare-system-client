@@ -175,8 +175,8 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 
 		nonce, err := r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
 		if err != nil {
-			logger.Errorf("error getting nonce: %v", err)
-			return "", fmt.Errorf("error sending relay tx: %w", err)
+			logger.Errorf("getting nonce: %v", err)
+			return "", fmt.Errorf("sending relay tx: %w", err)
 		}
 
 		err = r.chainClient.SendRawTx(ctx, r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
@@ -185,7 +185,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
 				return "non fatal error", nil
 			} else {
-				return "", fmt.Errorf("error sending relay tx: %w", err)
+				return "", fmt.Errorf("sending relay tx: %w", err)
 			}
 		}
 		return "success", nil

@@ -41,19 +41,19 @@ func newProtocolContext(cfg *config.Client) (*protocolContext, error) {
 	ctx.signerPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
 		cfg.Credentials.SigningPolicyPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("error creating signer private key: %w", err)
+		return nil, fmt.Errorf("creating signer private key: %w", err)
 	}
 
 	ctx.submitPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitPrivateKeyFile,
 		cfg.Credentials.ProtocolManagerSubmitPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("error creating submit private key: %w", err)
+		return nil, fmt.Errorf("creating submit private key: %w", err)
 	}
 
 	ctx.submitSignaturesPrivateKey, err = globalConfig.PrivateKeyFromConfig(cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKeyFile,
 		cfg.Credentials.ProtocolManagerSubmitSignaturesPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("error reading submit signatures private key: %w", err)
+		return nil, fmt.Errorf("reading submit signatures private key: %w", err)
 	}
 
 	// Addresses

@@ -58,11 +58,11 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 	senderPk, err := config.PrivateKeyFromConfig(cfg.Credentials.SystemClientSenderPrivateKeyFile,
 		cfg.Credentials.SystemClientSenderPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("error reading sender private key: %w", err)
+		return nil, fmt.Errorf("reading sender private key: %w", err)
 	}
 	senderTxOpts, _, err := credentials.CredentialsFromPrivateKey(senderPk, chainCfg.ChainID)
 	if err != nil {
-		return nil, fmt.Errorf("error creating sender register tx opts: %w", err)
+		return nil, fmt.Errorf("creating sender register tx opts: %w", err)
 	}
 
 	signerPk, err := config.PrivateKeyFromConfig(
@@ -70,7 +70,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 		cfg.Credentials.SigningPolicyPrivateKey,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error creating signer private key: %w", err)
+		return nil, fmt.Errorf("creating signer private key: %w", err)
 	}
 
 	systemsManagerClient, err := NewSystemsManagerClient(
