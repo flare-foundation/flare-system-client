@@ -347,7 +347,7 @@ func signMessage(message []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
 
 	logger.Infof("signature: %x", signature)
 
-	return utils.TransformSignatureRSVtoVRS(signature), nil
+	return utils.TransformSignatureRSVtoVRS(signature)
 }
 
 func encodeMessage(protocolID uint8, votingRoundID uint32, randomQualityScore bool, merkleRoot []byte) ([]byte, error) {

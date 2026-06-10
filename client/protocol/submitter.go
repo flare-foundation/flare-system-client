@@ -307,10 +307,11 @@ func EncodePayload(
 		}
 	}
 
-	if len(signature) != 65 {
-		return errors.New("signature sanity check, this should not happen")
+	vrsSignature, err := utils.TransformSignatureRSVtoVRS(signature)
+	if err != nil {
+		return fmt.Errorf("signature sanity check, this should not happen: %w", err)
 	}
-	tempBuffer.Write(utils.TransformSignatureRSVtoVRS(signature))
+	tempBuffer.Write(vrsSignature)
 	tempBuffer.Write(data.AdditionalData)
 
 	buffer.Write(tempBuffer.Bytes())

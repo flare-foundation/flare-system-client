@@ -23,6 +23,10 @@ type payloadMessage struct {
 
 // ExtractPayloads extracts payloads from a transaction input to submission contracts and returns a slice of payloadMessages.
 func ExtractPayloads(data []byte) ([]payloadMessage, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("wrongly formatted tx input: function selector needs 4 bytes, got %d", len(data))
+	}
+
 	messages := []payloadMessage{}
 
 	data = data[4:] // trim function selector
@@ -111,7 +115,10 @@ func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) e
 
 // AddSigner calculates the public key of the signer from the signature and messageHash and adds its voterIndex and weight (if the signer is in the votingSet) to the submitSignaturesPayload.
 func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.Set) error {
-	transformedSignature := utils.TransformSignatureVRStoRSV(pld.signature)
+	transformedSignature, err := utils.TransformSignatureVRStoRSV(pld.signature)
+	if err != nil {
+		return fmt.Errorf("transforming signature: %w", err)
+	}
 
 	pk, err := crypto.SigToPub(messageHash, transformedSignature)
 	if err != nil {
