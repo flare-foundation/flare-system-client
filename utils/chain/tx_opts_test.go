@@ -65,15 +65,13 @@ func TestCopyTxOptsConcurrentUse(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := range 16 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			cp := chain.CopyTxOpts(shared)
 			cp.GasLimit = uint64(i + 1)
 			cp.GasPrice.Add(cp.GasPrice, big.NewInt(int64(i)))
 			cp.GasFeeCap = big.NewInt(int64(i))
 			cp.GasTipCap.SetInt64(int64(i))
-		}()
+		})
 	}
 	wg.Wait()
 

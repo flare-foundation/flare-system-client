@@ -147,25 +147,21 @@ func (c *client) Run(ctx context.Context) error {
 	for {
 		select {
 		case currentEpoch := <-ticker.C:
-			// wg.Add is called here, before spawning, so that it cannot race
-			// with wg.Wait on shutdown. Goroutines still waiting for their
+			// Submitters are tracked by the WaitGroup so that wg.Wait on
+			// shutdown covers them all. Goroutines still waiting for their
 			// start offset exit early on cancellation; goroutines already
 			// running an epoch are waited for.
 			if c.submitter1 != nil {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					if !sleepUnlessCancelled(ctx, c.submitter1.startOffset) {
 						return
 					}
 					c.submitter1.RunEpoch(ctx, currentEpoch)
-				}()
+				})
 			}
 
 			if c.submitter2 != nil {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					// Submit2 processes the current epoch data in the following epoch
 					// so we wait a full epoch duration + offset before invoking.
 					// TODO: this assumes c.submitter2.epochOffset is always -1
@@ -173,17 +169,15 @@ func (c *client) Run(ctx context.Context) error {
 						return
 					}
 					c.submitter2.RunEpoch(ctx, currentEpoch+1)
-				}()
+				})
 			}
 			if c.signatureSubmitter != nil {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					if !sleepUnlessCancelled(ctx, ticker.Epoch.Period+c.signatureSubmitter.startOffset) {
 						return
 					}
 					c.signatureSubmitter.RunEpoch(ctx, currentEpoch)
-				}()
+				})
 			}
 		case <-ctx.Done():
 			logger.Warn("Stopping submitters. Making sure submitters have completed for the voting round.")
