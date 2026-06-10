@@ -88,7 +88,10 @@ type rewardClaim struct {
 }
 
 func rewardClaimHash(epoch uint64, claim rewardClaimBody) (common.Hash, error) {
-	amount, _ := new(big.Int).SetString(claim.Amount, 10)
+	amount, ok := new(big.Int).SetString(claim.Amount, 10)
+	if !ok {
+		return common.Hash{}, errors.Errorf("invalid reward claim amount: %s", claim.Amount)
+	}
 	encoded, err := rewardClaimArgs.Pack(
 		epoch,
 		claim.Beneficiary,
@@ -186,7 +189,10 @@ func verifyRewardData(epochId *big.Int, identity common.Address, data *rewardDis
 		return nil, 0, errors.Errorf("reward claim for our identity address %s not found in reward distribution data", identity.Hex())
 	}
 
-	claimHash, _ := rewardClaimHash(data.RewardEpochId, myClaim.Body)
+	claimHash, err := rewardClaimHash(data.RewardEpochId, myClaim.Body)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "unable to hash our reward claim")
+	}
 	if !merkle.VerifyProof(claimHash, myClaim.MerkleProof, root) {
 		return nil, 0, errors.Errorf("invalid merkle proof for our reward claim: %+v", myClaim.Body)
 	}
@@ -196,10 +202,11 @@ func verifyRewardData(epochId *big.Int, identity common.Address, data *rewardDis
 		return nil, 0, errors.Errorf("invalid reward amount: %s", myClaim.Body.Amount)
 	}
 
-	if rewardAmount.Cmp(rewardsConfig.MinRewardWei) < 0 {
+	// nil min/max (not set in config) means no bound, same as the zero default
+	if rewardsConfig.MinRewardWei != nil && rewardAmount.Cmp(rewardsConfig.MinRewardWei) < 0 {
 		return nil, 0, errors.Errorf("reward amount %s is less than min reward %s, will not sign", rewardAmount, rewardsConfig.MinRewardWei)
 	}
-	if rewardsConfig.MaxRewardWei.Cmp(new(big.Int)) != 0 && rewardAmount.Cmp(rewardsConfig.MaxRewardWei) > 0 {
+	if rewardsConfig.MaxRewardWei != nil && rewardsConfig.MaxRewardWei.Sign() != 0 && rewardAmount.Cmp(rewardsConfig.MaxRewardWei) > 0 {
 		return nil, 0, errors.Errorf("reward amount %s is greater than max reward %s, will not sign", rewardAmount, rewardsConfig.MaxRewardWei)
 	}
 
