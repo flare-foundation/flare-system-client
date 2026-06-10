@@ -360,6 +360,76 @@ func Test_verifyRewardData(t *testing.T) {
 			want1:   0,
 			wantErr: true,
 		},
+		{
+			// previously panicked in rewardClaimHash on nil *big.Int from SetString
+			name: "malformed claim amount",
+			args: args{
+				epochId:  big.NewInt(1),
+				identity: common.HexToAddress("0xA"),
+				data: &rewardDistributionData{
+					RewardEpochId: 1,
+					Network:       "testnet",
+					RewardClaims: []rewardClaim{
+						{
+							MerkleProof: []common.Hash{common.HexToHash("0x2f737c46d4149cda267ba09839ed3c92caa82663c4f39598959b8d82e4399338")},
+							Body: rewardClaimBody{
+
+								Beneficiary: common.HexToAddress("0xA"),
+								Amount:      "not-a-number",
+								Type:        0,
+							},
+						},
+					},
+					MerkleRoot:   "0x4817c8012f9a80ba36ca047cb648bbfa01924b236994ab98b4ae91ee60fd8058",
+					WeightClaims: 0,
+				},
+				rewardsConfig: &config.RewardsConfig{
+					MinRewardWei: big.NewInt(100),
+					MaxRewardWei: big.NewInt(10000),
+				},
+			},
+			want:    nil,
+			want1:   0,
+			wantErr: true,
+		},
+		{
+			// previously panicked on nil MinRewardWei/MaxRewardWei (not set in config)
+			name: "min and max reward not configured",
+			args: args{
+				epochId:  big.NewInt(1),
+				identity: common.HexToAddress("0xA"),
+				data: &rewardDistributionData{
+					RewardEpochId: 1,
+					Network:       "testnet",
+					RewardClaims: []rewardClaim{
+						{
+							MerkleProof: []common.Hash{common.HexToHash("0x2f737c46d4149cda267ba09839ed3c92caa82663c4f39598959b8d82e4399338")},
+							Body: rewardClaimBody{
+
+								Beneficiary: common.HexToAddress("0xA"),
+								Amount:      "100",
+								Type:        0,
+							},
+						},
+						{
+							MerkleProof: []common.Hash{common.HexToHash("0x7959f725a42594181d961f863bda384ea8a8b0142d02fb7f18de93ba3f941eb5")},
+							Body: rewardClaimBody{
+
+								Beneficiary: common.HexToAddress("0xB"),
+								Amount:      "1000",
+								Type:        2,
+							},
+						},
+					},
+					MerkleRoot:   "0x4817c8012f9a80ba36ca047cb648bbfa01924b236994ab98b4ae91ee60fd8058",
+					WeightClaims: 1,
+				},
+				rewardsConfig: &config.RewardsConfig{},
+			},
+			want:    hexToHashP("0x4817c8012f9a80ba36ca047cb648bbfa01924b236994ab98b4ae91ee60fd8058"),
+			want1:   1,
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -381,4 +451,24 @@ func Test_verifyRewardData(t *testing.T) {
 func hexToHashP(hex string) *common.Hash {
 	hash := common.HexToHash(hex)
 	return &hash
+}
+
+func Test_rewardClaimHash(t *testing.T) {
+	t.Run("invalid amount returns error", func(t *testing.T) {
+		_, err := rewardClaimHash(1, rewardClaimBody{
+			Beneficiary: common.HexToAddress("0xA"),
+			Amount:      "12.5",
+			Type:        0,
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("valid amount", func(t *testing.T) {
+		_, err := rewardClaimHash(1, rewardClaimBody{
+			Beneficiary: common.HexToAddress("0xA"),
+			Amount:      "100",
+			Type:        0,
+		})
+		require.NoError(t, err)
+	})
 }
