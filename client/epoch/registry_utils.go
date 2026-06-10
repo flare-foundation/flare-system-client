@@ -222,7 +222,10 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 		V: signature[64] + 27,
 	}
 
-	err = SetGas(ctx, r.senderTxOpts, r.ethClient, r.gasCfg)
+	// senderTxOpts is shared between concurrent send paths, so gas settings are applied to a copy
+	txOpts := chain.CopyTxOpts(r.senderTxOpts)
+
+	err = SetGas(ctx, txOpts, r.ethClient, r.gasCfg)
 	if err != nil {
 		return fmt.Errorf("setting gas: %w", err)
 	}
@@ -233,7 +236,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 		ctx,
 		r.ethClient,
 		chain.DefaultTxTimeout,
-		r.senderTxOpts.From,
+		txOpts.From,
 		contractAddress,
 		common.Big0,
 		registryAbi,
@@ -246,26 +249,26 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 	}
 
 	if r.gasCfg.GasLimit != 0 {
-		r.senderTxOpts.GasLimit = uint64(r.gasCfg.GasLimit)
+		txOpts.GasLimit = uint64(r.gasCfg.GasLimit)
 	} else {
-		r.senderTxOpts.GasLimit = estimatedGasLimit
+		txOpts.GasLimit = estimatedGasLimit
 	}
 
 	var tx *types.Transaction
 
 	if useOldAddress {
-		tx, err = r.oldRegistry.RegisterVoter(r.senderTxOpts, address, vrsSignature)
+		tx, err = r.oldRegistry.RegisterVoter(txOpts, address, vrsSignature)
 		if err != nil {
 			return fmt.Errorf("sending registry old tx: %w", err)
 		}
 	} else {
-		tx, err = r.registry.RegisterVoter(r.senderTxOpts, address, vrsSignature)
+		tx, err = r.registry.RegisterVoter(txOpts, address, vrsSignature)
 		if err != nil {
 			return fmt.Errorf("sending registry tx: %w", err)
 		}
 	}
 
-	err = r.txVerifier.WaitUntilMined(ctx, r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	err = r.txVerifier.WaitUntilMined(ctx, txOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -301,7 +304,10 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(ctx context.Context, n
 		V: signature[64] + 27,
 	}
 
-	err = SetGas(ctx, r.senderTxOpts, r.ethClient, r.gasCfg)
+	// senderTxOpts is shared between concurrent send paths, so gas settings are applied to a copy
+	txOpts := chain.CopyTxOpts(r.senderTxOpts)
+
+	err = SetGas(ctx, txOpts, r.ethClient, r.gasCfg)
 	if err != nil {
 		return fmt.Errorf("setting gas pre registry: %w", err)
 	}
@@ -312,7 +318,7 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(ctx context.Context, n
 		ctx,
 		r.ethClient,
 		chain.DefaultTxTimeout,
-		r.senderTxOpts.From,
+		txOpts.From,
 		contractAddress,
 		common.Big0,
 		preregistryAbi,
@@ -325,26 +331,26 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(ctx context.Context, n
 	}
 
 	if r.gasCfg.GasLimit != 0 {
-		r.senderTxOpts.GasLimit = uint64(r.gasCfg.GasLimit)
+		txOpts.GasLimit = uint64(r.gasCfg.GasLimit)
 	} else {
-		r.senderTxOpts.GasLimit = estimatedGasLimit
+		txOpts.GasLimit = estimatedGasLimit
 	}
 
 	var tx *types.Transaction
 
 	if useOldAddress {
-		tx, err = r.oldPreregistry.PreRegisterVoter(r.senderTxOpts, address, vrsSignature)
+		tx, err = r.oldPreregistry.PreRegisterVoter(txOpts, address, vrsSignature)
 		if err != nil {
 			return fmt.Errorf("sending preregistry tx: %w", err)
 		}
 	} else {
-		tx, err = r.preregistry.PreRegisterVoter(r.senderTxOpts, address, vrsSignature)
+		tx, err = r.preregistry.PreRegisterVoter(txOpts, address, vrsSignature)
 		if err != nil {
 			return fmt.Errorf("sending preregistry tx: %w", err)
 		}
 	}
 
-	err = r.txVerifier.WaitUntilMined(ctx, r.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	err = r.txVerifier.WaitUntilMined(ctx, txOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}

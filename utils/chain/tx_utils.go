@@ -45,6 +45,29 @@ var (
 	DefaultBaseFeeCapMultiplier = big.NewInt(baseFeeCapMultiplier) // 4
 )
 
+// CopyTxOpts returns a copy of opts that can be mutated per transaction
+// (gas limit, gas price, fee caps) without racing with other goroutines
+// sharing the original TransactOpts instance.
+func CopyTxOpts(opts *bind.TransactOpts) *bind.TransactOpts {
+	cp := *opts
+	if opts.Nonce != nil {
+		cp.Nonce = new(big.Int).Set(opts.Nonce)
+	}
+	if opts.Value != nil {
+		cp.Value = new(big.Int).Set(opts.Value)
+	}
+	if opts.GasPrice != nil {
+		cp.GasPrice = new(big.Int).Set(opts.GasPrice)
+	}
+	if opts.GasFeeCap != nil {
+		cp.GasFeeCap = new(big.Int).Set(opts.GasFeeCap)
+	}
+	if opts.GasTipCap != nil {
+		cp.GasTipCap = new(big.Int).Set(opts.GasTipCap)
+	}
+	return &cp
+}
+
 type TxVerifier struct {
 	eth *ethclient.Client
 }

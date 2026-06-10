@@ -125,11 +125,14 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 		V: hashSignature[64] + 27,
 	}
 
+	// senderTxOpts is shared between concurrent send paths, so gas settings are applied to a copy
+	txOpts := chain.CopyTxOpts(s.senderTxOpts)
+
 	estimatedGasLimit, err := chain.DryRunTxAbi(
 		ctx,
 		s.ethClient,
 		chain.DefaultTxTimeout,
-		s.senderTxOpts.From,
+		txOpts.From,
 		s.address,
 		common.Big0,
 		flareSystemManagerAbi,
@@ -146,14 +149,14 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 		logger.Warnf("Dry run fail: %v", err)
 		return err
 	}
-	s.senderTxOpts.GasLimit = estimatedGasLimit
+	txOpts.GasLimit = estimatedGasLimit
 
-	err = SetGas(ctx, s.senderTxOpts, s.ethClient, s.gasCfg)
+	err = SetGas(ctx, txOpts, s.ethClient, s.gasCfg)
 	if err != nil {
 		return err
 	}
 
-	tx, err := s.flareSystemsManager.SignNewSigningPolicy(s.senderTxOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
+	tx, err := s.flareSystemsManager.SignNewSigningPolicy(txOpts, rewardEpochId, [32]byte(newSigningPolicyHash), signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignNewSigningPolicyErrors, err.Error()) {
 			logger.Debugf("Non fatal error sending sign new signing policy: %v", err)
@@ -161,7 +164,7 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 		}
 		return err
 	}
-	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	err = s.txVerifier.WaitUntilMined(ctx, txOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -350,11 +353,14 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Contex
 		return err
 	}
 
+	// senderTxOpts is shared between concurrent send paths, so gas settings are applied to a copy
+	txOpts := chain.CopyTxOpts(s.senderTxOpts)
+
 	estimatedGasLimit, err := chain.DryRunTxAbi(
 		ctx,
 		s.ethClient,
 		chain.DefaultTxTimeout,
-		s.senderTxOpts.From,
+		txOpts.From,
 		s.address,
 		common.Big0,
 		flareSystemManagerAbi,
@@ -371,14 +377,14 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Contex
 		logger.Warnf("Dry run fail: %v", err)
 		return err
 	}
-	s.senderTxOpts.GasLimit = estimatedGasLimit
+	txOpts.GasLimit = estimatedGasLimit
 
-	err = SetGas(ctx, s.senderTxOpts, s.ethClient, s.gasCfg)
+	err = SetGas(ctx, txOpts, s.ethClient, s.gasCfg)
 	if err != nil {
 		return err
 	}
 
-	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, hash, *signature)
+	tx, err := s.flareSystemsManager.SignUptimeVote(txOpts, rewardEpochId, hash, *signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
 			logger.Debugf("Non fatal error sending sign uptime vote: %v", err)
@@ -388,7 +394,7 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Contex
 	}
 	// Uptime signing gates reward signing and is not time-sensitive, so wait long for a single
 	// modestly-priced tx to mine instead of timing out and re-sending duplicate transactions.
-	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.LongTxTimeout)
+	err = s.txVerifier.WaitUntilMined(ctx, txOpts.From, tx, chain.LongTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -486,11 +492,14 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, 
 		},
 	}
 
+	// senderTxOpts is shared between concurrent send paths, so gas settings are applied to a copy
+	txOpts := chain.CopyTxOpts(s.senderTxOpts)
+
 	estimatedGasLimit, err := chain.DryRunTxAbi(
 		ctx,
 		s.ethClient,
 		chain.DefaultTxTimeout,
-		s.senderTxOpts.From,
+		txOpts.From,
 		s.address,
 		common.Big0,
 		flareSystemManagerAbi,
@@ -508,14 +517,14 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, 
 		logger.Warnf("Dry run fail: %v", err)
 		return err
 	}
-	s.senderTxOpts.GasLimit = estimatedGasLimit
+	txOpts.GasLimit = estimatedGasLimit
 
-	err = SetGas(ctx, s.senderTxOpts, s.ethClient, s.gasCfg)
+	err = SetGas(ctx, txOpts, s.ethClient, s.gasCfg)
 	if err != nil {
 		return err
 	}
 
-	tx, err := s.flareSystemsManager.SignRewards(s.senderTxOpts, epochId, numberOfWeightBasedClaims, *rewardHash, signature)
+	tx, err := s.flareSystemsManager.SignRewards(txOpts, epochId, numberOfWeightBasedClaims, *rewardHash, signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
 			logger.Debugf("Non fatal error sending reward signature: %v", err)
@@ -525,7 +534,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, 
 	}
 	// Reward signing is not time-sensitive, so wait long for a single modestly-priced tx to
 	// mine instead of timing out and re-sending duplicate transactions.
-	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.LongTxTimeout)
+	err = s.txVerifier.WaitUntilMined(ctx, txOpts.From, tx, chain.LongTxTimeout)
 	if err != nil {
 		return err
 	}
