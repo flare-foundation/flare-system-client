@@ -175,7 +175,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 
 		nonce, err := r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
 		if err != nil {
-			logger.Error("error getting nonce: %v", err)
+			logger.Errorf("error getting nonce: %v", err)
 			return "", fmt.Errorf("error sending relay tx: %w", err)
 		}
 

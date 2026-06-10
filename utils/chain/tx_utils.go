@@ -234,7 +234,7 @@ func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfi
 	baseFeePerGas, err := BaseFee(feeCtx, client)
 	cancelFunc()
 	if err != nil {
-		logger.Debug("Error getting baseFee, %v", err)
+		logger.Debugf("Error getting baseFee: %v", err)
 		return nil, err
 	}
 

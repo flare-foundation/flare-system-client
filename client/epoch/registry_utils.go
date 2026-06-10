@@ -396,7 +396,7 @@ func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient
 		cancelFunc()
 
 		if err != nil {
-			logger.Debug("Error getting baseFee, %v", err)
+			logger.Debugf("Error getting baseFee: %v", err)
 			return err
 		}
 

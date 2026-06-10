@@ -230,7 +230,7 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 		}
 
 		if finalizationReady.thresholdReached {
-			logger.Infof("Threshold reached for protocol %d in voting round %d with hash %v", finalizationReady.protocolID, finalizationReady.votingRoundID)
+			logger.Infof("Threshold reached for protocol %d in voting round %d with hash %v", finalizationReady.protocolID, finalizationReady.votingRoundID, finalizationReady.msgHash)
 			c.queueProcessor.Add(&finalizationReady, sp.Seed)
 		}
 	}

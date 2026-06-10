@@ -236,7 +236,7 @@ func (c *client) isRegistered(ctx context.Context, epoch int64) (bool, error) {
 		},
 		bOff,
 		func(err error, d time.Duration) {
-			logger.Error(
+			logger.Errorf(
 				"unexpected error while checking submitter registration: %s, retrying after %s", err, d,
 			)
 		},

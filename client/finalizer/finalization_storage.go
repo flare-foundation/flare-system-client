@@ -1,7 +1,6 @@
 package finalizer
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -171,7 +170,7 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 
 	err := payload.AddSigner(msgHash, sigCollection.signingPolicy.Voters)
 	if err != nil {
-		return false, common.Hash{}, fmt.Errorf("adding payload, %v", err)
+		return false, common.Hash{}, fmt.Errorf("adding payload: %w", err)
 	}
 
 	thresholdReached, err := sigCollection.addSignature(payload)
@@ -193,7 +192,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 	defer s.Unlock()
 
 	if p.votingRoundID < s.lowestRoundStored {
-		return FinalizationReady{thresholdReached: false}, fmt.Errorf("payload for an round before lowestRoundStored %d", s.lowestRoundStored)
+		return FinalizationReady{thresholdReached: false}, fmt.Errorf("payload for round %d before lowest stored round %d", p.votingRoundID, s.lowestRoundStored)
 	}
 
 	rc, exists := s.stg[p.votingRoundID]
@@ -227,7 +226,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	defer s.Unlock()
 
 	if p.VotingRoundID < s.lowestRoundStored {
-		return FinalizationReady{thresholdReached: false}, errors.New("message for old, already removed round")
+		return FinalizationReady{thresholdReached: false}, fmt.Errorf("message for round %d before lowest stored round %d", p.VotingRoundID, s.lowestRoundStored)
 	}
 
 	rc, exists := s.stg[p.VotingRoundID]

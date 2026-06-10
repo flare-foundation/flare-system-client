@@ -22,8 +22,9 @@ import (
 )
 
 var (
-	nonceTooLowError           = "nonce too low" // the transaction with the same nonce has already been accepted
-	waitUntilMinedTimeoutError = "bind.WaitMined: context deadline exceeded"
+	// matched as a substring because the error originates as RPC response text
+	// from the node, not as a typed error usable with errors.Is
+	nonceTooLowError = "nonce too low" // the transaction with the same nonce has already been accepted
 )
 
 type SubmitterBase struct {
@@ -103,7 +104,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 			default:
 				newNonce, errNonce := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
 				if errNonce != nil {
-					err = fmt.Errorf("%v, updating nonce :%v", err, errNonce)
+					err = fmt.Errorf("%w; also failed to update nonce: %w", err, errNonce)
 				} else {
 					nonce = newNonce
 				}
@@ -129,7 +130,7 @@ func isNonceTooLow(err error) bool {
 }
 
 func isTimeout(err error) bool {
-	return shared.ExistsAsSubstring([]string{waitUntilMinedTimeoutError}, err.Error())
+	return errors.Is(err, context.DeadlineExceeded)
 }
 
 func newSubmitter(

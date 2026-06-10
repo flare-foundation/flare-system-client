@@ -453,7 +453,7 @@ func (s *systemsManagerContractClientImpl) UptimeVoteSignedListener(ctx context.
 func (s *systemsManagerContractClientImpl) IsRewardHashSigned(epochId *big.Int) bool {
 	hash, err := s.flareSystemsManager.RewardsHash(nil, epochId)
 	if err != nil {
-		logger.Warn("Error fetching rewards hash for epoch %v: %v", epochId, err)
+		logger.Warnf("Error fetching rewards hash for epoch %v: %v", epochId, err)
 		return false
 	}
 

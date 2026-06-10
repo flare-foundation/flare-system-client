@@ -99,23 +99,23 @@ func defaultConfig() *Client {
 func (c *Client) validate() error {
 	err := c.SubmitGas.validate()
 	if err != nil {
-		return fmt.Errorf("validating SubmitGas: %v", err)
+		return fmt.Errorf("validating SubmitGas: %w", err)
 	}
 	err = c.RegisterGas.validate()
 	if err != nil {
-		return fmt.Errorf("validating RegisterGas: %v", err)
+		return fmt.Errorf("validating RegisterGas: %w", err)
 	}
 	err = c.RelayGas.validate()
 	if err != nil {
-		return fmt.Errorf("validating RelayGas: %v", err)
+		return fmt.Errorf("validating RelayGas: %w", err)
 	}
 	err = c.SystemsManagerGas.validate()
 	if err != nil {
-		return fmt.Errorf("validating SystemsManagerGas: %v", err)
+		return fmt.Errorf("validating SystemsManagerGas: %w", err)
 	}
 	err = c.validateContracts()
 	if err != nil {
-		return fmt.Errorf("validating contracts: %v", err)
+		return fmt.Errorf("validating contracts: %w", err)
 	}
 	return nil
 }
