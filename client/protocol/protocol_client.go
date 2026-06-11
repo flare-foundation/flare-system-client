@@ -147,44 +147,101 @@ func (c *client) Run(ctx context.Context) error {
 	for {
 		select {
 		case currentEpoch := <-ticker.C:
-			// Submitters are tracked by the WaitGroup so that wg.Wait on
-			// shutdown covers them all. Goroutines still waiting for their
-			// start offset exit early on cancellation; goroutines already
-			// running an epoch are waited for.
-			if c.submitter1 != nil {
-				wg.Go(func() {
-					if !sleepUnlessCancelled(ctx, c.submitter1.startOffset) {
-						return
-					}
-					c.submitter1.RunEpoch(ctx, currentEpoch)
-				})
-			}
-
-			if c.submitter2 != nil {
-				wg.Go(func() {
-					// Submit2 processes the current epoch data in the following epoch
-					// so we wait a full epoch duration + offset before invoking.
-					// TODO: this assumes c.submitter2.epochOffset is always -1
-					if !sleepUnlessCancelled(ctx, ticker.Epoch.Period+c.submitter2.startOffset) {
-						return
-					}
-					c.submitter2.RunEpoch(ctx, currentEpoch+1)
-				})
-			}
-			if c.signatureSubmitter != nil {
-				wg.Go(func() {
-					if !sleepUnlessCancelled(ctx, ticker.Epoch.Period+c.signatureSubmitter.startOffset) {
-						return
-					}
-					c.signatureSubmitter.RunEpoch(ctx, currentEpoch)
-				})
+			// submit1 (commit) -> submit2 (reveal) -> submitSignatures form a
+			// dependency chain: FTSO is penalised for a submit1 with no submit2,
+			// and FDC for a submit2 with no submitSignatures. So once a step has
+			// run for a round, the steps after it are obligations that must
+			// complete even if shutdown is requested in between. We run the
+			// enabled submitters as one chain: only the wait before the chain's
+			// first step is cancellable; after that step runs, the rest of the
+			// chain runs to completion (see runChain). submit1 is never enabled
+			// without submit2, so the enabled submitters are always contiguous
+			// and a single chain is correct.
+			if chain := c.submitterChain(ctx, ticker, currentEpoch); len(chain) > 0 {
+				wg.Go(func() { runChain(ctx, chain) })
 			}
 		case <-ctx.Done():
-			logger.Warn("Stopping submitters. Making sure submitters have completed for the voting round.")
+			logger.Warn("Stopping submitters. Waiting for the in-flight submitter chain to complete for the voting round.")
 			wg.Wait()
 			return nil
 		}
 	}
+}
+
+// submitterStep is one submitter invocation within a chain: wait until offset
+// (measured from the voting round tick), then run.
+type submitterStep struct {
+	offset time.Duration
+	run    func()
+}
+
+// submitterChain builds the ordered dependency chain of enabled submitters for
+// the given voting round, in protocol order (submit1, submit2,
+// submitSignatures), each with its offset from the round tick.
+func (c *client) submitterChain(ctx context.Context, ticker *utils.EpochTicker, currentEpoch int64) []submitterStep {
+	var chain []submitterStep
+	if c.submitter1 != nil {
+		chain = append(chain, submitterStep{
+			offset: c.submitter1.startOffset,
+			run:    func() { c.submitter1.RunEpoch(ctx, currentEpoch) },
+		})
+	}
+	if c.submitter2 != nil {
+		// Submit2 processes the current epoch data in the following epoch, so it
+		// waits a full epoch period + offset before invoking.
+		// TODO: this assumes c.submitter2.epochOffset is always -1
+		chain = append(chain, submitterStep{
+			offset: ticker.Epoch.Period + c.submitter2.startOffset,
+			run:    func() { c.submitter2.RunEpoch(ctx, currentEpoch+1) },
+		})
+	}
+	if c.signatureSubmitter != nil {
+		chain = append(chain, submitterStep{
+			offset: ticker.Epoch.Period + c.signatureSubmitter.startOffset,
+			run:    func() { c.signatureSubmitter.RunEpoch(ctx, currentEpoch) },
+		})
+	}
+	return chain
+}
+
+// runChain runs the submitters of one voting round.
+//
+// The wait before the first (gate) step is the only cancellable part: if
+// shutdown happens before the gate offset elapses, nothing has run, nothing is
+// owed, and the chain exits. Once that offset passes, every step is a committed
+// obligation — a submit1 commit requires its submit2 reveal, and an FDC submit2
+// requires its submitSignatures — so the steps run to completion regardless of
+// cancellation.
+//
+// Each step runs in its own goroutine on its own offset from the round tick, so
+// a slow step neither delays the others' start nor pushes them past their
+// deadline. runChain returns only once every step has completed, so shutdown
+// (via the caller's WaitGroup) drains the whole round. Step offsets are measured
+// from the chain's start (the tick) and are assumed non-decreasing in protocol
+// order.
+func runChain(ctx context.Context, steps []submitterStep) {
+	if len(steps) == 0 {
+		return
+	}
+	start := time.Now()
+
+	// Cancellable gate: the wait until the first step's offset is the only point
+	// at which shutdown can abandon the round without incurring an obligation.
+	if !sleepUnlessCancelled(ctx, time.Until(start.Add(steps[0].offset))) {
+		return
+	}
+
+	// Past the gate every step is an obligation; run each on its own offset.
+	var wg sync.WaitGroup
+	for _, step := range steps {
+		wg.Go(func() {
+			if wait := time.Until(start.Add(step.offset)); wait > 0 {
+				time.Sleep(wait)
+			}
+			step.run()
+		})
+	}
+	wg.Wait()
 }
 
 // sleepUnlessCancelled waits for the given duration and returns true,
