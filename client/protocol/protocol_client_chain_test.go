@@ -32,9 +32,9 @@ func (r *recorder) snapshot() []string {
 func TestRunChain_RunsAllStepsInOrder(t *testing.T) {
 	rec := &recorder{}
 	steps := []submitterStep{
-		{offset: 0, run: func() { rec.record("a") }},
-		{offset: 5 * time.Millisecond, run: func() { rec.record("b") }},
-		{offset: 10 * time.Millisecond, run: func() { rec.record("c") }},
+		{offset: 0, run: func(context.Context) { rec.record("a") }},
+		{offset: 5 * time.Millisecond, run: func(context.Context) { rec.record("b") }},
+		{offset: 10 * time.Millisecond, run: func(context.Context) { rec.record("c") }},
 	}
 	runChain(context.Background(), steps)
 
@@ -56,8 +56,8 @@ func TestRunChain_CancelledBeforeFirstStepRunsNothing(t *testing.T) {
 	cancel() // already cancelled
 
 	steps := []submitterStep{
-		{offset: 50 * time.Millisecond, run: func() { rec.record("a") }},
-		{offset: 60 * time.Millisecond, run: func() { rec.record("b") }},
+		{offset: 50 * time.Millisecond, run: func(context.Context) { rec.record("a") }},
+		{offset: 60 * time.Millisecond, run: func(context.Context) { rec.record("b") }},
 	}
 	runChain(ctx, steps)
 
@@ -73,12 +73,12 @@ func TestRunChain_ObligationContinuesAfterCancelDuringFirstStep(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	steps := []submitterStep{
-		{offset: 0, run: func() {
+		{offset: 0, run: func(context.Context) {
 			rec.record("first")
 			cancel() // shutdown requested right after the first step ran
 		}},
-		{offset: 5 * time.Millisecond, run: func() { rec.record("second") }},
-		{offset: 10 * time.Millisecond, run: func() { rec.record("third") }},
+		{offset: 5 * time.Millisecond, run: func(context.Context) { rec.record("second") }},
+		{offset: 10 * time.Millisecond, run: func(context.Context) { rec.record("third") }},
 	}
 	runChain(ctx, steps)
 
@@ -90,6 +90,94 @@ func TestRunChain_ObligationContinuesAfterCancelDuringFirstStep(t *testing.T) {
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("obligation not honored: ran %v, want %v", got, want)
+		}
+	}
+}
+
+// Calling step.run is not enough: the obligation steps' actual work
+// (RunEpoch -> GetPayload -> submit) all honor their context and no-op once it
+// is cancelled. So when shutdown fires after the first step, the remaining
+// obligation steps must still receive a LIVE context, otherwise the submission
+// silently does nothing and the round is penalised anyway.
+func TestRunChain_ObligationStepsRunUnderLiveContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var mu sync.Mutex
+	var ranCancelled []string
+	checkLive := func(name string, c context.Context) {
+		if c.Err() != nil {
+			mu.Lock()
+			ranCancelled = append(ranCancelled, name)
+			mu.Unlock()
+		}
+	}
+
+	steps := []submitterStep{
+		{offset: 0, run: func(c context.Context) {
+			checkLive("first", c)
+			cancel() // shutdown requested right after the first step (submit1) ran
+		}},
+		{offset: 5 * time.Millisecond, run: func(c context.Context) { checkLive("second", c) }},
+		{offset: 10 * time.Millisecond, run: func(c context.Context) { checkLive("third", c) }},
+	}
+	runChain(ctx, steps)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(ranCancelled) > 0 {
+		t.Fatalf("obligation steps ran under a cancelled context %v; the real submitters "+
+			"would skip submission and the round would still be penalised", ranCancelled)
+	}
+}
+
+// Each step's context must be cancelled once the step returns so that anything
+// it spawned is released promptly rather than dangling on a context that can
+// never fire.
+func TestRunChain_StepContextCancelledAfterStepReturns(t *testing.T) {
+	var mu sync.Mutex
+	var captured []context.Context
+	record := func(c context.Context) {
+		mu.Lock()
+		defer mu.Unlock()
+		captured = append(captured, c)
+	}
+	steps := []submitterStep{
+		{offset: 0, run: func(c context.Context) { record(c) }},
+		{offset: 5 * time.Millisecond, run: func(c context.Context) { record(c) }},
+	}
+	runChain(context.Background(), steps)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(captured) != 2 {
+		t.Fatalf("expected 2 steps to run, got %d", len(captured))
+	}
+	for i, c := range captured {
+		if c.Err() == nil {
+			t.Errorf("step %d context should be cancelled after the step returns", i)
+		}
+	}
+}
+
+// A panic in one step must not prevent the remaining steps from running: a
+// submit2 that blows up still leaves submitSignatures owed (and vice versa).
+func TestRunChain_PanicInStepDoesNotStopChain(t *testing.T) {
+	rec := &recorder{}
+	steps := []submitterStep{
+		{offset: 0, run: func(context.Context) { rec.record("first") }},
+		{offset: 2 * time.Millisecond, run: func(context.Context) { panic("boom") }},
+		{offset: 4 * time.Millisecond, run: func(context.Context) { rec.record("third") }},
+	}
+	runChain(context.Background(), steps)
+
+	got := rec.snapshot()
+	want := []string{"first", "third"}
+	if len(got) != len(want) {
+		t.Fatalf("panic stopped the chain: ran %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("panic stopped the chain: ran %v, want %v", got, want)
 		}
 	}
 }
@@ -112,7 +200,7 @@ func TestSubmitterChain_Composition(t *testing.T) {
 			submitter2:         submitter(2 * time.Second),
 			signatureSubmitter: sigSubmitter(3 * time.Second),
 		}
-		chain := c.submitterChain(context.Background(), ticker, epoch)
+		chain := c.submitterChain(ticker, epoch)
 		wantOffsets := []time.Duration{1 * time.Second, period + 2*time.Second, period + 3*time.Second}
 		if len(chain) != len(wantOffsets) {
 			t.Fatalf("want chain of %d, got %d", len(wantOffsets), len(chain))
@@ -129,17 +217,39 @@ func TestSubmitterChain_Composition(t *testing.T) {
 			submitter2:         submitter(2 * time.Second),
 			signatureSubmitter: sigSubmitter(3 * time.Second),
 		}
-		if chain := c.submitterChain(context.Background(), ticker, epoch); len(chain) != 2 {
+		if chain := c.submitterChain(ticker, epoch); len(chain) != 2 {
 			t.Fatalf("want chain of 2, got %d", len(chain))
 		}
 	})
 
 	t.Run("none_enabled", func(t *testing.T) {
 		c := &client{}
-		if chain := c.submitterChain(context.Background(), ticker, epoch); len(chain) != 0 {
+		if chain := c.submitterChain(ticker, epoch); len(chain) != 0 {
 			t.Fatalf("want empty chain, got %d", len(chain))
 		}
 	})
+}
+
+// FDC edge: a two-step chain (submit2 gate -> submitSignatures). Once submit2
+// has run, submitSignatures must run and be waited for even if shutdown is
+// requested in between, or FDC is penalised.
+func TestRunChain_Submit2ObligesSignatures(t *testing.T) {
+	rec := &recorder{}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	steps := []submitterStep{
+		{offset: 0, run: func(context.Context) {
+			rec.record("submit2")
+			cancel() // shutdown right after submit2 ran
+		}},
+		{offset: 5 * time.Millisecond, run: func(context.Context) { rec.record("submitSignatures") }},
+	}
+	runChain(ctx, steps)
+
+	got := rec.snapshot()
+	if len(got) != 2 || got[0] != "submit2" || got[1] != "submitSignatures" {
+		t.Fatalf("submit2 must oblige submitSignatures despite cancellation: ran %v", got)
+	}
 }
 
 // Post-gate obligation steps run concurrently: a slow step must not delay the
@@ -147,9 +257,9 @@ func TestSubmitterChain_Composition(t *testing.T) {
 func TestRunChain_ObligationsRunConcurrently(t *testing.T) {
 	rec := &recorder{}
 	steps := []submitterStep{
-		{offset: 0, run: func() { rec.record("gate") }},
-		{offset: 0, run: func() { time.Sleep(150 * time.Millisecond); rec.record("slow") }},
-		{offset: 0, run: func() { rec.record("fast") }},
+		{offset: 0, run: func(context.Context) { rec.record("gate") }},
+		{offset: 0, run: func(context.Context) { time.Sleep(150 * time.Millisecond); rec.record("slow") }},
+		{offset: 0, run: func(context.Context) { rec.record("fast") }},
 	}
 	runChain(context.Background(), steps)
 
@@ -176,11 +286,11 @@ func TestRunChain_ObligationsRunConcurrently(t *testing.T) {
 func TestRunChain_SlowGateDoesNotDelayLaterSteps(t *testing.T) {
 	rec := &recorder{}
 	steps := []submitterStep{
-		{offset: 0, run: func() {
+		{offset: 0, run: func(context.Context) {
 			time.Sleep(150 * time.Millisecond)
 			rec.record("gate")
 		}},
-		{offset: 10 * time.Millisecond, run: func() { rec.record("later") }},
+		{offset: 10 * time.Millisecond, run: func(context.Context) { rec.record("later") }},
 	}
 	runChain(context.Background(), steps)
 

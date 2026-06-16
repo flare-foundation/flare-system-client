@@ -157,7 +157,7 @@ func (c *client) Run(ctx context.Context) error {
 			// chain runs to completion (see runChain). submit1 is never enabled
 			// without submit2, so the enabled submitters are always contiguous
 			// and a single chain is correct.
-			if chain := c.submitterChain(ctx, ticker, currentEpoch); len(chain) > 0 {
+			if chain := c.submitterChain(ticker, currentEpoch); len(chain) > 0 {
 				wg.Go(func() { runChain(ctx, chain) })
 			}
 		case <-ctx.Done():
@@ -169,21 +169,21 @@ func (c *client) Run(ctx context.Context) error {
 }
 
 // submitterStep is one submitter invocation within a chain: wait until offset
-// (measured from the voting round tick), then run.
+// (from the round tick), then run under the context runChain supplies.
 type submitterStep struct {
 	offset time.Duration
-	run    func()
+	run    func(ctx context.Context)
 }
 
 // submitterChain builds the ordered dependency chain of enabled submitters for
 // the given voting round, in protocol order (submit1, submit2,
 // submitSignatures), each with its offset from the round tick.
-func (c *client) submitterChain(ctx context.Context, ticker *utils.EpochTicker, currentEpoch int64) []submitterStep {
+func (c *client) submitterChain(ticker *utils.EpochTicker, currentEpoch int64) []submitterStep {
 	var chain []submitterStep
 	if c.submitter1 != nil {
 		chain = append(chain, submitterStep{
 			offset: c.submitter1.startOffset,
-			run:    func() { c.submitter1.RunEpoch(ctx, currentEpoch) },
+			run:    func(ctx context.Context) { c.submitter1.RunEpoch(ctx, currentEpoch) },
 		})
 	}
 	if c.submitter2 != nil {
@@ -192,13 +192,13 @@ func (c *client) submitterChain(ctx context.Context, ticker *utils.EpochTicker, 
 		// TODO: this assumes c.submitter2.epochOffset is always -1
 		chain = append(chain, submitterStep{
 			offset: ticker.Epoch.Period + c.submitter2.startOffset,
-			run:    func() { c.submitter2.RunEpoch(ctx, currentEpoch+1) },
+			run:    func(ctx context.Context) { c.submitter2.RunEpoch(ctx, currentEpoch+1) },
 		})
 	}
 	if c.signatureSubmitter != nil {
 		chain = append(chain, submitterStep{
 			offset: ticker.Epoch.Period + c.signatureSubmitter.startOffset,
-			run:    func() { c.signatureSubmitter.RunEpoch(ctx, currentEpoch) },
+			run:    func(ctx context.Context) { c.signatureSubmitter.RunEpoch(ctx, currentEpoch) },
 		})
 	}
 	return chain
@@ -210,15 +210,15 @@ func (c *client) submitterChain(ctx context.Context, ticker *utils.EpochTicker, 
 // shutdown happens before the gate offset elapses, nothing has run, nothing is
 // owed, and the chain exits. Once that offset passes, every step is a committed
 // obligation — a submit1 commit requires its submit2 reveal, and an FDC submit2
-// requires its submitSignatures — so the steps run to completion regardless of
-// cancellation.
+// requires its submitSignatures.
 //
 // Each step runs in its own goroutine on its own offset from the round tick, so
 // a slow step neither delays the others' start nor pushes them past their
-// deadline. runChain returns only once every step has completed, so shutdown
-// (via the caller's WaitGroup) drains the whole round. Step offsets are measured
-// from the chain's start (the tick) and are assumed non-decreasing in protocol
-// order.
+// deadline. Each step runs via runStep, detached from shutdown so its work does
+// not self-abort on cancellation, with panics recovered. runChain returns only
+// once every step has completed, so shutdown (via the caller's WaitGroup) drains
+// the whole round. Step offsets are measured from the chain's start (the tick)
+// and are assumed non-decreasing in protocol order.
 func runChain(ctx context.Context, steps []submitterStep) {
 	if len(steps) == 0 {
 		return
@@ -231,17 +231,30 @@ func runChain(ctx context.Context, steps []submitterStep) {
 		return
 	}
 
-	// Past the gate every step is an obligation; run each on its own offset.
 	var wg sync.WaitGroup
 	for _, step := range steps {
 		wg.Go(func() {
 			if wait := time.Until(start.Add(step.offset)); wait > 0 {
 				time.Sleep(wait)
 			}
-			step.run()
+			runStep(ctx, step)
 		})
 	}
 	wg.Wait()
+}
+
+// runStep runs one chain step under a context shutdown does not cancel (else
+// the submit work would no-op and break the obligation), cancelled once the
+// step returns. A panic is recovered so it can't skip the remaining steps.
+func runStep(ctx context.Context, step submitterStep) {
+	stepCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	defer cancel()
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("submitter step panicked, continuing chain: %v", r)
+		}
+	}()
+	step.run(stepCtx)
 }
 
 // sleepUnlessCancelled waits for the given duration and returns true,
