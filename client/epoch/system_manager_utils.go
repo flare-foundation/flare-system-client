@@ -373,6 +373,11 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Contex
 	}
 	s.senderTxOpts.GasLimit = estimatedGasLimit
 
+	err = SetGas(ctx, s.senderTxOpts, s.ethClient, s.gasCfg)
+	if err != nil {
+		return err
+	}
+
 	tx, err := s.flareSystemsManager.SignUptimeVote(s.senderTxOpts, rewardEpochId, hash, *signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignUptimeVoteErrors, err.Error()) {
@@ -381,7 +386,9 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Contex
 		}
 		return err
 	}
-	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	// Uptime signing gates reward signing and is not time-sensitive, so wait long for a single
+	// modestly-priced tx to mine instead of timing out and re-sending duplicate transactions.
+	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.LongTxTimeout)
 	if err != nil {
 		return err
 	}
@@ -503,6 +510,11 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, 
 	}
 	s.senderTxOpts.GasLimit = estimatedGasLimit
 
+	err = SetGas(ctx, s.senderTxOpts, s.ethClient, s.gasCfg)
+	if err != nil {
+		return err
+	}
+
 	tx, err := s.flareSystemsManager.SignRewards(s.senderTxOpts, epochId, numberOfWeightBasedClaims, *rewardHash, signature)
 	if err != nil {
 		if shared.ExistsAsSubstring(nonFatalSignRewardsErrors, err.Error()) {
@@ -511,7 +523,9 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, 
 		}
 		return err
 	}
-	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.DefaultTxTimeout)
+	// Reward signing is not time-sensitive, so wait long for a single modestly-priced tx to
+	// mine instead of timing out and re-sending duplicate transactions.
+	err = s.txVerifier.WaitUntilMined(ctx, s.senderTxOpts.From, tx, chain.LongTxTimeout)
 	if err != nil {
 		return err
 	}

@@ -26,7 +26,11 @@ import (
 
 const (
 	// default timeout for waiting for a tx to be mined.
-	DefaultTxTimeout     = 60 * time.Second
+	DefaultTxTimeout = 60 * time.Second
+	// timeout for waiting for a non-time-sensitive tx (uptime vote, reward signing) to be
+	// mined. We wait much longer for a single modestly-priced tx to confirm rather than
+	// timing out and re-sending duplicate transactions.
+	LongTxTimeout        = 30 * time.Minute
 	DefaultGasLimit      = 2_500_000
 	defaultTipMultiplier = 2
 
