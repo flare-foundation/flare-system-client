@@ -6,6 +6,7 @@
 
 - CI: test coverage reporting and full pipelines on merge requests.
 - Tests covering payload extraction, signature transforms, finalization storage cleanup and concurrent access, gas config validation, reward data bounds, protocol client shutdown, and protocol client HTTP response parsing.
+- Startup validation of the submitter config sections (`submit1`, `submit2`, `submit_signatures`): rejects negative start offsets, non-positive submit/data-fetch timeouts, retry counts below one, a `submit_signatures` deadline at or before its start offset, negative `max_cycles`/`cycle_duration`, and a `submit_signatures` start offset scheduled before the `submit2` reveal.
 
 ### Changed
 

@@ -113,9 +113,50 @@ func (c *Client) validate() error {
 	if err != nil {
 		return fmt.Errorf("validating SystemsManagerGas: %w", err)
 	}
+	err = c.validateSubmitters()
+	if err != nil {
+		return fmt.Errorf("validating submitters: %w", err)
+	}
 	err = c.validateContracts()
 	if err != nil {
 		return fmt.Errorf("validating contracts: %w", err)
+	}
+	return nil
+}
+
+// validateSubmitters rejects nonsensical submitter configurations before the
+// client starts, rather than silently clamping them (newSubmitter clamps
+// retries/timeouts) or failing obscurely at runtime. Only enabled submitters
+// are checked, since a disabled submitter is never constructed.
+func (c *Client) validateSubmitters() error {
+	if c.Submit1.Enabled {
+		if err := c.Submit1.validate("submit1"); err != nil {
+			return err
+		}
+	}
+	if c.Submit2.Enabled {
+		if err := c.Submit2.validate("submit2"); err != nil {
+			return err
+		}
+	}
+	if c.SubmitSignatures.Enabled {
+		if err := c.SubmitSignatures.validate(); err != nil {
+			return err
+		}
+	}
+
+	// submit2 (reveal) and submitSignatures both run a full voting epoch after
+	// the round tick, at Period + their respective start offset, so the epoch
+	// period cancels out: submitSignatures must not be scheduled before its
+	// submit2 reveal, or the obligation order (submit2 -> submitSignatures) and
+	// runChain's non-decreasing-offset assumption break.
+	if c.Submit2.Enabled && c.SubmitSignatures.Enabled &&
+		c.SubmitSignatures.StartOffset < c.Submit2.StartOffset {
+		return fmt.Errorf(
+			"submit_signatures start_offset (%s) is before submit2 start_offset (%s); "+
+				"submitSignatures must run after the submit2 reveal",
+			c.SubmitSignatures.StartOffset, c.Submit2.StartOffset,
+		)
 	}
 	return nil
 }
@@ -188,6 +229,27 @@ type Submit struct {
 	DataFetchTimeout time.Duration `toml:"data_fetch_timeout"`
 }
 
+// validate rejects submitter settings that cannot work. name identifies the
+// section ("submit1", "submit2", "submit_signatures") in the error.
+func (s Submit) validate(name string) error {
+	if s.StartOffset < 0 {
+		return fmt.Errorf("%s: start_offset must not be negative, got %s", name, s.StartOffset)
+	}
+	if s.TxSubmitRetries < 1 {
+		return fmt.Errorf("%s: tx_submit_retries must be at least 1, got %d", name, s.TxSubmitRetries)
+	}
+	if s.TxSubmitTimeout <= 0 {
+		return fmt.Errorf("%s: tx_submit_timeout must be positive, got %s", name, s.TxSubmitTimeout)
+	}
+	if s.DataFetchRetries < 1 {
+		return fmt.Errorf("%s: data_fetch_retries must be at least 1, got %d", name, s.DataFetchRetries)
+	}
+	if s.DataFetchTimeout <= 0 {
+		return fmt.Errorf("%s: data_fetch_timeout must be positive, got %s", name, s.DataFetchTimeout)
+	}
+	return nil
+}
+
 type SubmitSignatures struct {
 	Submit
 
@@ -195,6 +257,28 @@ type SubmitSignatures struct {
 
 	MaxCycles     int           `toml:"max_cycles"`     // maximal number of query cycles after the deadline
 	CycleDuration time.Duration `toml:"cycle_duration"` // minimal duration of a cycle after the deadline
+}
+
+// validate rejects submitSignatures settings that cannot work, on top of the
+// shared Submit checks.
+func (s SubmitSignatures) validate() error {
+	if err := s.Submit.validate("submit_signatures"); err != nil {
+		return err
+	}
+	if s.Deadline <= s.StartOffset {
+		return fmt.Errorf(
+			"submit_signatures: deadline (%s) must be greater than start_offset (%s), "+
+				"otherwise there is no time to collect signatures before the deadline",
+			s.Deadline, s.StartOffset,
+		)
+	}
+	if s.MaxCycles < 0 {
+		return fmt.Errorf("submit_signatures: max_cycles must not be negative, got %d", s.MaxCycles)
+	}
+	if s.CycleDuration < 0 {
+		return fmt.Errorf("submit_signatures: cycle_duration must not be negative, got %s", s.CycleDuration)
+	}
+	return nil
 }
 
 type Clients struct {
