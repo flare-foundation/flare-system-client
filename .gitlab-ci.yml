@@ -2,9 +2,18 @@ include:
   - component: $CI_SERVER_FQDN/flarenetwork/infra-public/ci-components/dependency-track@~latest
   - component: gitlab.com/flarenetwork/ci-components-private/ai-code-review@2
     inputs:
-      use_cursor_cli: false
+      job_name_suffix: "-mr"
+      model_backend: "gemini"
       rules_condition: $CI_MERGE_REQUEST_IID != null && $GITLAB_USER_NAME != "SealBot" && $CI_MERGE_REQUEST_EVENT_TYPE != "merge_train"
       rules_when: always
+  - component: gitlab.com/flarenetwork/ci-components-private/ai-code-review@2
+    inputs:
+      job_name_suffix: "-repo"
+      model_backend: "gemini"
+      tags: ["flarenetwork-lg-cpu"]
+      rules_condition: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      rules_when: manual
+      repo_review_mode: true
 
 # Run the full pipeline on both branch pushes and merge-request events,
 # but avoid duplicate runs: when there's an open MR for the branch, skip
