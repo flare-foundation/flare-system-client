@@ -188,12 +188,10 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	require.Equal(t, uint16(voterCount), sc.weight)
 }
 
-// Regression: addMessage used to reassign sc.message on a collection that
-// already existed (created by a typeID-0 payload that arrived first) while
-// holding only the storage lock. The queue processor reads sc.message in
-// PrepareFinalizationResults holding only sc.mu, after get released the
-// storage lock — disjoint lock sets, a data race on the slice header. Run
-// with -race; the loop retries the one-shot window enough times to trip it.
+// Regression: addMessage used to reassign sc.message on an already-existing
+// collection under the storage lock, while PrepareFinalizationResults reads
+// sc.message under sc.mu only — disjoint locks, a data race on the slice header.
+// Run with -race; the loop retries the one-shot window enough times to trip it.
 func TestAddMessageDoesNotRaceWithPrepare(t *testing.T) {
 	const round = uint32(50)
 	const protocolID = uint8(1)

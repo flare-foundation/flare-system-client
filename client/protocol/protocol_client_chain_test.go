@@ -94,11 +94,10 @@ func TestRunChain_ObligationContinuesAfterCancelDuringFirstStep(t *testing.T) {
 	}
 }
 
-// Calling step.run is not enough: the obligation steps' actual work
-// (RunEpoch -> GetPayload -> submit) all honor their context and no-op once it
-// is cancelled. So when shutdown fires after the first step, the remaining
-// obligation steps must still receive a LIVE context, otherwise the submission
-// silently does nothing and the round is penalised anyway.
+// The obligation steps' work (RunEpoch -> GetPayload -> submit) honors its
+// context and no-ops once cancelled, so post-gate steps must receive a LIVE
+// (detached) context, otherwise the submission silently does nothing and the
+// round is penalised anyway.
 func TestRunChain_ObligationStepsRunUnderLiveContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -130,9 +129,8 @@ func TestRunChain_ObligationStepsRunUnderLiveContext(t *testing.T) {
 	}
 }
 
-// Each step's context must be cancelled once the step returns so that anything
-// it spawned is released promptly rather than dangling on a context that can
-// never fire.
+// Each step's context must be cancelled once the step returns, so anything it
+// spawned is released rather than dangling.
 func TestRunChain_StepContextCancelledAfterStepReturns(t *testing.T) {
 	var mu sync.Mutex
 	var captured []context.Context

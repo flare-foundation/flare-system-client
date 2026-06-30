@@ -147,16 +147,12 @@ func (c *client) Run(ctx context.Context) error {
 	for {
 		select {
 		case currentEpoch := <-ticker.C:
-			// submit1 (commit) -> submit2 (reveal) -> submitSignatures form a
-			// dependency chain: FTSO is penalised for a submit1 with no submit2,
-			// and FDC for a submit2 with no submitSignatures. So once a step has
-			// run for a round, the steps after it are obligations that must
-			// complete even if shutdown is requested in between. We run the
-			// enabled submitters as one chain: only the wait before the chain's
-			// first step is cancellable; after that step runs, the rest of the
-			// chain runs to completion (see runChain). submit1 is never enabled
-			// without submit2, so the enabled submitters are always contiguous
-			// and a single chain is correct.
+			// submit1 (commit) -> submit2 (reveal) -> submitSignatures is a
+			// dependency chain: a submit1 with no submit2 is penalised (FTSO), as
+			// is a submit2 with no submitSignatures (FDC). Run the enabled
+			// submitters as one chain so these obligations survive shutdown (see
+			// runChain). submit1 is never enabled without submit2, so the enabled
+			// submitters are contiguous.
 			if chain := c.submitterChain(ticker, currentEpoch); len(chain) > 0 {
 				wg.Go(func() { runChain(ctx, chain) })
 			}
@@ -204,29 +200,21 @@ func (c *client) submitterChain(ticker *utils.EpochTicker, currentEpoch int64) [
 	return chain
 }
 
-// runChain runs the submitters of one voting round.
-//
-// The wait before the first (gate) step is the only cancellable part: if
-// shutdown happens before the gate offset elapses, nothing has run, nothing is
-// owed, and the chain exits. Once that offset passes, every step is a committed
-// obligation — a submit1 commit requires its submit2 reveal, and an FDC submit2
-// requires its submitSignatures.
-//
-// Each step runs in its own goroutine on its own offset from the round tick, so
-// a slow step neither delays the others' start nor pushes them past their
-// deadline. Each step runs via runStep, detached from shutdown so its work does
-// not self-abort on cancellation, with panics recovered. runChain returns only
-// once every step has completed, so shutdown (via the caller's WaitGroup) drains
-// the whole round. Step offsets are measured from the chain's start (the tick)
-// and are assumed non-decreasing in protocol order.
+// runChain runs one voting round's submitters. The wait before the first (gate)
+// step is the only cancellable part: if shutdown happens before the gate offset,
+// nothing has run and the chain exits with nothing owed. Past the gate every
+// step is an obligation, so each runs via runStep (detached from shutdown,
+// panics recovered) in its own goroutine on its own offset, so a slow step
+// delays no other. runChain returns only once every step completes, so the
+// caller's WaitGroup drains the round on shutdown. Offsets are assumed
+// non-decreasing in protocol order.
 func runChain(ctx context.Context, steps []submitterStep) {
 	if len(steps) == 0 {
 		return
 	}
 	start := time.Now()
 
-	// Cancellable gate: the wait until the first step's offset is the only point
-	// at which shutdown can abandon the round without incurring an obligation.
+	// Cancellable gate: the only point shutdown can abandon the round unowed.
 	if !sleepUnlessCancelled(ctx, time.Until(start.Add(steps[0].offset))) {
 		return
 	}
