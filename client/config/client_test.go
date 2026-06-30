@@ -188,6 +188,12 @@ func TestValidateSubmitters(t *testing.T) {
 		require.Error(t, c.validateSubmitters())
 	})
 
+	t.Run("submit1 without submit2 is rejected", func(t *testing.T) {
+		c := base()
+		c.Submit2.Enabled = false
+		require.Error(t, c.validateSubmitters())
+	})
+
 	t.Run("signatures must not run before reveal", func(t *testing.T) {
 		c := base()
 		c.Submit2.StartOffset = 45 * time.Second
@@ -198,6 +204,7 @@ func TestValidateSubmitters(t *testing.T) {
 
 	t.Run("ordering check skipped when submit2 disabled", func(t *testing.T) {
 		c := base()
+		c.Submit1.Enabled = false // submit1 obliges submit2, so it must be off too
 		c.Submit2.Enabled = false
 		c.SubmitSignatures.StartOffset = 1 * time.Second
 		c.SubmitSignatures.Deadline = 30 * time.Second

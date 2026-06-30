@@ -124,10 +124,9 @@ func (c *Client) validate() error {
 	return nil
 }
 
-// validateSubmitters rejects nonsensical submitter configurations before the
-// client starts, rather than silently clamping them (newSubmitter clamps
-// retries/timeouts) or failing obscurely at runtime. Only enabled submitters
-// are checked, since a disabled submitter is never constructed.
+// validateSubmitters rejects nonsensical submitter configs at startup, rather
+// than letting newSubmitter silently clamp them or fail obscurely at runtime.
+// Only enabled submitters are checked.
 func (c *Client) validateSubmitters() error {
 	if c.Submit1.Enabled {
 		if err := c.Submit1.validate("submit1"); err != nil {
@@ -145,11 +144,20 @@ func (c *Client) validateSubmitters() error {
 		}
 	}
 
-	// submit2 (reveal) and submitSignatures both run a full voting epoch after
-	// the round tick, at Period + their respective start offset, so the epoch
-	// period cancels out: submitSignatures must not be scheduled before its
-	// submit2 reveal, or the obligation order (submit2 -> submitSignatures) and
-	// runChain's non-decreasing-offset assumption break.
+	// submit1 (commit) obliges a submit2 (reveal): a submit1 with no submit2 is
+	// penalised every round, and runChain assumes the enabled submitters are
+	// contiguous.
+	if c.Submit1.Enabled && !c.Submit2.Enabled {
+		return errors.New(
+			"submit1 is enabled but submit2 is not; a submit1 commit obliges a " +
+				"submit2 reveal, so submit1 must not run without submit2",
+		)
+	}
+
+	// submit2 and submitSignatures both run a full epoch period after the tick,
+	// so the period cancels out: submitSignatures must not be offset before its
+	// submit2 reveal, or the obligation order and runChain's non-decreasing
+	// offsets break.
 	if c.Submit2.Enabled && c.SubmitSignatures.Enabled &&
 		c.SubmitSignatures.StartOffset < c.Submit2.StartOffset {
 		return fmt.Errorf(
