@@ -86,7 +86,6 @@ func TestGasValidate(t *testing.T) {
 
 func validSubmit() Submit {
 	return Submit{
-		Enabled:          true,
 		StartOffset:      20 * time.Second,
 		TxSubmitRetries:  2,
 		TxSubmitTimeout:  5 * time.Second,
@@ -175,22 +174,9 @@ func TestValidateSubmitters(t *testing.T) {
 		require.NoError(t, base().validateSubmitters())
 	})
 
-	t.Run("disabled submitter is not validated", func(t *testing.T) {
-		c := base()
-		c.Submit1.Enabled = false
-		c.Submit1.TxSubmitTimeout = 0 // nonsense, but disabled so ignored
-		require.NoError(t, c.validateSubmitters())
-	})
-
 	t.Run("enabled submitter is validated", func(t *testing.T) {
 		c := base()
 		c.Submit1.TxSubmitTimeout = 0
-		require.Error(t, c.validateSubmitters())
-	})
-
-	t.Run("submit1 without submit2 is rejected", func(t *testing.T) {
-		c := base()
-		c.Submit2.Enabled = false
 		require.Error(t, c.validateSubmitters())
 	})
 
@@ -200,14 +186,5 @@ func TestValidateSubmitters(t *testing.T) {
 		c.SubmitSignatures.StartOffset = 20 * time.Second // before submit2
 		c.SubmitSignatures.Deadline = 30 * time.Second    // keep deadline > its start offset
 		require.Error(t, c.validateSubmitters())
-	})
-
-	t.Run("ordering check skipped when submit2 disabled", func(t *testing.T) {
-		c := base()
-		c.Submit1.Enabled = false // submit1 obliges submit2, so it must be off too
-		c.Submit2.Enabled = false
-		c.SubmitSignatures.StartOffset = 1 * time.Second
-		c.SubmitSignatures.Deadline = 30 * time.Second
-		require.NoError(t, c.validateSubmitters())
 	})
 }

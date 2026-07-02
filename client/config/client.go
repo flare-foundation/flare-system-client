@@ -97,28 +97,25 @@ func defaultConfig() *Client {
 
 // validate checks consistency of configurations.
 func (c *Client) validate() error {
-	err := c.SubmitGas.validate()
-	if err != nil {
+	if err := c.Clients.validate(); err != nil {
+		return fmt.Errorf("validating Clients: %w", err)
+	}
+	if err := c.SubmitGas.validate(); err != nil {
 		return fmt.Errorf("validating SubmitGas: %w", err)
 	}
-	err = c.RegisterGas.validate()
-	if err != nil {
+	if err := c.RegisterGas.validate(); err != nil {
 		return fmt.Errorf("validating RegisterGas: %w", err)
 	}
-	err = c.RelayGas.validate()
-	if err != nil {
+	if err := c.RelayGas.validate(); err != nil {
 		return fmt.Errorf("validating RelayGas: %w", err)
 	}
-	err = c.SystemsManagerGas.validate()
-	if err != nil {
+	if err := c.SystemsManagerGas.validate(); err != nil {
 		return fmt.Errorf("validating SystemsManagerGas: %w", err)
 	}
-	err = c.validateSubmitters()
-	if err != nil {
+	if err := c.validateSubmitters(); err != nil {
 		return fmt.Errorf("validating submitters: %w", err)
 	}
-	err = c.validateContracts()
-	if err != nil {
+	if err := c.validateContracts(); err != nil {
 		return fmt.Errorf("validating contracts: %w", err)
 	}
 	return nil
@@ -128,42 +125,24 @@ func (c *Client) validate() error {
 // than letting newSubmitter silently clamp them or fail obscurely at runtime.
 // Only enabled submitters are checked.
 func (c *Client) validateSubmitters() error {
-	if c.Submit1.Enabled {
-		if err := c.Submit1.validate("submit1"); err != nil {
-			return err
-		}
-	}
-	if c.Submit2.Enabled {
-		if err := c.Submit2.validate("submit2"); err != nil {
-			return err
-		}
-	}
-	if c.SubmitSignatures.Enabled {
-		if err := c.SubmitSignatures.validate(); err != nil {
-			return err
-		}
+	if err := c.Submit1.validate("submit1"); err != nil {
+		return err
 	}
 
-	// submit1 (commit) obliges a submit2 (reveal): a submit1 with no submit2 is
-	// penalised every round, and runChain assumes the enabled submitters are
-	// contiguous.
-	if c.Submit1.Enabled && !c.Submit2.Enabled {
-		return errors.New(
-			"submit1 is enabled but submit2 is not; a submit1 commit obliges a " +
-				"submit2 reveal, so submit1 must not run without submit2",
-		)
+	if err := c.Submit2.validate("submit2"); err != nil {
+		return err
 	}
 
-	// submit2 and submitSignatures both run a full epoch period after the tick,
-	// so the period cancels out: submitSignatures must not be offset before its
-	// submit2 reveal, or the obligation order and runChain's non-decreasing
-	// offsets break.
-	if c.Submit2.Enabled && c.SubmitSignatures.Enabled &&
-		c.SubmitSignatures.StartOffset < c.Submit2.StartOffset {
+	if err := c.SubmitSignatures.validate(); err != nil {
+		return err
+	}
+
+	//submitSignatures must not be offset before submit2
+	if c.SubmitSignatures.StartOffset < c.Submit2.StartOffset {
 		return fmt.Errorf(
-			"submit_signatures start_offset (%s) is before submit2 start_offset (%s); "+
-				"submitSignatures must run after the submit2 reveal",
-			c.SubmitSignatures.StartOffset, c.Submit2.StartOffset,
+			"submit_signatures start_offset (%s) is before submit2 start_offset (%s)",
+			c.SubmitSignatures.StartOffset,
+			c.Submit2.StartOffset,
 		)
 	}
 	return nil
@@ -221,7 +200,6 @@ type Credentials struct {
 }
 
 var defaultSubmitConfig = Submit{
-	Enabled:          true,
 	TxSubmitRetries:  1,
 	TxSubmitTimeout:  10 * time.Second,
 	DataFetchRetries: 1,
@@ -229,7 +207,6 @@ var defaultSubmitConfig = Submit{
 }
 
 type Submit struct {
-	Enabled          bool          `toml:"enabled"`
 	StartOffset      time.Duration `toml:"start_offset"` // offset from the start of the epoch
 	TxSubmitRetries  int           `toml:"tx_submit_retries"`
 	TxSubmitTimeout  time.Duration `toml:"tx_submit_timeout"`
@@ -300,6 +277,14 @@ type Clients struct {
 
 func (c *Clients) EpochClientEnabled() bool {
 	return c.EnabledRegistration || c.EnabledUptimeVoting || c.EnabledRewardSigning || c.EnabledPreregistration
+}
+
+func (c *Clients) validate() error {
+	if c.EnabledFinalizer && !c.EnabledProtocolVoting {
+		return errors.New("finalizer needs protocol voting enabled")
+	}
+
+	return nil
 }
 
 type Finalizer struct {
