@@ -138,10 +138,8 @@ func (c *client) Run(ctx context.Context) error {
 		case currentEpoch := <-ticker.C:
 			// submit1 (commit) -> submit2 (reveal) -> submitSignatures is a
 			// dependency chain: a submit1 with no submit2 is penalised (FTSO), as
-			// is a submit2 with no submitSignatures (FDC). Run the enabled
-			// submitters as one chain so these obligations survive shutdown (see
-			// runChain). submit1 is never enabled without submit2, so the enabled
-			// submitters are contiguous.
+			// is a submit2 with no submitSignatures (FDC). Run them as one chain so
+			// these obligations survive shutdown (see runChain).
 			if chain := c.submitterChain(ticker, currentEpoch); len(chain) > 0 {
 				wg.Go(func() { runChain(ctx, chain) })
 			}
@@ -160,9 +158,9 @@ type submitterStep struct {
 	run    func(ctx context.Context)
 }
 
-// submitterChain builds the ordered dependency chain of enabled submitters for
-// the given voting round, in protocol order (submit1, submit2,
-// submitSignatures), each with its offset from the round tick.
+// submitterChain builds the ordered dependency chain of submitters for the
+// given voting round, in protocol order (submit1, submit2, submitSignatures),
+// each with its offset from the round tick.
 func (c *client) submitterChain(ticker *utils.EpochTicker, currentEpoch int64) []submitterStep {
 	var chain []submitterStep
 	if c.submitter1 != nil {

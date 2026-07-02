@@ -84,7 +84,7 @@ type = 1 # Type of submitSignature payload
 
 
 # Configuration for the submit1 operation.
-# If enabled, submit2 must be enabled too: a submit1 commit obliges a submit2 reveal.
+# A submit1 commit obliges a submit2 reveal, so all submitters always run together.
 [submit1]
 start_offset = "75s" # Offset from the start of the epoch.
 tx_submit_retries = 2

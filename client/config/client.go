@@ -123,7 +123,6 @@ func (c *Client) validate() error {
 
 // validateSubmitters rejects nonsensical submitter configs at startup, rather
 // than letting newSubmitter silently clamp them or fail obscurely at runtime.
-// Only enabled submitters are checked.
 func (c *Client) validateSubmitters() error {
 	if err := c.Submit1.validate("submit1"); err != nil {
 		return err
@@ -137,7 +136,7 @@ func (c *Client) validateSubmitters() error {
 		return err
 	}
 
-	//submitSignatures must not be offset before submit2
+	// submitSignatures must not be offset before the submit2 reveal
 	if c.SubmitSignatures.StartOffset < c.Submit2.StartOffset {
 		return fmt.Errorf(
 			"submit_signatures start_offset (%s) is before submit2 start_offset (%s)",
