@@ -326,20 +326,22 @@ type Gas struct {
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
 
 	// type 2
-	MaxPriorityMultiplier *big.Int `toml:"max_priority_fee_multiplier"`
+	MaxPriorityMultiplier float64  `toml:"max_priority_fee_multiplier"`
 	MaximalMaxPriorityFee *big.Int `toml:"maximal_max_priority_fee"`
 	MinimalMaxPriorityFee *big.Int `toml:"minimal_max_priority_fee"`
 
-	BaseFeeMultiplier *big.Int `toml:"base_fee_multiplier"`
+	BaseFeeMultiplier float64  `toml:"base_fee_multiplier"`
 	BaseFeePerGasCap  *big.Int `toml:"base_fee_per_gas_cap"` // LEAVE UNSET UNLESS YOU KNOW WHAT YOU ARE DOING.
 }
 
+const (
+	DefaultMaxPriorityMultiplier = 2
+	DefaultBaseFeeMultiplier     = 4
+)
+
 var (
-	DefaultMaxPriorityMultiplier = big.NewInt(2)
 	DefaultMaximalMaxPriorityFee = big.NewInt(5000e9) // 5000 Gwei
 	DefaultMinimalMaxPriorityFee = big.NewInt(100e9)  // 100 Gwei
-
-	DefaultBaseFeeMultiplier = big.NewInt(4)
 )
 
 // DefaultGas
@@ -379,10 +381,10 @@ func (g *Gas) CopyAndDefault() *Gas {
 			GasLimit: g.GasLimit,
 		}
 
-		if g.MaxPriorityMultiplier != nil {
-			newGas.MaxPriorityMultiplier = new(big.Int).Set(g.MaxPriorityMultiplier)
+		if g.MaxPriorityMultiplier != 0 {
+			newGas.MaxPriorityMultiplier = g.MaxPriorityMultiplier
 		} else {
-			newGas.MaxPriorityMultiplier = new(big.Int).Set(DefaultMaxPriorityMultiplier)
+			newGas.MaxPriorityMultiplier = DefaultMaxPriorityMultiplier
 		}
 		if g.MinimalMaxPriorityFee != nil {
 			newGas.MinimalMaxPriorityFee = new(big.Int).Set(g.MinimalMaxPriorityFee)
@@ -394,10 +396,10 @@ func (g *Gas) CopyAndDefault() *Gas {
 		} else {
 			newGas.MaximalMaxPriorityFee = new(big.Int).Set(DefaultMaximalMaxPriorityFee)
 		}
-		if g.BaseFeeMultiplier != nil {
-			newGas.BaseFeeMultiplier = new(big.Int).Set(g.BaseFeeMultiplier)
+		if g.BaseFeeMultiplier != 0 {
+			newGas.BaseFeeMultiplier = g.BaseFeeMultiplier
 		} else {
-			newGas.BaseFeeMultiplier = new(big.Int).Set(DefaultBaseFeeMultiplier)
+			newGas.BaseFeeMultiplier = DefaultBaseFeeMultiplier
 		}
 
 		if g.BaseFeePerGasCap != nil {
@@ -439,16 +441,20 @@ func (g *Gas) validate() error {
 		}
 
 	case 2:
-		if g.BaseFeeMultiplier.Cmp(common.Big0) == -1 {
-			return errors.New("negative base fee multiplier")
+		if g.BaseFeeMultiplier <= 0 {
+			return errors.New("base_fee_multiplier must be positive")
+		}
+
+		if g.MaxPriorityMultiplier <= 0 {
+			return errors.New("max_priority_fee_multiplier must be positive")
 		}
 
 		if g.MaximalMaxPriorityFee.Cmp(g.MinimalMaxPriorityFee) == -1 {
-			return errors.New("MaximalMaxPriorityFee cannot be less than MinimalMaxPriorityFee")
+			return errors.New("maximal_max_priority_fee cannot be less than minimal_max_priority_fee")
 		}
 
 		if g.MinimalMaxPriorityFee.Cmp(common.Big0) == -1 {
-			return errors.New("negative MinimalMaxPriorityFee")
+			return errors.New("negative minimal_max_priority_fee")
 		}
 	default:
 		return errors.New("unsupported tx_type")

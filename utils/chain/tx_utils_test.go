@@ -45,7 +45,7 @@ func TestSendTx(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGasConfigForAttemptType0(t *testing.T) {
+func TestGasConfigForAttempt(t *testing.T) {
 	tests := []struct {
 		name     string
 		cfg      config2.Gas
@@ -142,8 +142,8 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			name: "zero type 2",
 			cfg: config2.Gas{
 				TxType:                2,
-				MaxPriorityMultiplier: big.NewInt(0),
-				BaseFeeMultiplier:     big.NewInt(0),
+				MaxPriorityMultiplier: 0,
+				BaseFeeMultiplier:     0,
 				BaseFeePerGasCap:      big.NewInt(0),
 				MaximalMaxPriorityFee: big.NewInt(0),
 				MinimalMaxPriorityFee: big.NewInt(0),
@@ -152,8 +152,8 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			expected: config2.Gas{
 				TxType:                2,
 				GasLimit:              0,
-				MaxPriorityMultiplier: big.NewInt(0),
-				BaseFeeMultiplier:     big.NewInt(0),
+				MaxPriorityMultiplier: 2,
+				BaseFeeMultiplier:     4,
 				BaseFeePerGasCap:      big.NewInt(0),
 				MaximalMaxPriorityFee: big.NewInt(0),
 				MinimalMaxPriorityFee: big.NewInt(0),
@@ -163,16 +163,16 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			name: "zero type 2,2 ",
 			cfg: config2.Gas{
 				TxType:                2,
-				MaxPriorityMultiplier: big.NewInt(6),
-				BaseFeeMultiplier:     big.NewInt(2),
+				MaxPriorityMultiplier: 6,
+				BaseFeeMultiplier:     2,
 				BaseFeePerGasCap:      big.NewInt(0),
 			},
 			ri: 2,
 			expected: config2.Gas{
 				TxType:                2,
 				GasLimit:              0,
-				MaxPriorityMultiplier: big.NewInt(8),
-				BaseFeeMultiplier:     big.NewInt(4),
+				MaxPriorityMultiplier: 8,
+				BaseFeeMultiplier:     4,
 				BaseFeePerGasCap:      big.NewInt(0),
 				MaximalMaxPriorityFee: big.NewInt(6160500000000),
 				MinimalMaxPriorityFee: big.NewInt(123210000000),
@@ -183,8 +183,8 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			cfg: config2.Gas{
 				TxType:                2,
 				GasLimit:              0,
-				BaseFeeMultiplier:     big.NewInt(2),
-				MaxPriorityMultiplier: big.NewInt(6),
+				BaseFeeMultiplier:     2,
+				MaxPriorityMultiplier: 6,
 				MaximalMaxPriorityFee: big.NewInt(1000),
 				MinimalMaxPriorityFee: big.NewInt(100),
 			},
@@ -192,8 +192,8 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			expected: config2.Gas{
 				TxType:                2,
 				GasLimit:              0,
-				BaseFeeMultiplier:     big.NewInt(4),
-				MaxPriorityMultiplier: big.NewInt(8),
+				BaseFeeMultiplier:     4,
+				MaxPriorityMultiplier: 8,
 				MaximalMaxPriorityFee: big.NewInt(1232),
 				MinimalMaxPriorityFee: big.NewInt(123),
 			},

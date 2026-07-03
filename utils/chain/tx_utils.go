@@ -242,16 +242,16 @@ func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfi
 	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
 		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
 	} else {
-		if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
-			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
+		if gasConfig.BaseFeeMultiplier > 0 {
+			gasFeeCap = MultiplyWithFloat(baseFeePerGas, gasConfig.BaseFeeMultiplier, gasFeeCap)
 		} else {
 			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
 		}
 	}
 
 	gasTipCap := new(big.Int)
-	if gasConfig.MaxPriorityMultiplier != nil && gasConfig.MaxPriorityMultiplier.Cmp(big.NewInt(0)) == 1 {
-		gasTipCap.Mul(gasConfig.MaxPriorityMultiplier, baseFeePerGas)
+	if gasConfig.MaxPriorityMultiplier > 0 {
+		gasTipCap = MultiplyWithFloat(baseFeePerGas, gasConfig.MaxPriorityMultiplier, gasTipCap)
 	} else {
 		gasTipCap.Mul(DefaultTipMultiplier, baseFeePerGas)
 	}
@@ -386,8 +386,8 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 
 		c := cfg.CopyAndDefault()
 
-		c.MaxPriorityMultiplier.Add(c.MaxPriorityMultiplier, attemptBig)
-		c.BaseFeeMultiplier.Add(c.BaseFeeMultiplier, attemptBig)
+		c.MaxPriorityMultiplier += float64(attempt)
+		c.BaseFeeMultiplier += float64(attempt)
 
 		// Increase caps by 11% per retry
 		if attempt > 0 {
@@ -403,4 +403,16 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 
 		return c
 	}
+}
+
+func MultiplyWithFloat(x *big.Int, y float64, out *big.Int) *big.Int {
+	if out == nil {
+		out = new(big.Int)
+	}
+
+	outFloat := new(big.Float).Mul(big.NewFloat(y), new(big.Float).SetInt(x))
+
+	out, _ = outFloat.Int(out)
+
+	return out
 }
