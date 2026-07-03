@@ -1,10 +1,12 @@
 package config
 
 import (
+	"math"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,7 +51,7 @@ func TestGasValidate(t *testing.T) {
 			name: "type 2 with negative base fee multiplier",
 			gas: Gas{
 				TxType:                2,
-				BaseFeeMultiplier:     big.NewInt(-1),
+				BaseFeeMultiplier:     -1,
 				MinimalMaxPriorityFee: DefaultMinimalMaxPriorityFee,
 				MaximalMaxPriorityFee: DefaultMaximalMaxPriorityFee,
 			},
@@ -187,4 +189,74 @@ func TestValidateSubmitters(t *testing.T) {
 		c.SubmitSignatures.Deadline = 30 * time.Second    // keep deadline > its start offset
 		require.Error(t, c.validateSubmitters())
 	})
+}
+
+func TestGasValidateType2(t *testing.T) {
+	valid := DefaultGas()
+	valid.MaxPriorityMultiplier = 1.5
+	valid.BaseFeeMultiplier = 2.25
+	require.NoError(t, valid.validate())
+
+	zeroBase := DefaultGas()
+	zeroBase.BaseFeeMultiplier = 0
+	require.ErrorContains(t, zeroBase.validate(), "base_fee_multiplier")
+
+	negativePriority := DefaultGas()
+	negativePriority.MaxPriorityMultiplier = -1
+	require.ErrorContains(t, negativePriority.validate(), "max_priority_fee_multiplier")
+
+	infBase := DefaultGas()
+	infBase.BaseFeeMultiplier = Multiplier(math.Inf(1))
+	require.ErrorContains(t, infBase.validate(), "base_fee_multiplier")
+
+	nanPriority := DefaultGas()
+	nanPriority.MaxPriorityMultiplier = Multiplier(math.NaN())
+	require.ErrorContains(t, nanPriority.validate(), "max_priority_fee_multiplier")
+
+	nanPrice := DefaultGas()
+	nanPrice.GasPriceMultiplier = float32(math.NaN())
+	require.ErrorContains(t, nanPrice.validate(), "gas_price_multiplier")
+
+	swappedCaps := DefaultGas()
+	swappedCaps.MaximalMaxPriorityFee = big.NewInt(1)
+	require.ErrorContains(t, swappedCaps.validate(), "maximal_max_priority_fee")
+}
+
+func TestGasCopyAndDefaultMultipliers(t *testing.T) {
+	unset := Gas{TxType: 2}
+	got := unset.CopyAndDefault()
+	require.Equal(t, Multiplier(DefaultMaxPriorityMultiplier), got.MaxPriorityMultiplier)
+	require.Equal(t, Multiplier(DefaultBaseFeeMultiplier), got.BaseFeeMultiplier)
+
+	fractional := Gas{TxType: 2, MaxPriorityMultiplier: 1.5, BaseFeeMultiplier: 2.25}
+	got = fractional.CopyAndDefault()
+	require.Equal(t, Multiplier(1.5), got.MaxPriorityMultiplier)
+	require.Equal(t, Multiplier(2.25), got.BaseFeeMultiplier)
+}
+
+func TestGasTOMLMultipliers(t *testing.T) {
+	var g Gas
+	_, err := toml.Decode(`
+tx_type = 2
+max_priority_fee_multiplier = 1.5
+base_fee_multiplier = 2.25
+maximal_max_priority_fee = "5000000000000"
+`, &g)
+	require.NoError(t, err)
+	require.Equal(t, Multiplier(1.5), g.MaxPriorityMultiplier)
+	require.Equal(t, Multiplier(2.25), g.BaseFeeMultiplier)
+	require.Zero(t, g.MaximalMaxPriorityFee.Cmp(big.NewInt(5_000_000_000_000)))
+
+	// Backward compatibility with the old *big.Int format: quoted strings and bare ints.
+	var gOld Gas
+	_, err = toml.Decode(`
+max_priority_fee_multiplier = "2"
+base_fee_multiplier = 4
+`, &gOld)
+	require.NoError(t, err)
+	require.Equal(t, Multiplier(2), gOld.MaxPriorityMultiplier)
+	require.Equal(t, Multiplier(4), gOld.BaseFeeMultiplier)
+
+	_, err = toml.Decode(`base_fee_multiplier = "abc"`, &g)
+	require.ErrorContains(t, err, "invalid multiplier")
 }

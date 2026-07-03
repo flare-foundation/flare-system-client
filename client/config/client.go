@@ -3,7 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/config"
@@ -326,12 +328,35 @@ type Gas struct {
 	GasPriceFixed      *big.Int `toml:"gas_price_fixed"`
 
 	// type 2
-	MaxPriorityMultiplier float64  `toml:"max_priority_fee_multiplier"`
-	MaximalMaxPriorityFee *big.Int `toml:"maximal_max_priority_fee"`
-	MinimalMaxPriorityFee *big.Int `toml:"minimal_max_priority_fee"`
+	MaxPriorityMultiplier Multiplier `toml:"max_priority_fee_multiplier"`
+	MaximalMaxPriorityFee *big.Int   `toml:"maximal_max_priority_fee"`
+	MinimalMaxPriorityFee *big.Int   `toml:"minimal_max_priority_fee"`
 
-	BaseFeeMultiplier float64  `toml:"base_fee_multiplier"`
-	BaseFeePerGasCap  *big.Int `toml:"base_fee_per_gas_cap"` // LEAVE UNSET UNLESS YOU KNOW WHAT YOU ARE DOING.
+	BaseFeeMultiplier Multiplier `toml:"base_fee_multiplier"`
+	BaseFeePerGasCap  *big.Int   `toml:"base_fee_per_gas_cap"` // LEAVE UNSET UNLESS YOU KNOW WHAT YOU ARE DOING.
+}
+
+// Multiplier is a float64 that also accepts quoted TOML values, e.g. "2" or
+// "1.5", for backward compatibility with the format used when multipliers
+// were *big.Int.
+type Multiplier float64
+
+func (m *Multiplier) UnmarshalTOML(v any) error {
+	switch val := v.(type) {
+	case float64:
+		*m = Multiplier(val)
+	case int64:
+		*m = Multiplier(val)
+	case string:
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return fmt.Errorf("invalid multiplier %q: %w", val, err)
+		}
+		*m = Multiplier(f)
+	default:
+		return fmt.Errorf("invalid multiplier type %T", v)
+	}
+	return nil
 }
 
 const (
@@ -344,7 +369,8 @@ var (
 	DefaultMinimalMaxPriorityFee = big.NewInt(100e9)  // 100 Gwei
 )
 
-// DefaultGas
+// DefaultGas returns the default gas configuration: type 2 with default
+// multipliers and priority fee caps.
 func DefaultGas() Gas {
 	return Gas{
 		TxType: 2,
@@ -359,7 +385,8 @@ func DefaultGas() Gas {
 	}
 }
 
-// CopyAndDefault copy Gas and sets default values for any unset configs.
+// CopyAndDefault copies Gas and sets default values for any unset configs.
+// A zero multiplier is treated as unset and replaced with its default.
 func (g *Gas) CopyAndDefault() *Gas {
 	switch g.TxType {
 	case 0:
@@ -426,10 +453,15 @@ func (g *Gas) EnforceMaxPriorityFeeCaps(fee *big.Int) *big.Int {
 	return out
 }
 
+// isPositiveFinite reports whether f is positive and neither NaN nor infinite.
+func isPositiveFinite(f float64) bool {
+	return f > 0 && !math.IsInf(f, 0)
+}
+
 // validate checks viability of gas configurations.
 func (g *Gas) validate() error {
-	if g.GasPriceMultiplier != 0.0 && g.GasPriceMultiplier < 1 {
-		return errors.New("if set, gas_price_multiplier value cannot be less than 1")
+	if g.GasPriceMultiplier != 0.0 && (!isPositiveFinite(float64(g.GasPriceMultiplier)) || g.GasPriceMultiplier < 1) {
+		return errors.New("if set, gas_price_multiplier must be a finite value not less than 1")
 	}
 
 	switch g.TxType {
@@ -441,12 +473,12 @@ func (g *Gas) validate() error {
 		}
 
 	case 2:
-		if g.BaseFeeMultiplier <= 0 {
-			return errors.New("base_fee_multiplier must be positive")
+		if !isPositiveFinite(float64(g.BaseFeeMultiplier)) {
+			return errors.New("base_fee_multiplier must be a positive finite number")
 		}
 
-		if g.MaxPriorityMultiplier <= 0 {
-			return errors.New("max_priority_fee_multiplier must be positive")
+		if !isPositiveFinite(float64(g.MaxPriorityMultiplier)) {
+			return errors.New("max_priority_fee_multiplier must be a positive finite number")
 		}
 
 		if g.MaximalMaxPriorityFee.Cmp(g.MinimalMaxPriorityFee) == -1 {

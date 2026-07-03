@@ -243,7 +243,7 @@ func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfi
 		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
 	} else {
 		if gasConfig.BaseFeeMultiplier > 0 {
-			gasFeeCap = MultiplyWithFloat(baseFeePerGas, gasConfig.BaseFeeMultiplier, gasFeeCap)
+			gasFeeCap = MultiplyWithFloat(baseFeePerGas, float64(gasConfig.BaseFeeMultiplier), gasFeeCap)
 		} else {
 			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
 		}
@@ -251,7 +251,7 @@ func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfi
 
 	gasTipCap := new(big.Int)
 	if gasConfig.MaxPriorityMultiplier > 0 {
-		gasTipCap = MultiplyWithFloat(baseFeePerGas, gasConfig.MaxPriorityMultiplier, gasTipCap)
+		gasTipCap = MultiplyWithFloat(baseFeePerGas, float64(gasConfig.MaxPriorityMultiplier), gasTipCap)
 	} else {
 		gasTipCap.Mul(DefaultTipMultiplier, baseFeePerGas)
 	}
@@ -386,8 +386,8 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 
 		c := cfg.CopyAndDefault()
 
-		c.MaxPriorityMultiplier += float64(attempt)
-		c.BaseFeeMultiplier += float64(attempt)
+		c.MaxPriorityMultiplier += config.Multiplier(attempt)
+		c.BaseFeeMultiplier += config.Multiplier(attempt)
 
 		// Increase caps by 11% per retry
 		if attempt > 0 {
@@ -405,6 +405,9 @@ func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 	}
 }
 
+// MultiplyWithFloat multiplies x by y and truncates the result to an integer.
+// The result is stored in out (allocated if nil) and returned. x is not modified.
+// y must be a finite number.
 func MultiplyWithFloat(x *big.Int, y float64, out *big.Int) *big.Int {
 	if out == nil {
 		out = new(big.Int)

@@ -405,7 +405,7 @@ func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient
 			gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
 		} else {
 			if gasConfig.BaseFeeMultiplier > 0 {
-				gasFeeCap = chain.MultiplyWithFloat(baseFeePerGas, gasConfig.BaseFeeMultiplier, gasFeeCap)
+				gasFeeCap = chain.MultiplyWithFloat(baseFeePerGas, float64(gasConfig.BaseFeeMultiplier), gasFeeCap)
 			} else {
 				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, chain.DefaultBaseFeeCapMultiplier)
 			}
@@ -413,7 +413,7 @@ func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient
 
 		tipCap := new(big.Int)
 		if gasConfig.MaxPriorityMultiplier > 0 {
-			tipCap = chain.MultiplyWithFloat(baseFeePerGas, gasConfig.MaxPriorityMultiplier, tipCap)
+			tipCap = chain.MultiplyWithFloat(baseFeePerGas, float64(gasConfig.MaxPriorityMultiplier), tipCap)
 		} else {
 			tipCap.Mul(baseFeePerGas, chain.DefaultTipMultiplier)
 		}
