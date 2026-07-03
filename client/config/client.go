@@ -481,6 +481,10 @@ func (g *Gas) validate() error {
 			return errors.New("max_priority_fee_multiplier must be a positive finite number")
 		}
 
+		if g.MaxPriorityMultiplier+g.BaseFeeMultiplier < 1 {
+			return errors.New("sum of max_priority_fee_multiplier and base_fee_multiplier must be at least 1")
+		}
+
 		if g.MaximalMaxPriorityFee.Cmp(g.MinimalMaxPriorityFee) == -1 {
 			return errors.New("maximal_max_priority_fee cannot be less than minimal_max_priority_fee")
 		}

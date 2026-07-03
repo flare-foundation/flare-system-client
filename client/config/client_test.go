@@ -217,6 +217,16 @@ func TestGasValidateType2(t *testing.T) {
 	nanPrice.GasPriceMultiplier = float32(math.NaN())
 	require.ErrorContains(t, nanPrice.validate(), "gas_price_multiplier")
 
+	lowSum := DefaultGas()
+	lowSum.MaxPriorityMultiplier = 0.4
+	lowSum.BaseFeeMultiplier = 0.5
+	require.ErrorContains(t, lowSum.validate(), "sum of")
+
+	exactSum := DefaultGas()
+	exactSum.MaxPriorityMultiplier = 0.5
+	exactSum.BaseFeeMultiplier = 0.5
+	require.NoError(t, exactSum.validate())
+
 	swappedCaps := DefaultGas()
 	swappedCaps.MaximalMaxPriorityFee = big.NewInt(1)
 	require.ErrorContains(t, swappedCaps.validate(), "maximal_max_priority_fee")
