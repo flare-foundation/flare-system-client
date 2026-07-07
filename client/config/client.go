@@ -481,8 +481,12 @@ func (g *Gas) validate() error {
 			return errors.New("max_priority_fee_multiplier must be a positive finite number")
 		}
 
-		if g.MaxPriorityMultiplier+g.BaseFeeMultiplier < 1 {
-			return errors.New("sum of max_priority_fee_multiplier and base_fee_multiplier must be at least 1")
+		// base_fee_multiplier alone must cover the base fee; the priority-fee term
+		// is clamped by maximal_max_priority_fee and can't be relied on. Skipped
+		// when base_fee_per_gas_cap overrides the multiplier.
+		baseFeeCapSet := g.BaseFeePerGasCap != nil && g.BaseFeePerGasCap.Sign() > 0
+		if !baseFeeCapSet && g.BaseFeeMultiplier < 1 {
+			return errors.New("base_fee_multiplier must be at least 1 so the fee cap covers the base fee")
 		}
 
 		if g.MaximalMaxPriorityFee.Cmp(g.MinimalMaxPriorityFee) == -1 {

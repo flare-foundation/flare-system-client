@@ -30,19 +30,11 @@ const (
 	// timeout for waiting for a non-time-sensitive tx (uptime vote, reward signing) to be
 	// mined. We wait much longer for a single modestly-priced tx to confirm rather than
 	// timing out and re-sending duplicate transactions.
-	LongTxTimeout        = 30 * time.Minute
-	DefaultGasLimit      = 2_500_000
-	defaultTipMultiplier = 2
-
-	baseFeeCapMultiplier = 4
+	LongTxTimeout   = 30 * time.Minute
+	DefaultGasLimit = 2_500_000
 
 	multiplierBumpTimes100 = 111
 	normalizer             = 100
-)
-
-var (
-	DefaultTipMultiplier        = big.NewInt(defaultTipMultiplier) // 2
-	DefaultBaseFeeCapMultiplier = big.NewInt(baseFeeCapMultiplier) // 4
 )
 
 // CopyTxOpts returns a copy of opts that can be mutated per transaction
@@ -230,6 +222,10 @@ func prepareAndSignType0(ctx context.Context, client *ethclient.Client, gasConfi
 
 // prepareAndSignType2 prepares a type 2 (eip 1559) transaction and signs it.
 func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+	// Default unset fields so EnforceMaxPriorityFeeCaps never sees a nil cap,
+	// even if a caller passes a raw config.
+	cfg := gasConfig.CopyAndDefault()
+
 	feeCtx, cancelFunc := context.WithTimeout(ctx, timeout)
 	baseFeePerGas, err := BaseFee(feeCtx, client)
 	cancelFunc()
@@ -239,25 +235,16 @@ func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfi
 	}
 
 	gasFeeCap := new(big.Int)
-	if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
-		gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
+	if cfg.BaseFeePerGasCap != nil && cfg.BaseFeePerGasCap.Sign() == 1 {
+		gasFeeCap.Set(cfg.BaseFeePerGasCap)
 	} else {
-		if gasConfig.BaseFeeMultiplier > 0 {
-			gasFeeCap = MultiplyWithFloat(baseFeePerGas, float64(gasConfig.BaseFeeMultiplier), gasFeeCap)
-		} else {
-			gasFeeCap = gasFeeCap.Mul(baseFeePerGas, big.NewInt(baseFeeCapMultiplier))
-		}
+		gasFeeCap = MultiplyWithFloat(baseFeePerGas, float64(cfg.BaseFeeMultiplier), gasFeeCap)
 	}
 
-	gasTipCap := new(big.Int)
-	if gasConfig.MaxPriorityMultiplier > 0 {
-		gasTipCap = MultiplyWithFloat(baseFeePerGas, float64(gasConfig.MaxPriorityMultiplier), gasTipCap)
-	} else {
-		gasTipCap.Mul(DefaultTipMultiplier, baseFeePerGas)
-	}
-	gasTipCap = gasConfig.EnforceMaxPriorityFeeCaps(gasTipCap)
+	gasTipCap := MultiplyWithFloat(baseFeePerGas, float64(cfg.MaxPriorityMultiplier), nil)
+	gasTipCap = cfg.EnforceMaxPriorityFeeCaps(gasTipCap)
 
-	gasFeeCap = gasFeeCap.Add(gasFeeCap, gasTipCap)
+	gasFeeCap.Add(gasFeeCap, gasTipCap)
 
 	txData := types.DynamicFeeTx{
 		ChainID:   chainID,

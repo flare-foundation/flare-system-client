@@ -8,7 +8,7 @@
 - Tests covering payload extraction, signature transforms, finalization storage cleanup and concurrent access, gas config validation, reward data bounds, protocol client shutdown, and protocol client HTTP response parsing.
 - Startup validation of the submitter config sections (`submit1`, `submit2`, `submit_signatures`): rejects negative start offsets, non-positive submit/data-fetch timeouts, retry counts below one, a `submit_signatures` deadline at or before its start offset, negative `max_cycles`/`cycle_duration`, and a `submit_signatures` start offset scheduled before the `submit2` reveal.
 - Startup validation that the finalizer requires protocol voting: `enabled_finalizer` needs `enabled_protocol_voting`, otherwise the finalizer would never receive submitted messages.
-- Startup validation of type-2 gas multipliers: rejects non-finite (`inf`/`nan`) or non-positive `max_priority_fee_multiplier` / `base_fee_multiplier`, requires their sum to be at least 1, and rejects a non-finite or below-1 `gas_price_multiplier` — surfacing bad values at startup instead of panicking at transaction time.
+- Startup validation of type-2 gas multipliers: rejects non-finite (`inf`/`nan`) or non-positive `max_priority_fee_multiplier` / `base_fee_multiplier`, requires `base_fee_multiplier` to be at least 1 (unless `base_fee_per_gas_cap` is set) so the fee cap covers the base fee, and rejects a non-finite or below-1 `gas_price_multiplier` — surfacing bad values at startup instead of panicking at transaction time.
 
 ### Changed
 
@@ -21,6 +21,7 @@
 
 ### Fixed
 
+- Type-2 transactions built via `SetGas` (voter registration, signing-policy, systems-manager) now clamp the priority fee to `[minimal_max_priority_fee, maximal_max_priority_fee]`, matching the submit/finalize path. Both paths now default the gas config identically, so an unset priority-fee cap can no longer be dereferenced.
 - Panic in `FromSignedPayload` when a submitSignatures transaction contained a zero-length payload; the empty slice is now rejected with an error and skipped by the caller.
 - Integer overflow in `ExtractPayloads` length handling that could bypass the bounds check on crafted submitSignatures calldata.
 - Panics on malformed input: signature transforms and payload extraction now validate slice lengths instead of assuming 65-byte signatures and a 4-byte function selector.

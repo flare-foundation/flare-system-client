@@ -217,19 +217,67 @@ func TestGasValidateType2(t *testing.T) {
 	nanPrice.GasPriceMultiplier = float32(math.NaN())
 	require.ErrorContains(t, nanPrice.validate(), "gas_price_multiplier")
 
-	lowSum := DefaultGas()
-	lowSum.MaxPriorityMultiplier = 0.4
-	lowSum.BaseFeeMultiplier = 0.5
-	require.ErrorContains(t, lowSum.validate(), "sum of")
+	lowBase := DefaultGas()
+	lowBase.BaseFeeMultiplier = 0.5
+	require.ErrorContains(t, lowBase.validate(), "base_fee_multiplier")
 
-	exactSum := DefaultGas()
-	exactSum.MaxPriorityMultiplier = 0.5
-	exactSum.BaseFeeMultiplier = 0.5
-	require.NoError(t, exactSum.validate())
+	exactlyOneBase := DefaultGas()
+	exactlyOneBase.BaseFeeMultiplier = 1
+	exactlyOneBase.MaxPriorityMultiplier = 0.5
+	require.NoError(t, exactlyOneBase.validate())
+
+	// base_fee_per_gas_cap overrides the multiplier, so a sub-1 multiplier is allowed.
+	lowBaseWithCap := DefaultGas()
+	lowBaseWithCap.BaseFeeMultiplier = 0.5
+	lowBaseWithCap.BaseFeePerGasCap = big.NewInt(100e9)
+	require.NoError(t, lowBaseWithCap.validate())
 
 	swappedCaps := DefaultGas()
 	swappedCaps.MaximalMaxPriorityFee = big.NewInt(1)
 	require.ErrorContains(t, swappedCaps.validate(), "maximal_max_priority_fee")
+}
+
+func TestEnforceMaxPriorityFeeCaps(t *testing.T) {
+	g := Gas{
+		MinimalMaxPriorityFee: big.NewInt(100),
+		MaximalMaxPriorityFee: big.NewInt(1000),
+	}
+
+	tests := []struct {
+		name string
+		fee  *big.Int
+		want *big.Int
+	}{
+		{"within range unchanged", big.NewInt(500), big.NewInt(500)},
+		{"equal to min unchanged", big.NewInt(100), big.NewInt(100)},
+		{"equal to max unchanged", big.NewInt(1000), big.NewInt(1000)},
+		{"below min raised to min", big.NewInt(50), big.NewInt(100)},
+		{"above max capped to max", big.NewInt(5000), big.NewInt(1000)},
+		{"zero raised to min", big.NewInt(0), big.NewInt(100)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			feeBefore := new(big.Int).Set(tt.fee)
+			got := g.EnforceMaxPriorityFeeCaps(tt.fee)
+
+			require.Zero(t, tt.want.Cmp(got), "got %s, want %s", got, tt.want)
+			// EnforceMaxPriorityFeeCaps documents that the input is left unchanged.
+			require.Zero(t, feeBefore.Cmp(tt.fee), "input fee must not be mutated")
+		})
+	}
+
+	// The returned *big.Int must be independent of the config's cap pointers.
+	// SetGas assigns the result straight into TransactOpts.GasTipCap, and
+	// GasConfigForAttempt mutates the caps in place on retries; aliasing here
+	// would corrupt the config.
+	capped := g.EnforceMaxPriorityFeeCaps(big.NewInt(5000)) // clamped to max
+	capped.Add(capped, big.NewInt(1))
+	require.Zero(t, big.NewInt(1000).Cmp(g.MaximalMaxPriorityFee), "result must not alias MaximalMaxPriorityFee")
+
+	floored := g.EnforceMaxPriorityFeeCaps(big.NewInt(1)) // raised to min
+	floored.Add(floored, big.NewInt(1))
+	require.Zero(t, big.NewInt(100).Cmp(g.MinimalMaxPriorityFee), "result must not alias MinimalMaxPriorityFee")
 }
 
 func TestGasCopyAndDefaultMultipliers(t *testing.T) {
