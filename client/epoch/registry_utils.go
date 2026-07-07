@@ -417,10 +417,13 @@ func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient
 		} else {
 			tipCap.Mul(baseFeePerGas, chain.DefaultTipMultiplier)
 		}
+		tipCap = gasConfig.EnforceMaxPriorityFeeCaps(tipCap)
+
 		gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
 
 		txOptions.GasFeeCap = gasFeeCap
 		txOptions.GasTipCap = tipCap
+
 		return nil
 	default:
 		// should never happen. txType is checked when config is read from toml file.
