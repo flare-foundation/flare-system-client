@@ -23,4 +23,4 @@ parameters can also be configured using environment variables. See the list belo
 
 Config file can be specified using the command line parameter `--config`, e.g., `./fsc-client --config config.local.toml`. The default config file name is `config.toml`.
 
-For a template and decumentation see [`config.toml`](config.toml).
+For a template and documentation see [`config.toml`](config.toml).

@@ -97,25 +97,52 @@ func defaultConfig() *Client {
 
 // validate checks consistency of configurations.
 func (c *Client) validate() error {
-	err := c.SubmitGas.validate()
-	if err != nil {
-		return fmt.Errorf("validating SubmitGas: %v", err)
+	if err := c.Clients.validate(); err != nil {
+		return fmt.Errorf("validating Clients: %w", err)
 	}
-	err = c.RegisterGas.validate()
-	if err != nil {
-		return fmt.Errorf("validating RegisterGas: %v", err)
+	if err := c.SubmitGas.validate(); err != nil {
+		return fmt.Errorf("validating SubmitGas: %w", err)
 	}
-	err = c.RelayGas.validate()
-	if err != nil {
-		return fmt.Errorf("validating RelayGas: %v", err)
+	if err := c.RegisterGas.validate(); err != nil {
+		return fmt.Errorf("validating RegisterGas: %w", err)
 	}
-	err = c.SystemsManagerGas.validate()
-	if err != nil {
-		return fmt.Errorf("validating SystemsManagerGas: %v", err)
+	if err := c.RelayGas.validate(); err != nil {
+		return fmt.Errorf("validating RelayGas: %w", err)
 	}
-	err = c.validateContracts()
-	if err != nil {
-		return fmt.Errorf("validating contracts: %v", err)
+	if err := c.SystemsManagerGas.validate(); err != nil {
+		return fmt.Errorf("validating SystemsManagerGas: %w", err)
+	}
+	if err := c.validateSubmitters(); err != nil {
+		return fmt.Errorf("validating submitters: %w", err)
+	}
+	if err := c.validateContracts(); err != nil {
+		return fmt.Errorf("validating contracts: %w", err)
+	}
+	return nil
+}
+
+// validateSubmitters rejects nonsensical submitter configs at startup, rather
+// than letting newSubmitter silently clamp them or fail obscurely at runtime.
+func (c *Client) validateSubmitters() error {
+	if err := c.Submit1.validate("submit1"); err != nil {
+		return err
+	}
+
+	if err := c.Submit2.validate("submit2"); err != nil {
+		return err
+	}
+
+	if err := c.SubmitSignatures.validate(); err != nil {
+		return err
+	}
+
+	// submitSignatures must not be offset before the submit2 reveal
+	if c.SubmitSignatures.StartOffset < c.Submit2.StartOffset {
+		return fmt.Errorf(
+			"submit_signatures start_offset (%s) is before submit2 start_offset (%s)",
+			c.SubmitSignatures.StartOffset,
+			c.Submit2.StartOffset,
+		)
 	}
 	return nil
 }
@@ -172,7 +199,6 @@ type Credentials struct {
 }
 
 var defaultSubmitConfig = Submit{
-	Enabled:          true,
 	TxSubmitRetries:  1,
 	TxSubmitTimeout:  10 * time.Second,
 	DataFetchRetries: 1,
@@ -180,12 +206,32 @@ var defaultSubmitConfig = Submit{
 }
 
 type Submit struct {
-	Enabled          bool          `toml:"enabled"`
 	StartOffset      time.Duration `toml:"start_offset"` // offset from the start of the epoch
 	TxSubmitRetries  int           `toml:"tx_submit_retries"`
 	TxSubmitTimeout  time.Duration `toml:"tx_submit_timeout"`
 	DataFetchRetries int           `toml:"data_fetch_retries"`
 	DataFetchTimeout time.Duration `toml:"data_fetch_timeout"`
+}
+
+// validate rejects submitter settings that cannot work. name identifies the
+// section ("submit1", "submit2", "submit_signatures") in the error.
+func (s Submit) validate(name string) error {
+	if s.StartOffset < 0 {
+		return fmt.Errorf("%s: start_offset must not be negative, got %s", name, s.StartOffset)
+	}
+	if s.TxSubmitRetries < 1 {
+		return fmt.Errorf("%s: tx_submit_retries must be at least 1, got %d", name, s.TxSubmitRetries)
+	}
+	if s.TxSubmitTimeout <= 0 {
+		return fmt.Errorf("%s: tx_submit_timeout must be positive, got %s", name, s.TxSubmitTimeout)
+	}
+	if s.DataFetchRetries < 1 {
+		return fmt.Errorf("%s: data_fetch_retries must be at least 1, got %d", name, s.DataFetchRetries)
+	}
+	if s.DataFetchTimeout <= 0 {
+		return fmt.Errorf("%s: data_fetch_timeout must be positive, got %s", name, s.DataFetchTimeout)
+	}
+	return nil
 }
 
 type SubmitSignatures struct {
@@ -195,6 +241,28 @@ type SubmitSignatures struct {
 
 	MaxCycles     int           `toml:"max_cycles"`     // maximal number of query cycles after the deadline
 	CycleDuration time.Duration `toml:"cycle_duration"` // minimal duration of a cycle after the deadline
+}
+
+// validate rejects submitSignatures settings that cannot work, on top of the
+// shared Submit checks.
+func (s SubmitSignatures) validate() error {
+	if err := s.Submit.validate("submit_signatures"); err != nil {
+		return err
+	}
+	if s.Deadline <= s.StartOffset {
+		return fmt.Errorf(
+			"submit_signatures: deadline (%s) must be greater than start_offset (%s), "+
+				"otherwise there is no time to collect signatures before the deadline",
+			s.Deadline, s.StartOffset,
+		)
+	}
+	if s.MaxCycles < 0 {
+		return fmt.Errorf("submit_signatures: max_cycles must not be negative, got %d", s.MaxCycles)
+	}
+	if s.CycleDuration < 0 {
+		return fmt.Errorf("submit_signatures: cycle_duration must not be negative, got %s", s.CycleDuration)
+	}
+	return nil
 }
 
 type Clients struct {
@@ -208,6 +276,14 @@ type Clients struct {
 
 func (c *Clients) EpochClientEnabled() bool {
 	return c.EnabledRegistration || c.EnabledUptimeVoting || c.EnabledRewardSigning || c.EnabledPreregistration
+}
+
+func (c *Clients) validate() error {
+	if c.EnabledFinalizer && !c.EnabledProtocolVoting {
+		return errors.New("finalizer needs protocol voting enabled")
+	}
+
+	return nil
 }
 
 type Finalizer struct {
@@ -356,7 +432,9 @@ func (g *Gas) validate() error {
 
 	switch g.TxType {
 	case 0:
-		if g.GasPriceFixed.Cmp(common.Big0) != 0 && g.GasPriceMultiplier != 0.0 {
+		// GasPriceFixed is nil when not set in the config, which is a valid
+		// configuration: gas price recommended by the node is used instead.
+		if g.GasPriceFixed != nil && g.GasPriceFixed.Sign() != 0 && g.GasPriceMultiplier != 0.0 {
 			return errors.New("only one of gas_price_fixed and gas_price_multiplier can be set to a non-zero value for type 0 transaction")
 		}
 

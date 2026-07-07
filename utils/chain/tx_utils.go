@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -19,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
@@ -45,6 +45,29 @@ var (
 	DefaultBaseFeeCapMultiplier = big.NewInt(baseFeeCapMultiplier) // 4
 )
 
+// CopyTxOpts returns a copy of opts that can be mutated per transaction
+// (gas limit, gas price, fee caps) without racing with other goroutines
+// sharing the original TransactOpts instance.
+func CopyTxOpts(opts *bind.TransactOpts) *bind.TransactOpts {
+	cp := *opts
+	if opts.Nonce != nil {
+		cp.Nonce = new(big.Int).Set(opts.Nonce)
+	}
+	if opts.Value != nil {
+		cp.Value = new(big.Int).Set(opts.Value)
+	}
+	if opts.GasPrice != nil {
+		cp.GasPrice = new(big.Int).Set(opts.GasPrice)
+	}
+	if opts.GasFeeCap != nil {
+		cp.GasFeeCap = new(big.Int).Set(opts.GasFeeCap)
+	}
+	if opts.GasTipCap != nil {
+		cp.GasTipCap = new(big.Int).Set(opts.GasTipCap)
+	}
+	return &cp
+}
+
 type TxVerifier struct {
 	eth *ethclient.Client
 }
@@ -59,14 +82,14 @@ func (t TxVerifier) WaitUntilMined(ctx context.Context, from common.Address, tx 
 
 	receipt, err := bind.WaitMined(ctx, t.eth, tx)
 	if err != nil {
-		return errors.Wrap(err, "bind.WaitMined")
+		return fmt.Errorf("bind.WaitMined: %w", err)
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		reason, err := errorReason(ctx, t.eth, from, tx, receipt.BlockNumber)
 		if err != nil {
 			return err
 		}
-		return errors.Errorf("tx failed: %s", reason)
+		return fmt.Errorf("tx failed: %s", reason)
 	}
 	return nil
 }
@@ -83,7 +106,7 @@ func errorReason(ctx context.Context, b ethereum.ContractCaller, from common.Add
 	}
 	res, err := b.CallContract(ctx, msg, blockNum)
 	if err != nil {
-		return "", errors.Wrap(err, "CallContract")
+		return "", fmt.Errorf("CallContract: %w", err)
 	}
 	return unpackError(res)
 }
@@ -95,16 +118,16 @@ var (
 
 func unpackError(result []byte) (string, error) {
 	if len(result) < 4 || !bytes.Equal(result[:4], errorSig) {
-		return "<tx result not Error(string)>", fmt.Errorf("unknown error signature: %x", result[:4])
+		return "<tx result not Error(string)>", fmt.Errorf("unknown error signature: %x", result)
 	}
 	vs, err := abi.Arguments{{Type: abiString}}.UnpackValues(result[4:])
 	if err != nil {
-		return "<invalid tx result>", errors.Wrap(err, "unpacking revert reason")
+		return "<invalid tx result>", fmt.Errorf("unpacking revert reason: %w", err)
 	}
 
 	errStr, ok := vs[0].(string)
 	if !ok {
-		return "<invalid tx result>", errors.New("unexpected error type)")
+		return "<invalid tx result>", errors.New("unexpected error type")
 	}
 
 	return errStr, nil
@@ -137,12 +160,12 @@ func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.
 		gasLimit = uint64(gasConfig.GasLimit)
 		_, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
-			return errors.Wrap(err, "dry run failed")
+			return fmt.Errorf("dry run: %w", err)
 		}
 	} else if dryRun {
 		gasLimit, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
-			return errors.Wrap(err, "dry run failed")
+			return fmt.Errorf("dry run: %w", err)
 		}
 	} else {
 		gasLimit = getGasLimit(ctx, gasConfig, client, fromAddress, toAddress, value, data, timeout)
@@ -158,7 +181,7 @@ func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.
 		return errors.New("unsupported tx type: set TxType to 0 or 2")
 	}
 	if err != nil {
-		return errors.Wrap(err, "preparing tx")
+		return fmt.Errorf("preparing tx: %w", err)
 	}
 
 	logger.Debugf("Sending signed tx: %s, nonce: %d", signedTx.Hash().Hex(), nonce)
@@ -211,7 +234,7 @@ func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfi
 	baseFeePerGas, err := BaseFee(feeCtx, client)
 	cancelFunc()
 	if err != nil {
-		logger.Debug("Error getting baseFee, %v", err)
+		logger.Debugf("Error getting baseFee: %v", err)
 		return nil, err
 	}
 
@@ -268,7 +291,7 @@ func DryRunTx(ctx context.Context, client *ethclient.Client, fromAddress common.
 func DryRunTxAbi(ctx context.Context, client *ethclient.Client, timeout time.Duration, fromAddress common.Address, toAddress common.Address, value *big.Int, abi *abi.ABI, method string, arguments ...any) (uint64, error) {
 	data, err := abi.Pack(method, arguments...)
 	if err != nil {
-		return 0, errors.Wrap(err, "DryRunTxAbi packing")
+		return 0, fmt.Errorf("DryRunTxAbi packing: %w", err)
 	}
 	estCtx, cancelFunc := context.WithTimeout(ctx, timeout)
 	estimatedGas, err := estimateGas(estCtx, client, fromAddress, toAddress, value, data)
@@ -318,7 +341,7 @@ func GetGasPrice(ctx context.Context, gasConfig *config.Gas, client *ethclient.C
 		suggestedPrice, err := client.SuggestGasPrice(priceCtx)
 		cancelFunc()
 		if err != nil {
-			return nil, errors.Wrap(err, "Unable to estimate gas price")
+			return nil, fmt.Errorf("estimating gas price: %w", err)
 		}
 		if gasConfig.GasPriceMultiplier != 0 {
 			gasPriceFloat := new(big.Float).SetInt(suggestedPrice)

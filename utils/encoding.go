@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -76,27 +77,36 @@ func Hex20ToBytes20(str string) (result [20]byte, err error) {
 	return
 }
 
-// Transform signature to be used by go-ethereum crypto.SigToPub:
-// transforms [V || R || S] to [R || S || V - 27]
-// No checks are performed, we assume that signature array has length 65
-func TransformSignatureVRStoRSV(vrs []byte) (rsv []byte) {
-	rsv = make([]byte, 65)
+// SignatureLength is the length in bytes of an ECDSA signature in both [V || R || S] and [R || S || V] forms.
+const SignatureLength = 65
+
+// TransformSignatureVRStoRSV transforms a signature to be used by go-ethereum crypto.SigToPub:
+// transforms [V || R || S] to [R || S || V - 27].
+func TransformSignatureVRStoRSV(vrs []byte) ([]byte, error) {
+	if len(vrs) != SignatureLength {
+		return nil, fmt.Errorf("invalid signature length %d, expected %d", len(vrs), SignatureLength)
+	}
+
+	rsv := make([]byte, SignatureLength)
 
 	copy(rsv[:], vrs[1:33])
 	copy(rsv[32:], vrs[33:65])
 	rsv[64] = vrs[0] - 27
 
-	return rsv
+	return rsv, nil
 }
 
-// Transform signature transforms [R || S || V - 27] to [V || R || S].
-// No checks are performed, we assume that signature array has length 65
-func TransformSignatureRSVtoVRS(rsv []byte) (vrs []byte) {
-	vrs = make([]byte, 65)
+// TransformSignatureRSVtoVRS transforms [R || S || V - 27] to [V || R || S].
+func TransformSignatureRSVtoVRS(rsv []byte) ([]byte, error) {
+	if len(rsv) != SignatureLength {
+		return nil, fmt.Errorf("invalid signature length %d, expected %d", len(rsv), SignatureLength)
+	}
+
+	vrs := make([]byte, SignatureLength)
 
 	vrs[0] = rsv[64] + 27
 	copy(vrs[1:], rsv[0:32])
 	copy(vrs[33:], rsv[32:64])
 
-	return vrs
+	return vrs, nil
 }

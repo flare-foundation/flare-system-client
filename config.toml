@@ -84,8 +84,8 @@ type = 1 # Type of submitSignature payload
 
 
 # Configuration for the submit1 operation.
+# A submit1 commit obliges a submit2 reveal, so all submitters always run together.
 [submit1]
-enabled = true
 start_offset = "75s" # Offset from the start of the epoch.
 tx_submit_retries = 2
 tx_submit_timeout = "5s"
@@ -94,7 +94,6 @@ data_fetch_timeout = "5s"
 
 # Configuration for the submit2 operation.
 [submit2]
-enabled = true
 start_offset = "20s" # Offset from the start of the epoch.
 tx_submit_retries = 2
 tx_submit_timeout = "5s"
@@ -103,15 +102,14 @@ data_fetch_timeout = "5s"
 
 # Configuration for the submitSignatures operation.
 [submit_signatures]
-enabled = true
-start_offset = "45s" # Offset from the start of the epoch.
+start_offset = "45s" # Offset from the start of the epoch. Must be >= submit2 start_offset.
 tx_submit_retries = 5
 tx_submit_timeout = "5s"
 data_fetch_retries = 1
 data_fetch_timeout = "2s"
-deadline = "58s" # Deadline from the start of the epoch for sending submitSignatures tx.
+deadline = "58s" # Deadline from the start of the epoch for sending submitSignatures tx. Must be > start_offset.
 max_cycles = 5 # Maximal number of query cycles after the deadline.
-cycle_duration = "2" # Minimal duration of a cycle after the deadline.
+cycle_duration = "2s" # Minimal duration of a cycle after the deadline.
 
 # Finalizer configuration.
 [finalizer]

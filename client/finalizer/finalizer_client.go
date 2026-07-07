@@ -2,6 +2,7 @@ package finalizer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	clientContext "github.com/flare-foundation/flare-system-client/client/context"
@@ -9,7 +10,6 @@ import (
 	"github.com/flare-foundation/flare-system-client/config"
 	"github.com/flare-foundation/flare-system-client/utils/credentials"
 
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -53,7 +53,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 
 	relayContract, err := relay.NewRelay(cfg.ContractAddresses.Relay, ethClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating relay contract")
+		return nil, fmt.Errorf("creating relay contract: %w", err)
 	}
 	finalizerContext, err := newFinalizerContext(cfg, relayContract)
 	if err != nil {
@@ -63,11 +63,11 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 	senderPkString, err := config.PrivateKeyFromConfig(cfg.Credentials.SigningPolicyPrivateKeyFile,
 		cfg.Credentials.SigningPolicyPrivateKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading sender private key")
+		return nil, fmt.Errorf("reading sender private key: %w", err)
 	}
 	txOpts, senderPk, err := credentials.CredentialsFromPrivateKey(senderPkString, chainCfg.ChainID)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating sender register tx opts")
+		return nil, fmt.Errorf("creating sender register tx opts: %w", err)
 	}
 	relayClient, err := NewRelayContractClient(
 		ethClient,
@@ -169,7 +169,7 @@ func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startT
 
 		logger.Infof("New signing policy received for epoch %v", policy.RewardEpochID)
 
-		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.lowestRoundStored) // remove signingPolicies that will never be used again
+		c.signingPolicyStorage.RemoveBefore(c.finalizationStorage.LowestRoundStored()) // remove signingPolicies that will never be used again
 	}
 }
 
@@ -230,7 +230,7 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 		}
 
 		if finalizationReady.thresholdReached {
-			logger.Infof("Threshold reached for protocol %d in voting round %d with hash %v", finalizationReady.protocolID, finalizationReady.votingRoundID)
+			logger.Infof("Threshold reached for protocol %d in voting round %d with hash %v", finalizationReady.protocolID, finalizationReady.votingRoundID, finalizationReady.msgHash)
 			c.queueProcessor.Add(&finalizationReady, sp.Seed)
 		}
 	}

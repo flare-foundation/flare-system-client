@@ -123,7 +123,7 @@ func TestFetchData_RejectsNonHexDataOnOk(t *testing.T) {
 
 	_, err := makeSubProtocol(t, srv).fetchData(fetchURL(t, srv), time.Second)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot decode protocol client response body")
+	require.Contains(t, err.Error(), "decoding protocol client response body")
 }
 
 func TestFetchData_RejectsNonHexAdditionalDataOnOk(t *testing.T) {

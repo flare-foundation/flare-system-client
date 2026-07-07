@@ -2,12 +2,12 @@ package credentials
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 )
 
 func TransactOptsFromPrivateKey(pk *ecdsa.PrivateKey, chainID int) (*bind.TransactOpts, error) {
@@ -20,7 +20,7 @@ func CredentialsFromPrivateKey(pk *ecdsa.PrivateKey, chainID int) (*bind.Transac
 		pk, big.NewInt(int64(chainID)),
 	)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+		return nil, nil, fmt.Errorf("bind.NewKeyedTransactorWithChainID: %w", err)
 	}
 	// bind.N
 	return opts, pk, nil
@@ -31,7 +31,7 @@ func PrivateKeyFromHex(privateKey string) (*ecdsa.PrivateKey, error) {
 
 	privKey, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "crypto.HexToECDSA")
+		return nil, fmt.Errorf("crypto.HexToECDSA: %w", err)
 	}
 	return privKey, nil
 }

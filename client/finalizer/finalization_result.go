@@ -2,6 +2,7 @@ package finalizer
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -26,6 +27,9 @@ type IndexedSignature struct {
 //
 // The signatures are chosen in a way to minimize the number of signatures needed for finalization.
 func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, error) {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+
 	availableSignatures := []IndexedSignature{}
 	selectedSignatures := []IndexedSignature{}
 
@@ -50,7 +54,7 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 		}
 	}
 	if weight <= sc.threshold {
-		return FinalizationResult{}, fmt.Errorf("threshold not reached")
+		return FinalizationResult{}, errors.New("threshold not reached")
 	}
 
 	// sort selected by index
@@ -58,7 +62,11 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 		return p.index - q.index
 	})
 
-	return FinalizationResult{message: sc.message, signatures: selectedSignatures, signingPolicy: sc.signingPolicy}, nil
+	return FinalizationResult{
+		message:       sc.message,
+		signatures:    selectedSignatures,
+		signingPolicy: sc.signingPolicy,
+	}, nil
 }
 
 // PrepareFinalizationTxInput prepares a transaction input needed to finalize.
@@ -91,10 +99,10 @@ func encodeSignatures(signatures []IndexedSignature) ([]byte, error) {
 	prevIndex := -1
 	for _, signature := range signatures {
 		if signature.index < 0 {
-			return nil, fmt.Errorf("payload index not set")
+			return nil, errors.New("payload index not set")
 		}
 		if prevIndex >= signature.index {
-			return nil, fmt.Errorf("payloads not sorted by index")
+			return nil, errors.New("payloads not sorted by index")
 		}
 
 		indexBytes := shared.Uint16toBytes(uint16(signature.index))

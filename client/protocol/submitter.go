@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,15 +16,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
 )
 
 var (
-	nonceTooLowError           = "nonce too low" // the transaction with the same nonce has already been accepted
-	waitUntilMinedTimeoutError = "bind.WaitMined: context deadline exceeded"
+	// matched as a substring because the error originates as RPC response text
+	// from the node, not as a typed error usable with errors.Is
+	nonceTooLowError = "nonce too low" // the transaction with the same nonce has already been accepted
 )
 
 type SubmitterBase struct {
@@ -75,7 +76,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 
 	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(ctx, s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
 	if !nonceResult.Success {
-		logger.Errorf("error getting nonce: %v", nonceResult.Message)
+		logger.Errorf("getting nonce: %v", nonceResult.Message)
 		return false
 	}
 	nonce := nonceResult.Value
@@ -103,7 +104,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 			default:
 				newNonce, errNonce := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
 				if errNonce != nil {
-					err = fmt.Errorf("%v, updating nonce :%v", err, errNonce)
+					err = fmt.Errorf("%w; also failed to update nonce: %w", err, errNonce)
 				} else {
 					nonce = newNonce
 				}
@@ -129,7 +130,7 @@ func isNonceTooLow(err error) bool {
 }
 
 func isTimeout(err error) bool {
-	return shared.ExistsAsSubstring([]string{waitUntilMinedTimeoutError}, err.Error())
+	return errors.Is(err, context.DeadlineExceeded)
 }
 
 func newSubmitter(
@@ -286,7 +287,7 @@ func EncodePayload(
 	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
 	signature, err := crypto.Sign(dataHash, signerPrivateKey)
 	if err != nil {
-		return errors.Wrap(err, "error signing submitSignatures data")
+		return fmt.Errorf("signing submitSignatures data: %w", err)
 	}
 
 	epochBytes := shared.Uint32toBytes(uint32(epoch))
@@ -306,10 +307,11 @@ func EncodePayload(
 		}
 	}
 
-	if len(signature) != 65 {
-		return errors.New("signature sanity check, this should not happen")
+	vrsSignature, err := utils.TransformSignatureRSVtoVRS(signature)
+	if err != nil {
+		return fmt.Errorf("signature sanity check, this should not happen: %w", err)
 	}
-	tempBuffer.Write(utils.TransformSignatureRSVtoVRS(signature))
+	tempBuffer.Write(vrsSignature)
 	tempBuffer.Write(data.AdditionalData)
 
 	buffer.Write(tempBuffer.Bytes())
@@ -332,7 +334,7 @@ func (s *SignatureSubmitter) RunEpoch(ctx context.Context, round int64) {
 	logger.Infof("%s fetching data for %d", s.name, round)
 	protocolsToRetry, err := s.RunEpochBeforeDeadline(ctx, round, s.deadline)
 	if err != nil {
-		logger.Errorf("error before Deadline %v", err)
+		logger.Errorf("before Deadline %v", err)
 	}
 
 	if len(protocolsToRetry) > 0 {
@@ -436,7 +438,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 					for i := range s.subProtocols {
 						protocolsToQuery[i] = true
 					}
-					return protocolsToQuery, errors.Errorf("submitSignatures tx failed")
+					return protocolsToQuery, errors.New("submitSignatures tx failed")
 				}
 			}
 			return protocolsToQuery, nil

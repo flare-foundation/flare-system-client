@@ -1,6 +1,6 @@
 version: "2"
 run:
-  go: "1.25.1"
+  go: "1.26.4"
   modules-download-mode: readonly
 linters:
   default: standard
@@ -34,6 +34,22 @@ linters:
       default-signifies-exhaustive: true
     nolintlint:
       require-specific: true
+    govet:
+      settings:
+        printf:
+          # teach the printf checker the custom logger: *f variants are
+          # printf-like, the rest are print-like (flags stray format verbs)
+          funcs:
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Debugf
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Infof
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Warnf
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Errorf
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Fatalf
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Panicf
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Debug
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Info
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Warn
+            - github.com/flare-foundation/go-flare-common/pkg/logger.Error
 exclusions:
   generated: lax
   paths:

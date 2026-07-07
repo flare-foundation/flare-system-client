@@ -35,14 +35,14 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		params := mux.Vars(r)
 		votingRound, err := strconv.Atoi(params["votingRoundID"])
 		if err != nil {
-			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("writing response: %s", err), http.StatusInternalServerError)
 		}
 		data := buildMessage(protocolID, uint32(votingRound), []byte("bla"))
 		resp := dataProviderResponse{Status: "OK", Data: data}
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(&resp)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("writing response: %s", err), http.StatusInternalServerError)
 		}
 		logger.Infof("handled a submit1 request for voting round %d", votingRound)
 	})
@@ -51,14 +51,14 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		params := mux.Vars(r)
 		votingRound, err := strconv.Atoi(params["votingRoundID"])
 		if err != nil {
-			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("writing response: %s", err), http.StatusInternalServerError)
 		}
 		data := buildMessage(protocolID, uint32(votingRound), []byte("bla"))
 		resp := dataProviderResponse{Status: "OK", Data: data}
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(&resp)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("writing response: %s", err), http.StatusInternalServerError)
 		}
 		logger.Infof("handled a submit2 request for voting round %d", votingRound)
 	})
@@ -67,7 +67,7 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		params := mux.Vars(r)
 		votingRound, err := strconv.Atoi(params["votingRoundID"])
 		if err != nil {
-			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("writing response: %s", err), http.StatusInternalServerError)
 		}
 		merkleRoot := bytes.Repeat([]byte{0xff}, 32)
 		data := buildMessageForSigning(protocolID, uint32(votingRound), merkleRoot)
@@ -75,7 +75,7 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(&resp)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("writing response: %s", err), http.StatusInternalServerError)
 		}
 		logger.Infof("handled a submitSignatures request for voting round %d", votingRound)
 	})

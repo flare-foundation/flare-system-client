@@ -3,13 +3,13 @@ package epoch
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -36,7 +36,7 @@ func getUptimeSignature(rewardEpochId *big.Int, privateKey *ecdsa.PrivateKey) (c
 
 	toSign, err := uptimeVoteArguments.Pack(rewardEpochId.Int64(), zeroHash)
 	if err != nil {
-		return zeroHash, nil, errors.Wrapf(err, "error packing uptime vote arguments: %v, %v", rewardEpochId, zeroHash)
+		return zeroHash, nil, fmt.Errorf("packing uptime vote arguments: %v, %v: %w", rewardEpochId, zeroHash, err)
 	}
 
 	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(toSign)), privateKey)

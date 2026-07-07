@@ -69,13 +69,13 @@ func ParseConfigFile(cfg any, fileName string, allowMissing bool) error {
 		if allowMissing {
 			return nil
 		} else {
-			return fmt.Errorf("error opening config file: %w", err)
+			return fmt.Errorf("opening config file: %w", err)
 		}
 	}
 
 	_, err = toml.Decode(string(content), cfg)
 	if err != nil {
-		return fmt.Errorf("error parsing config file: %w", err)
+		return fmt.Errorf("parsing config file: %w", err)
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func ParseConfigFile(cfg any, fileName string, allowMissing bool) error {
 func ReadEnv(cfg any) error {
 	err := envconfig.Process("", cfg)
 	if err != nil {
-		return fmt.Errorf("error reading env config: %w", err)
+		return fmt.Errorf("reading env config: %w", err)
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func ReadEnv(cfg any) error {
 func ReadFileToString(fileName string) (string, error) {
 	content, err := os.ReadFile(fileName)
 	if err != nil {
-		return "", fmt.Errorf("error opening file: %w", err)
+		return "", fmt.Errorf("opening file: %w", err)
 	}
 	return strings.TrimSpace(string(content)), nil
 }
@@ -110,7 +110,7 @@ func PrivateKeyFromConfig(fileName string, envString string) (pk *ecdsa.PrivateK
 		if allowInsecureEnv == "true" {
 			pkString, err = ReadFileToString(fileName)
 			if err != nil {
-				return nil, fmt.Errorf("error reading private key from file: %w", err)
+				return nil, fmt.Errorf("reading private key from file: %w", err)
 			}
 		} else {
 			return nil, errors.New("private keys in files are disabled")
@@ -120,7 +120,7 @@ func PrivateKeyFromConfig(fileName string, envString string) (pk *ecdsa.PrivateK
 	}
 	pk, err = credentials.PrivateKeyFromHex(pkString)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing private key: %w", err)
+		return nil, fmt.Errorf("parsing private key: %w", err)
 	}
 	return pk, nil
 }

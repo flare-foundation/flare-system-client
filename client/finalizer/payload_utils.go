@@ -23,12 +23,16 @@ type payloadMessage struct {
 
 // ExtractPayloads extracts payloads from a transaction input to submission contracts and returns a slice of payloadMessages.
 func ExtractPayloads(data []byte) ([]payloadMessage, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("wrongly formatted tx input: function selector needs 4 bytes, got %d", len(data))
+	}
+
 	messages := []payloadMessage{}
 
 	data = data[4:] // trim function selector
 	for len(data) > 0 {
 		if len(data) < 7 { // 7 = 1 + 4 + 2
-			return nil, errors.New("wrongly formatted tx input, too short")
+			return nil, fmt.Errorf("wrongly formatted tx input: header needs 7 bytes, %d remaining", len(data))
 		}
 
 		protocol := data[0]                               // 1 byte protocol ID
@@ -36,7 +40,7 @@ func ExtractPayloads(data []byte) ([]payloadMessage, error) {
 		length := binary.BigEndian.Uint16(data[5:7])      // 2 bytes length of payload in bytes
 		end := 7 + int(length)
 		if len(data) < end {
-			return nil, errors.New("wrongly formatted tx input")
+			return nil, fmt.Errorf("wrongly formatted tx input: declared payload length %d exceeds %d remaining bytes", length, len(data)-7)
 		}
 
 		payload := data[7:end]
@@ -111,11 +115,14 @@ func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) e
 
 // AddSigner calculates the public key of the signer from the signature and messageHash and adds its voterIndex and weight (if the signer is in the votingSet) to the submitSignaturesPayload.
 func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.Set) error {
-	transformedSignature := utils.TransformSignatureVRStoRSV(pld.signature)
+	transformedSignature, err := utils.TransformSignatureVRStoRSV(pld.signature)
+	if err != nil {
+		return fmt.Errorf("transforming signature: %w", err)
+	}
 
 	pk, err := crypto.SigToPub(messageHash, transformedSignature)
 	if err != nil {
-		return fmt.Errorf("recovering signer for %v", err)
+		return fmt.Errorf("recovering signer: %w", err)
 	}
 
 	pld.signer = crypto.PubkeyToAddress(*pk)

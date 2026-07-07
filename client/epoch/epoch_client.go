@@ -2,6 +2,8 @@ package epoch
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math/big"
 
 	clientConfig "github.com/flare-foundation/flare-system-client/client/config"
@@ -11,7 +13,6 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils/credentials"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
@@ -57,11 +58,11 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 	senderPk, err := config.PrivateKeyFromConfig(cfg.Credentials.SystemClientSenderPrivateKeyFile,
 		cfg.Credentials.SystemClientSenderPrivateKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading sender private key")
+		return nil, fmt.Errorf("reading sender private key: %w", err)
 	}
 	senderTxOpts, _, err := credentials.CredentialsFromPrivateKey(senderPk, chainCfg.ChainID)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating sender register tx opts")
+		return nil, fmt.Errorf("creating sender register tx opts: %w", err)
 	}
 
 	signerPk, err := config.PrivateKeyFromConfig(
@@ -69,7 +70,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 		cfg.Credentials.SigningPolicyPrivateKey,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating signer private key")
+		return nil, fmt.Errorf("creating signer private key: %w", err)
 	}
 
 	systemsManagerClient, err := NewSystemsManagerClient(
@@ -271,18 +272,18 @@ func (c *client) signRewards(ctx context.Context, epochId *big.Int) {
 
 		data, err := fetchRewardData(epochId, c.rewardsConfig)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to fetch reward data for epoch %d", epochId)
+			return nil, fmt.Errorf("unable to fetch reward data for epoch %d: %w", epochId, err)
 		}
 		if data == nil {
 			return nil, errors.New("no reward data found")
 		}
 		hash, weightClaims, err := verifyRewardData(epochId, c.identityAddress, data, c.rewardsConfig)
 		if err != nil {
-			return nil, errors.Wrapf(err, "reward data verification for epoch %d failed", epochId)
+			return nil, fmt.Errorf("reward data verification for epoch %d failed: %w", epochId, err)
 		}
 		signingResult := <-c.systemsManagerClient.SignRewards(ctx, epochId, hash, weightClaims)
 		if !signingResult.Success {
-			return nil, errors.Errorf("unable to send reward signature")
+			return nil, errors.New("unable to send reward signature")
 		}
 		return nil, nil
 	}, c.rewardsConfig.Retries, c.rewardsConfig.RetryInterval)

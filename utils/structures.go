@@ -42,7 +42,7 @@ func CastArray[T, V any](a []V) ([]T, error) {
 		if te, ok := any(e).(T); ok {
 			result[i] = te
 		} else {
-			return nil, fmt.Errorf("error casting item %d", i)
+			return nil, fmt.Errorf("casting item %d", i)
 		}
 	}
 	return result, nil

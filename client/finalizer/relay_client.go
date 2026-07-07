@@ -3,6 +3,7 @@ package finalizer
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
@@ -175,8 +175,8 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 
 		nonce, err := r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
 		if err != nil {
-			logger.Error("error getting nonce: %v", err)
-			return "", errors.Wrap(err, "Error sending relay tx")
+			logger.Errorf("getting nonce: %v", err)
+			return "", fmt.Errorf("getting nonce for relay tx: %w", err)
 		}
 
 		err = r.chainClient.SendRawTx(ctx, r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
@@ -185,7 +185,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
 				return "non fatal error", nil
 			} else {
-				return "", errors.Wrap(err, "Error sending relay tx")
+				return "", fmt.Errorf("sending relay tx: %w", err)
 			}
 		}
 		return "success", nil

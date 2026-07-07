@@ -32,8 +32,8 @@ stages:
 
 variables:
   GOPATH: /go
-  GOLANG_VERSION: "1.25.1-trixie@sha256:61226c61f37cb86253c4ac486ef22c47f14bfddb8f60bb4805bfc165001be758"
-  GOLINT_VERSION: "v2.6.1"
+  GOLANG_VERSION: "1.26.4-trixie@sha256:0dcba0d95dbfb072e9917a106b9e07d7cc298097dc83e9307056ef1889de654d"
+  GOLINT_VERSION: "v2.11.3"
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}

@@ -20,6 +20,8 @@ type signaturesCollection struct {
 	thresholdReached bool
 	signingPolicy    *policy.SigningPolicy
 	threshold        uint16
+
+	mu sync.RWMutex
 }
 
 type protocolCollection struct {
@@ -63,8 +65,11 @@ func NewSignatureCollection(message shared.Message, signingPolicy *policy.Signin
 
 // addSignature adds signature to the signatures collection.
 func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, error) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
 	if p.voterIndex < 0 {
-		return false, fmt.Errorf("voter not recognized")
+		return false, errors.New("voter not recognized")
 	}
 
 	if len(sc.signatures[p.voterIndex]) != 0 {
@@ -84,17 +89,19 @@ func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, 
 
 func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.Hash, error) {
 	if pc.messageAdded {
-		return false, common.Hash{}, fmt.Errorf("message added twice")
+		return false, common.Hash{}, errors.New("message added twice")
 	}
 
 	msgHsh := common.Hash(message.Hash())
+	// An existing collection at msgHsh already holds an equal-bytes message
+	// (same hash). Do not reassign it: PrepareFinalizationResults reads message
+	// under sc.mu only, not the storage lock, so it must stay fixed.
 	_, exists := pc.signatureCollection[msgHsh]
 	if !exists {
 		pc.signatureCollection[msgHsh] = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
 	}
 
 	pc.messageChosenHash = msgHsh
-	pc.signatureCollection[msgHsh].message = message
 	pc.messageAdded = true
 
 	thresholdReached := false
@@ -155,12 +162,12 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 		sigCollection = pc.signatureCollection[pc.messageChosenHash]
 		msgHash = sigCollection.message.Hash()
 	} else {
-		return false, common.Hash{}, fmt.Errorf("unexpected behavior, no message")
+		return false, common.Hash{}, errors.New("unexpected behavior, no message")
 	}
 
 	err := payload.AddSigner(msgHash, sigCollection.signingPolicy.Voters)
 	if err != nil {
-		return false, common.Hash{}, fmt.Errorf("adding payload, %v", err)
+		return false, common.Hash{}, fmt.Errorf("adding payload: %w", err)
 	}
 
 	thresholdReached, err := sigCollection.addSignature(payload)
@@ -182,7 +189,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 	defer s.Unlock()
 
 	if p.votingRoundID < s.lowestRoundStored {
-		return FinalizationReady{thresholdReached: false}, fmt.Errorf("payload for an round before lowestRoundStored %d", s.lowestRoundStored)
+		return FinalizationReady{thresholdReached: false}, fmt.Errorf("payload for round %d before lowest stored round %d", p.votingRoundID, s.lowestRoundStored)
 	}
 
 	rc, exists := s.stg[p.votingRoundID]
@@ -216,7 +223,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	defer s.Unlock()
 
 	if p.VotingRoundID < s.lowestRoundStored {
-		return FinalizationReady{thresholdReached: false}, errors.New("message for old, already removed round")
+		return FinalizationReady{thresholdReached: false}, fmt.Errorf("message for round %d before lowest stored round %d", p.VotingRoundID, s.lowestRoundStored)
 	}
 
 	rc, exists := s.stg[p.VotingRoundID]
@@ -242,9 +249,11 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 	return FinalizationReady{thresholdReached: false}, nil
 }
 
-// Get returns the signatureCollection for votingRoundID and protocolID.
+// get returns the signatureCollection for votingRoundID and protocolID.
 // A boolean inductor of existence is also returned.
-func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
+// Access or mutate signatures, weight, and thresholdReached under the mutex;
+// the other fields are fixed after creation.
+func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
 	round, exists := fs.stg[votingRoundID]
@@ -265,22 +274,31 @@ func (fs *finalizationStorage) Get(votingRoundID uint32, protocolID uint8, msgHa
 	return sigCollection, true
 }
 
+// LowestRoundStored returns the lowest round that is still stored.
+func (fs *finalizationStorage) LowestRoundStored() uint32 {
+	fs.RLock()
+	defer fs.RUnlock()
+
+	return fs.lowestRoundStored
+}
+
 // RemoveRoundsBefore deletes rounds before votingRoundID.
 func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
+	fs.Lock()
+	defer fs.Unlock()
+
 	// initial cleanup
 	if fs.lowestRoundStored == 0 && votingRoundID > 20 {
 		fs.lowestRoundStored = votingRoundID - 20
 	}
 
 	if votingRoundID > fs.lowestRoundStored {
-		fs.Lock()
-		defer fs.Unlock()
-
 		for i := fs.lowestRoundStored; i < votingRoundID; i++ {
 			logger.Debugf("Deleting round %d in finalization storage", i)
 			delete(fs.stg, i)
 		}
 
-		fs.lowestRoundStored = votingRoundID + 1
+		// votingRoundID is the lowest round that remains stored
+		fs.lowestRoundStored = votingRoundID
 	}
 }

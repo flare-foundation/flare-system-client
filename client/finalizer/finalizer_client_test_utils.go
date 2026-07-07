@@ -6,6 +6,8 @@ import (
 	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"sync"
@@ -19,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
@@ -243,7 +244,7 @@ func newSPILog(voterAddress common.Address) (*database.Log, error) {
 		spiLog.Timestamp,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to pack data")
+		return nil, fmt.Errorf("packing data: %w", err)
 	}
 
 	hexData := hex.EncodeToString(packedData)
@@ -281,7 +282,7 @@ func newSPILog(voterAddress common.Address) (*database.Log, error) {
 		},
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "ParseSigningPolicyInitialized failed")
+		return nil, fmt.Errorf("ParseSigningPolicyInitialized failed: %w", err)
 	}
 
 	return log, nil
@@ -346,7 +347,7 @@ func signMessage(message []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
 
 	logger.Infof("signature: %x", signature)
 
-	return utils.TransformSignatureRSVtoVRS(signature), nil
+	return utils.TransformSignatureRSVtoVRS(signature)
 }
 
 func encodeMessage(protocolID uint8, votingRoundID uint32, randomQualityScore bool, merkleRoot []byte) ([]byte, error) {
