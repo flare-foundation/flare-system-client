@@ -45,7 +45,7 @@ func TestSendTx(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGasConfigForAttemptType0(t *testing.T) {
+func TestGasConfigForAttempt(t *testing.T) {
 	tests := []struct {
 		name     string
 		cfg      config2.Gas
@@ -142,8 +142,8 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			name: "zero type 2",
 			cfg: config2.Gas{
 				TxType:                2,
-				MaxPriorityMultiplier: big.NewInt(0),
-				BaseFeeMultiplier:     big.NewInt(0),
+				MaxPriorityMultiplier: 0,
+				BaseFeeMultiplier:     0,
 				BaseFeePerGasCap:      big.NewInt(0),
 				MaximalMaxPriorityFee: big.NewInt(0),
 				MinimalMaxPriorityFee: big.NewInt(0),
@@ -152,8 +152,8 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			expected: config2.Gas{
 				TxType:                2,
 				GasLimit:              0,
-				MaxPriorityMultiplier: big.NewInt(0),
-				BaseFeeMultiplier:     big.NewInt(0),
+				MaxPriorityMultiplier: 2,
+				BaseFeeMultiplier:     4,
 				BaseFeePerGasCap:      big.NewInt(0),
 				MaximalMaxPriorityFee: big.NewInt(0),
 				MinimalMaxPriorityFee: big.NewInt(0),
@@ -163,16 +163,16 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			name: "zero type 2,2 ",
 			cfg: config2.Gas{
 				TxType:                2,
-				MaxPriorityMultiplier: big.NewInt(6),
-				BaseFeeMultiplier:     big.NewInt(2),
+				MaxPriorityMultiplier: 6,
+				BaseFeeMultiplier:     2,
 				BaseFeePerGasCap:      big.NewInt(0),
 			},
 			ri: 2,
 			expected: config2.Gas{
 				TxType:                2,
 				GasLimit:              0,
-				MaxPriorityMultiplier: big.NewInt(8),
-				BaseFeeMultiplier:     big.NewInt(4),
+				MaxPriorityMultiplier: 8,
+				BaseFeeMultiplier:     4,
 				BaseFeePerGasCap:      big.NewInt(0),
 				MaximalMaxPriorityFee: big.NewInt(6160500000000),
 				MinimalMaxPriorityFee: big.NewInt(123210000000),
@@ -183,8 +183,8 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			cfg: config2.Gas{
 				TxType:                2,
 				GasLimit:              0,
-				BaseFeeMultiplier:     big.NewInt(2),
-				MaxPriorityMultiplier: big.NewInt(6),
+				BaseFeeMultiplier:     2,
+				MaxPriorityMultiplier: 6,
 				MaximalMaxPriorityFee: big.NewInt(1000),
 				MinimalMaxPriorityFee: big.NewInt(100),
 			},
@@ -192,10 +192,26 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 			expected: config2.Gas{
 				TxType:                2,
 				GasLimit:              0,
-				BaseFeeMultiplier:     big.NewInt(4),
-				MaxPriorityMultiplier: big.NewInt(8),
+				BaseFeeMultiplier:     4,
+				MaxPriorityMultiplier: 8,
 				MaximalMaxPriorityFee: big.NewInt(1232),
 				MinimalMaxPriorityFee: big.NewInt(123),
+			},
+		},
+		{
+			name: "fractional type 2",
+			cfg: config2.Gas{
+				TxType:                2,
+				MaxPriorityMultiplier: 1.5,
+				BaseFeeMultiplier:     2.25,
+			},
+			ri: 1,
+			expected: config2.Gas{
+				TxType:                2,
+				MaxPriorityMultiplier: 2.5,
+				BaseFeeMultiplier:     3.25,
+				MaximalMaxPriorityFee: big.NewInt(5_550_000_000_000),
+				MinimalMaxPriorityFee: big.NewInt(111_000_000_000),
 			},
 		},
 	}
@@ -220,6 +236,37 @@ func TestGasConfigForAttemptType0(t *testing.T) {
 				require.Equal(t, test.expected.MaximalMaxPriorityFee, got.MaximalMaxPriorityFee, "mincap")
 				require.Equal(t, test.expected.MinimalMaxPriorityFee, got.MinimalMaxPriorityFee, "maxcap")
 			}
+		})
+	}
+}
+
+func TestMultiplyWithFloat(t *testing.T) {
+	tenPow30 := new(big.Int).Exp(big.NewInt(10), big.NewInt(30), nil)
+
+	tests := []struct {
+		name     string
+		x        *big.Int
+		y        float64
+		expected *big.Int
+	}{
+		{"integer", big.NewInt(100), 2, big.NewInt(200)},
+		{"fractional", big.NewInt(100), 1.5, big.NewInt(150)},
+		{"truncates toward zero", big.NewInt(3), 0.5, big.NewInt(1)},
+		{"zero x", big.NewInt(0), 5.5, big.NewInt(0)},
+		{"beyond float64 int range", tenPow30, 1.5, new(big.Int).Mul(big.NewInt(15), new(big.Int).Exp(big.NewInt(10), big.NewInt(29), nil))},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			xBefore := new(big.Int).Set(test.x)
+
+			got := chain.MultiplyWithFloat(test.x, test.y, nil)
+			require.Zero(t, test.expected.Cmp(got))
+			require.Zero(t, xBefore.Cmp(test.x), "x must not be modified")
+
+			out := big.NewInt(-7)
+			got = chain.MultiplyWithFloat(test.x, test.y, out)
+			require.Same(t, out, got)
+			require.Zero(t, test.expected.Cmp(out))
 		})
 	}
 }

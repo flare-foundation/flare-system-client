@@ -391,6 +391,10 @@ func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient
 		txOptions.GasPrice = gasPrice
 		return nil
 	case 2:
+		// Default unset fields so EnforceMaxPriorityFeeCaps never sees a nil cap,
+		// matching the SendRawTx path.
+		gasConfig := gasConfig.CopyAndDefault()
+
 		feeCtx, cancelFunc := context.WithTimeout(ctx, chain.DefaultTxTimeout)
 		baseFeePerGas, err := chain.BaseFee(feeCtx, client)
 		cancelFunc()
@@ -401,26 +405,20 @@ func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient
 		}
 
 		gasFeeCap := new(big.Int)
-		if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Cmp(big.NewInt(0)) == 1 {
+		if gasConfig.BaseFeePerGasCap != nil && gasConfig.BaseFeePerGasCap.Sign() == 1 {
 			gasFeeCap.Set(gasConfig.BaseFeePerGasCap)
 		} else {
-			if gasConfig.BaseFeeMultiplier != nil && gasConfig.BaseFeeMultiplier.Cmp(common.Big0) == 1 {
-				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, gasConfig.BaseFeeMultiplier)
-			} else {
-				gasFeeCap = gasFeeCap.Mul(baseFeePerGas, chain.DefaultBaseFeeCapMultiplier)
-			}
+			gasFeeCap = chain.MultiplyWithFloat(baseFeePerGas, float64(gasConfig.BaseFeeMultiplier), gasFeeCap)
 		}
 
-		tipCap := new(big.Int)
-		if gasConfig.MaxPriorityMultiplier != nil && gasConfig.MaxPriorityMultiplier.Cmp(big.NewInt(0)) == 1 {
-			tipCap.Mul(baseFeePerGas, gasConfig.MaxPriorityMultiplier)
-		} else {
-			tipCap.Mul(baseFeePerGas, chain.DefaultTipMultiplier)
-		}
-		gasFeeCap = gasFeeCap.Add(gasFeeCap, tipCap)
+		tipCap := chain.MultiplyWithFloat(baseFeePerGas, float64(gasConfig.MaxPriorityMultiplier), nil)
+		tipCap = gasConfig.EnforceMaxPriorityFeeCaps(tipCap)
+
+		gasFeeCap.Add(gasFeeCap, tipCap)
 
 		txOptions.GasFeeCap = gasFeeCap
 		txOptions.GasTipCap = tipCap
+
 		return nil
 	default:
 		// should never happen. txType is checked when config is read from toml file.

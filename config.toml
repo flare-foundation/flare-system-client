@@ -127,38 +127,38 @@ gas_limit = 0 # 0 for auto-estimation. Set only if you know what you are doing.
 # gas_price_multiplier = 1.0
 # gas_price_fixed = "100000000000" # Use a fixed gas price. Overrides multiplier.
 # Type 2 tx gas settings
-max_priority_fee_multiplier = "2"
+max_priority_fee_multiplier = 2.0
 minimal_max_priority_fee = "100000000000" # 100 Gwei
 maximal_max_priority_fee = "5000000000000" # 5000 Gwei
-base_fee_multiplier = "4"
+base_fee_multiplier = 4.0
 # base_fee_per_gas_cap = "..." # LEAVE UNSET UNLESS YOU KNOW WHAT YOU ARE DOING.
 
 # Gas configuration for voter registration.
 [gas_register]
 tx_type = 2
 gas_limit = 0
-max_priority_fee_multiplier = "2"
+max_priority_fee_multiplier = 2.0
 minimal_max_priority_fee = "100000000000"
 maximal_max_priority_fee = "5000000000000"
-base_fee_multiplier = "4"
+base_fee_multiplier = 4.0
 
 # Gas configuration for relaying finalization transactions.
 [gas_relay]
 tx_type = 2
 gas_limit = 0
-max_priority_fee_multiplier = "2"
+max_priority_fee_multiplier = 2.0
 minimal_max_priority_fee = "100000000000"
 maximal_max_priority_fee = "5000000000000"
-base_fee_multiplier = "4"
+base_fee_multiplier = 4.0
 
 # Gas configuration for SystemsManager contract interactions.
 [gas_systems_manager]
 tx_type = 2
 gas_limit = 0
-max_priority_fee_multiplier = "2"
+max_priority_fee_multiplier = 2.0
 minimal_max_priority_fee = "100000000000"
 maximal_max_priority_fee = "5000000000000"
-base_fee_multiplier = "4"
+base_fee_multiplier = 4.0
 
 # Rewards signing configuration.
 # [rewards]
