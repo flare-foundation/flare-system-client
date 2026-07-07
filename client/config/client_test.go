@@ -3,6 +3,7 @@ package config
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -81,4 +82,109 @@ func TestGasValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func validSubmit() Submit {
+	return Submit{
+		StartOffset:      20 * time.Second,
+		TxSubmitRetries:  2,
+		TxSubmitTimeout:  5 * time.Second,
+		DataFetchRetries: 1,
+		DataFetchTimeout: 5 * time.Second,
+	}
+}
+
+func TestSubmitValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(s *Submit)
+		wantErr bool
+	}{
+		{"valid", func(*Submit) {}, false},
+		{"zero start offset is allowed", func(s *Submit) { s.StartOffset = 0 }, false},
+		{"negative start offset", func(s *Submit) { s.StartOffset = -time.Second }, true},
+		{"zero retries", func(s *Submit) { s.TxSubmitRetries = 0 }, true},
+		{"negative retries", func(s *Submit) { s.TxSubmitRetries = -1 }, true},
+		{"non-positive submit timeout", func(s *Submit) { s.TxSubmitTimeout = 0 }, true},
+		{"zero data fetch retries", func(s *Submit) { s.DataFetchRetries = 0 }, true},
+		{"non-positive data fetch timeout", func(s *Submit) { s.DataFetchTimeout = -time.Second }, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := validSubmit()
+			tt.mutate(&s)
+			err := s.validate("submit")
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func validSubmitSignatures() SubmitSignatures {
+	return SubmitSignatures{
+		Submit:        validSubmit(),
+		Deadline:      58 * time.Second,
+		MaxCycles:     5,
+		CycleDuration: 2 * time.Second,
+	}
+}
+
+func TestSubmitSignaturesValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(s *SubmitSignatures)
+		wantErr bool
+	}{
+		{"valid", func(*SubmitSignatures) {}, false},
+		{"inherits Submit checks", func(s *SubmitSignatures) { s.TxSubmitTimeout = 0 }, true},
+		{"deadline equal to start offset", func(s *SubmitSignatures) { s.Deadline = s.StartOffset }, true},
+		{"deadline before start offset", func(s *SubmitSignatures) { s.Deadline = s.StartOffset - time.Second }, true},
+		{"negative max cycles", func(s *SubmitSignatures) { s.MaxCycles = -1 }, true},
+		{"zero max cycles is allowed", func(s *SubmitSignatures) { s.MaxCycles = 0 }, false},
+		{"negative cycle duration", func(s *SubmitSignatures) { s.CycleDuration = -time.Second }, true},
+		{"zero cycle duration is allowed", func(s *SubmitSignatures) { s.CycleDuration = 0 }, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := validSubmitSignatures()
+			tt.mutate(&s)
+			err := s.validate()
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateSubmitters(t *testing.T) {
+	base := func() *Client {
+		return &Client{
+			Submit1:          validSubmit(),
+			Submit2:          validSubmit(),
+			SubmitSignatures: validSubmitSignatures(),
+		}
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		require.NoError(t, base().validateSubmitters())
+	})
+
+	t.Run("enabled submitter is validated", func(t *testing.T) {
+		c := base()
+		c.Submit1.TxSubmitTimeout = 0
+		require.Error(t, c.validateSubmitters())
+	})
+
+	t.Run("signatures must not run before reveal", func(t *testing.T) {
+		c := base()
+		c.Submit2.StartOffset = 45 * time.Second
+		c.SubmitSignatures.StartOffset = 20 * time.Second // before submit2
+		c.SubmitSignatures.Deadline = 30 * time.Second    // keep deadline > its start offset
+		require.Error(t, c.validateSubmitters())
+	})
 }

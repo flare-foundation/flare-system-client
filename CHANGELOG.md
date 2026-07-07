@@ -6,8 +6,12 @@
 
 - CI: test coverage reporting and full pipelines on merge requests.
 - Tests covering payload extraction, signature transforms, finalization storage cleanup and concurrent access, gas config validation, reward data bounds, protocol client shutdown, and protocol client HTTP response parsing.
+- Startup validation of the submitter config sections (`submit1`, `submit2`, `submit_signatures`): rejects negative start offsets, non-positive submit/data-fetch timeouts, retry counts below one, a `submit_signatures` deadline at or before its start offset, negative `max_cycles`/`cycle_duration`, and a `submit_signatures` start offset scheduled before the `submit2` reveal.
+- Startup validation that the finalizer requires protocol voting: `enabled_finalizer` needs `enabled_protocol_voting`, otherwise the finalizer would never receive submitted messages.
 
 ### Changed
+
+- **Config (breaking):** removed the per-submitter `enabled` option from `[submit1]`, `[submit2]`, and `[submit_signatures]`. All three submitters now always run when protocol voting is enabled; use `enabled_protocol_voting` to turn submission on or off. Any leftover `enabled` key in these sections is ignored.
 
 - Finalization storage returns the live signatures collection guarded by a per-collection mutex instead of a deep copy on every read.
 - Migrated error handling from `github.com/pkg/errors` to the standard library; cleaned up error and log messages and fixed logger format misuse.

@@ -93,10 +93,9 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	}
 
 	msgHsh := common.Hash(message.Hash())
-	// An existing collection at msgHsh was created from a message with this
-	// same hash, so its message field already holds equal bytes. Do not
-	// reassign it here: message is read by PrepareFinalizationResults outside
-	// the storage lock, under sc.mu only, and must stay fixed after creation.
+	// An existing collection at msgHsh already holds an equal-bytes message
+	// (same hash). Do not reassign it: PrepareFinalizationResults reads message
+	// under sc.mu only, not the storage lock, so it must stay fixed.
 	_, exists := pc.signatureCollection[msgHsh]
 	if !exists {
 		pc.signatureCollection[msgHsh] = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
@@ -252,7 +251,8 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 
 // get returns the signatureCollection for votingRoundID and protocolID.
 // A boolean inductor of existence is also returned.
-// The mutex should be used to access or change: signatures, weight, or threshold reached, the rest of the fields are fixed and do not change.
+// Access or mutate signatures, weight, and thresholdReached under the mutex;
+// the other fields are fixed after creation.
 func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
