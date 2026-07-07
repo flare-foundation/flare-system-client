@@ -8,11 +8,13 @@
 - Tests covering payload extraction, signature transforms, finalization storage cleanup and concurrent access, gas config validation, reward data bounds, protocol client shutdown, and protocol client HTTP response parsing.
 - Startup validation of the submitter config sections (`submit1`, `submit2`, `submit_signatures`): rejects negative start offsets, non-positive submit/data-fetch timeouts, retry counts below one, a `submit_signatures` deadline at or before its start offset, negative `max_cycles`/`cycle_duration`, and a `submit_signatures` start offset scheduled before the `submit2` reveal.
 - Startup validation that the finalizer requires protocol voting: `enabled_finalizer` needs `enabled_protocol_voting`, otherwise the finalizer would never receive submitted messages.
+- Startup validation of type-2 gas multipliers: rejects non-finite (`inf`/`nan`) or non-positive `max_priority_fee_multiplier` / `base_fee_multiplier`, requires their sum to be at least 1, and rejects a non-finite or below-1 `gas_price_multiplier` — surfacing bad values at startup instead of panicking at transaction time.
 
 ### Changed
 
 - **Config (breaking):** removed the per-submitter `enabled` option from `[submit1]`, `[submit2]`, and `[submit_signatures]`. All three submitters now always run when protocol voting is enabled; use `enabled_protocol_voting` to turn submission on or off. Any leftover `enabled` key in these sections is ignored.
 
+- Type-2 gas config: `max_priority_fee_multiplier` and `base_fee_multiplier` now accept fractional (float) values (e.g. `1.5`) instead of only whole numbers; quoted-string values (`"2"`) from the previous `big.Int` format are still parsed for backward compatibility.
 - Finalization storage returns the live signatures collection guarded by a per-collection mutex instead of a deep copy on every read.
 - Migrated error handling from `github.com/pkg/errors` to the standard library; cleaned up error and log messages and fixed logger format misuse.
 - Bumped go-ethereum to v1.17.3, go-flare-common to v1.2.1, and Go to 1.26.4.
