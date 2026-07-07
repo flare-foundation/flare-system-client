@@ -14,17 +14,12 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
-)
-
-var (
-	// matched as a substring because the error originates as RPC response text
-	// from the node, not as a typed error usable with errors.Is
-	nonceTooLowError = "nonce too low" // the transaction with the same nonce has already been accepted
 )
 
 type SubmitterBase struct {
@@ -65,10 +60,13 @@ type SignatureSubmitter struct {
 	cycleDuration time.Duration // minimal duration of one cycle
 }
 
-// submit submits tx with payload to submitContractAddress with latest nonce.
-//
-// On retry, nonce is reused if deadline is exceeded and "nonce too low" is considered non fatal error in the next attempt
-// (it indicates that the transaction was accepted).
+// submit signs and broadcasts a tx with input to submitContractAddress, retrying
+// with pre-/post-broadcast awareness:
+//   - pre-broadcast failures (tx never sent) refresh the nonce and retry;
+//   - post-broadcast timeouts keep the nonce and bump gas, so the retry replaces
+//     the pending tx rather than duplicating it;
+//   - "nonce too low" is reconciled against the hashes broadcast so far: if one
+//     was accepted the send succeeded, otherwise the nonce is bumped and resent.
 func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 	if len(input) <= 4 {
 		return false
@@ -76,61 +74,76 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 
 	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(ctx, s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
 	if !nonceResult.Success {
-		logger.Errorf("getting nonce: %v", nonceResult.Message)
+		logger.Errorf("Submitter %s getting nonce: %v", s.name, nonceResult.Message)
 		return false
 	}
 	nonce := nonceResult.Value
 
-	timedOut := false
+	from := crypto.PubkeyToAddress(s.submitPrivateKey.PublicKey)
+	var broadcastHashes []common.Hash
 
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
-		logger.Debugf("[Attempt %d] Submitter %s sending tx with gas config: %+v, timeout: %s", ri, s.name, gasConfig, s.submitTimeout)
-		err := s.chainClient.SendRawTx(ctx, s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
-		if err == nil {
-			return "", nil // Success
-		} else {
-			switch {
-			// Tx was sent, but client timed out awaiting confirmation, and first retry results
-			// in "nonce too low" error -> abort retries to avoid submitting multiple transactions.
-			case timedOut && isNonceTooLow(err):
-				logger.Debugf("Non fatal error sending tx for submitter %s: %v", s.name, err)
-				return fmt.Sprintf("non fatal error: %v", err), nil
-			// Tx was sent, but client timed out awaiting confirmation -> retry with the same nonce but updated gas config.
-			case isTimeout(err):
-				timedOut = true
-				return "", err
-			// For all other errors, including "nonce too low" without prior timeout -> retry with updated nonce and gas config.
-			default:
-				newNonce, errNonce := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
-				if errNonce != nil {
-					err = fmt.Errorf("%w; also failed to update nonce: %w", err, errNonce)
-				} else {
-					nonce = newNonce
-				}
-				return "", err
+		logger.Debugf("[Attempt %d] Submitter %s sending tx with nonce %d, gas config: %+v, timeout: %s", ri, s.name, nonce, gasConfig, s.submitTimeout)
+
+		res := s.chainClient.SendRawTx(ctx, s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
+		if res.Broadcast {
+			broadcastHashes = append(broadcastHashes, res.Hash)
+		}
+
+		switch {
+		case res.Err == nil:
+			return res.Hash.Hex(), nil // mined successfully
+		case chain.IsNonceTooLow(res.Err):
+			// Nonce is consumed by some mined tx. If it was one of ours the payload
+			// is submitted; if we cannot tell, do NOT resend (would duplicate);
+			// only bump once we know none of ours landed (a foreign tx took it).
+			h, acc := chain.AnyAccepted(ctx, s.chainClient, from, broadcastHashes, nil, time.Second)
+			switch acc {
+			case chain.Accepted:
+				logger.Infof("Submitter %s: broadcast tx %s accepted, nonce too low is non-fatal", s.name, h.Hex())
+				return h.Hex(), nil
+			case chain.Undetermined:
+				logger.Warnf("Submitter %s: nonce %d too low but prior tx status unknown, retrying reconciliation", s.name, nonce)
+				return "", res.Err
+			default: // NotAccepted
+				logger.Warnf("Submitter %s: nonce %d consumed by another tx, bumping nonce", s.name, nonce)
+				nonce = s.refreshNonce(ctx, nonce)
+				return "", res.Err
 			}
+		case res.Broadcast && chain.IsTimeout(res.Err):
+			// Post-broadcast timeout: tx may be in the mempool at this nonce. Keep
+			// the nonce and bump gas next attempt so it replaces the pending tx.
+			logger.Warnf("Submitter %s: timed out awaiting confirmation of tx %s (nonce %d), retrying as replacement", s.name, res.Hash.Hex(), nonce)
+			return "", res.Err
+		default:
+			// Not confirmed. If we have already broadcast a tx it is outstanding at
+			// this nonce, so keep it (a retry replaces it); only refresh the nonce
+			// when nothing has been broadcast yet.
+			if len(broadcastHashes) == 0 {
+				nonce = s.refreshNonce(ctx, nonce)
+			}
+			logger.Warnf("Submitter %s: send failed at nonce %d: %v", s.name, nonce, res.Err)
+			return "", res.Err
 		}
 	}, s.submitRetries, 1*time.Second)
 
 	if sendResult.Success {
-		if sendResult.Value == "" {
-			logger.Infof("Submitter %s successfully sent tx", s.name)
-		} else {
-			logger.Infof("Submitter %s sent tx, but unable to ascertain its confirmation: %s", s.name, sendResult.Value)
-		}
+		logger.Infof("Submitter %s successfully sent tx %s", s.name, sendResult.Value)
 	} else {
 		logger.Errorf("Submitter %s unsuccessful tx: %s", s.name, sendResult.Message)
 	}
 	return sendResult.Success
 }
 
-func isNonceTooLow(err error) bool {
-	return shared.ExistsAsSubstring([]string{nonceTooLowError}, err.Error())
-}
-
-func isTimeout(err error) bool {
-	return errors.Is(err, context.DeadlineExceeded)
+// refreshNonce best-effort re-fetches the account nonce, keeping current on error.
+func (s *SubmitterBase) refreshNonce(ctx context.Context, current uint64) uint64 {
+	nonce, err := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
+	if err != nil {
+		logger.Warnf("Submitter %s failed to refresh nonce: %v", s.name, err)
+		return current
+	}
+	return nonce
 }
 
 func newSubmitter(

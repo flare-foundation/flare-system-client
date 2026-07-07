@@ -16,9 +16,11 @@ import (
 	clientConfig "github.com/flare-foundation/flare-system-client/client/config"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/utils"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/bradleyjkemp/cupaloy"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -205,17 +207,25 @@ type sentTxInfo struct {
 
 func (c *testChainClient) SendRawTx(
 	_ context.Context, privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, payload []byte, _ *clientConfig.Gas, _ time.Duration, _ bool,
-) error {
+) chain.SendResult {
 	c.sentTxs = append(c.sentTxs, &sentTxInfo{
 		privateKey: privateKey,
 		to:         to,
 		payload:    payload,
 	})
-	return nil
+	return chain.SendResult{Broadcast: true}
 }
 
 func (c *testChainClient) Nonce(_ context.Context, _ *ecdsa.PrivateKey, _ time.Duration) (uint64, error) {
 	return 10, nil
+}
+
+func (c *testChainClient) Receipt(_ context.Context, _ common.Hash, _ time.Duration) (*types.Receipt, error) {
+	return nil, nil
+}
+
+func (c *testChainClient) RevertReason(_ context.Context, _ common.Address, _ common.Hash, _ time.Duration) (string, error) {
+	return "", nil
 }
 
 type testAPIEndpoint struct {

@@ -3,7 +3,6 @@ package finalizer
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -22,12 +21,12 @@ const (
 	listenerBufferSize = 10
 )
 
-var (
-	nonFatalRelayErrors = []string{
-		"Already relayed",
-		"nonce too low",
-	}
-)
+// nonFatalRelayErrors are relay revert reasons that mean the finalization is
+// already done on chain, so our tx failing that way is a success. "nonce too
+// low" is handled separately (chain.IsNonceTooLow) via hash reconciliation.
+var nonFatalRelayErrors = []string{
+	"Already relayed",
+}
 
 var (
 	RelayFlareOld          = common.HexToAddress("0x57a4c3676d08Aa5d15410b5A6A80fBcEF72f3F45")
@@ -164,38 +163,78 @@ func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Conte
 	return out
 }
 
-// SubmitPayloads sends a transaction with input to Relay contract.
+// SubmitPayloads sends a transaction with input to the Relay contract, retrying
+// with the same pre-/post-broadcast and nonce-too-low reconciliation logic as
+// the protocol submitter (see SubmitterBase.submit).
 func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool, protocolID uint8) {
 	if len(input) == 0 {
 		return
 	}
 
+	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) {
+		return r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
+	}, 3, 100*time.Millisecond)
+	if !nonceResult.Success {
+		logger.Warnf("Relaying failed for protocol %d: getting nonce: %v", protocolID, nonceResult.Message)
+		return
+	}
+	nonce := nonceResult.Value
+
+	var broadcastHashes []common.Hash
+
 	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
 
-		nonce, err := r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
-		if err != nil {
-			logger.Errorf("getting nonce: %v", err)
-			return "", fmt.Errorf("getting nonce for relay tx: %w", err)
+		res := r.chainClient.SendRawTx(ctx, r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
+		if res.Broadcast {
+			broadcastHashes = append(broadcastHashes, res.Hash)
 		}
 
-		err = r.chainClient.SendRawTx(ctx, r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
-		if err != nil {
-			if shared.ExistsAsSubstring(nonFatalRelayErrors, err.Error()) {
-				logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, err)
-				return "non fatal error", nil
-			} else {
-				return "", fmt.Errorf("sending relay tx: %w", err)
+		switch {
+		case res.Err == nil:
+			return "confirmed " + res.Hash.Hex(), nil
+		case chain.MatchesError(res.Err, nonFatalRelayErrors):
+			logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, res.Err)
+			return "non fatal error", nil
+		case chain.IsNonceTooLow(res.Err):
+			h, acc := chain.AnyAccepted(ctx, r.chainClient, r.senderAddress, broadcastHashes, nonFatalRelayErrors, chain.DefaultTxTimeout)
+			switch acc {
+			case chain.Accepted:
+				return "reconciled " + h.Hex(), nil
+			case chain.Undetermined:
+				logger.Warnf("Relay protocol %d: nonce %d too low but prior tx status unknown, retrying reconciliation", protocolID, nonce)
+				return "", res.Err
+			default: // NotAccepted
+				nonce = r.refreshNonce(ctx, nonce)
+				return "", res.Err
 			}
+		case res.Broadcast && chain.IsTimeout(res.Err):
+			return "", res.Err // keep nonce, retry as replacement
+		default:
+			// Keep the nonce if a tx is already outstanding at it (retry replaces);
+			// only refresh when nothing has been broadcast yet.
+			if len(broadcastHashes) == 0 {
+				nonce = r.refreshNonce(ctx, nonce)
+			}
+			return "", res.Err
 		}
-		return "success", nil
 	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 
 	if sendResult.Success {
 		logger.Infof("Relaying finished for protocol %d with %s", protocolID, sendResult.Value)
 	} else {
-		logger.Warnf("Relaying failed with: %v", sendResult.Message)
+		logger.Warnf("Relaying failed for protocol %d with: %v", protocolID, sendResult.Message)
 	}
+}
+
+// refreshNonce best-effort re-fetches the sender nonce, keeping current on error.
+func (r *relayContractClient) refreshNonce(ctx context.Context, current uint64) uint64 {
+	nonce, err := r.chainClient.Nonce(ctx, r.privateKey, time.Second)
+	if err != nil {
+		logger.Warnf("relay failed to refresh nonce: %v", err)
+		return current
+	}
+	return nonce
 }
 
 // relayedKey is the lookup key for ProtocolMessageRelayed events.

@@ -37,12 +37,12 @@ func TestSendTx(t *testing.T) {
 	require.NoError(t, err)
 	cancelNonce()
 
-	err = chain.SendRawTx(context.Background(), cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 8*time.Second)
-	require.NoError(t, err)
+	res := chain.SendRawTx(context.Background(), cl, pk, nonce, toAddress, []byte{1, 2, 3}, true, &gasConfigType2, 8*time.Second)
+	require.NoError(t, res.Err)
 
 	gasConfigType0 := config2.Gas{TxType: 0, GasPriceMultiplier: 3}
-	err = chain.SendRawTx(context.Background(), cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 8*time.Second)
-	require.NoError(t, err)
+	res = chain.SendRawTx(context.Background(), cl, pk, nonce+1, toAddress, []byte{1, 2, 3}, true, &gasConfigType0, 8*time.Second)
+	require.NoError(t, res.Err)
 }
 
 func TestGasConfigForAttempt(t *testing.T) {

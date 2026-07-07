@@ -134,8 +134,23 @@ func BaseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	return (*big.Int)(&result), err
 }
 
-// SendRawTx sends a transaction to toAddress with input data with prescribed nonce and gasConfig.
-func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
+// SendRawTx signs a transaction to toAddress with the prescribed nonce and
+// gasConfig, broadcasts it and waits for it to be mined. SendResult classifies
+// the outcome (pre-broadcast failure vs post-broadcast timeout) and carries the
+// broadcast hash for nonce-too-low reconciliation.
+func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) SendResult {
+	signedTx, fromAddress, err := buildAndSignRawTx(ctx, client, privateKey, nonce, toAddress, data, dryRun, gasConfig, timeout)
+	if err != nil {
+		// Failed before broadcast: never reached the node, so Broadcast stays false.
+		return SendResult{Err: fmt.Errorf("preparing tx: %w", err)}
+	}
+	return BroadcastAndWait(ctx, client, fromAddress, signedTx, timeout)
+}
+
+// buildAndSignRawTx does the pre-broadcast work (chain id, gas limit, signing;
+// dry-running when dryRun is set). Any error it returns is a pre-broadcast
+// failure — nothing was sent to the network.
+func buildAndSignRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) (*types.Transaction, common.Address, error) {
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	value := big.NewInt(0)
@@ -144,7 +159,7 @@ func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.
 	chainID, err := client.NetworkID(chainIDCtx)
 	cancelFunc()
 	if err != nil {
-		return err
+		return nil, fromAddress, err
 	}
 
 	var gasLimit uint64
@@ -152,12 +167,12 @@ func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.
 		gasLimit = uint64(gasConfig.GasLimit)
 		_, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
-			return fmt.Errorf("dry run: %w", err)
+			return nil, fromAddress, fmt.Errorf("dry run: %w", err)
 		}
 	} else if dryRun {
 		gasLimit, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
 		if err != nil {
-			return fmt.Errorf("dry run: %w", err)
+			return nil, fromAddress, fmt.Errorf("dry run: %w", err)
 		}
 	} else {
 		gasLimit = getGasLimit(ctx, gasConfig, client, fromAddress, toAddress, value, data, timeout)
@@ -170,29 +185,13 @@ func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.
 	case 2:
 		signedTx, err = prepareAndSignType2(ctx, client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
 	default:
-		return errors.New("unsupported tx type: set TxType to 0 or 2")
+		return nil, fromAddress, errors.New("unsupported tx type: set TxType to 0 or 2")
 	}
 	if err != nil {
-		return fmt.Errorf("preparing tx: %w", err)
+		return nil, fromAddress, err
 	}
 
-	logger.Debugf("Sending signed tx: %s, nonce: %d", signedTx.Hash().Hex(), nonce)
-	sendCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-	err = client.SendTransaction(sendCtx, signedTx)
-	cancelFunc()
-	if err != nil {
-		return err
-	}
-
-	verifier := NewTxVerifier(client)
-
-	err = verifier.WaitUntilMined(ctx, fromAddress, signedTx, timeout)
-	if err != nil {
-		return err
-	}
-	logger.Debugf("Successful tx: %s", signedTx.Hash().Hex())
-
-	return nil
+	return signedTx, fromAddress, nil
 }
 
 // prepareAndSignType0 prepares a type 0 (legacy) transaction and signs it.

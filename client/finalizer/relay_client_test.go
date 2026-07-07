@@ -1,10 +1,19 @@
 package finalizer
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"errors"
 	"math/big"
 	"testing"
+	"time"
+
+	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,4 +78,82 @@ func TestRelayedKey_TwoNonNilSeedsDoNotCollide(t *testing.T) {
 	rb := relayedKey{protocolID: 1, votingRoundID: 1}
 	rm := map[relayedKey]bool{ra: true}
 	require.True(t, rm[rb], "relayedKey is pure value type — equal values match")
+}
+
+type scriptedRelayClient struct {
+	results  []chain.SendResult
+	nonces   []uint64
+	receipts map[common.Hash]*types.Receipt
+	reverts  map[common.Hash]string
+
+	sentNonces []uint64
+	sendIdx    int
+	nonceIdx   int
+}
+
+func (c *scriptedRelayClient) SendRawTx(_ context.Context, _ *ecdsa.PrivateKey, nonce uint64, _ common.Address, _ []byte, _ *config.Gas, _ time.Duration, _ bool) chain.SendResult {
+	c.sentNonces = append(c.sentNonces, nonce)
+	r := c.results[min(c.sendIdx, len(c.results)-1)]
+	c.sendIdx++
+	return r
+}
+func (c *scriptedRelayClient) Nonce(context.Context, *ecdsa.PrivateKey, time.Duration) (uint64, error) {
+	n := c.nonces[min(c.nonceIdx, len(c.nonces)-1)]
+	c.nonceIdx++
+	return n, nil
+}
+func (c *scriptedRelayClient) Receipt(_ context.Context, h common.Hash, _ time.Duration) (*types.Receipt, error) {
+	return c.receipts[h], nil
+}
+func (c *scriptedRelayClient) RevertReason(_ context.Context, _ common.Address, h common.Hash, _ time.Duration) (string, error) {
+	return c.reverts[h], nil
+}
+
+func testRelayClient(t *testing.T, cc chain.Client) *relayContractClient {
+	t.Helper()
+	pk, err := crypto.HexToECDSA(testPrivateKeyHex)
+	require.NoError(t, err)
+	return &relayContractClient{
+		chainClient:   cc,
+		gasConfig:     &config.Gas{TxType: 0, GasPriceFixed: common.Big0},
+		privateKey:    pk,
+		address:       relayContractAddress,
+		senderAddress: crypto.PubkeyToAddress(pk.PublicKey),
+	}
+}
+
+var (
+	relayHash0 = common.HexToHash("0x11")
+	relayHash1 = common.HexToHash("0x12")
+)
+
+// A relay tx reverting with "Already relayed" on the current attempt is a
+// non-fatal success (someone else finalized the round).
+func TestRelayAlreadyRelayedIsNonFatal(t *testing.T) {
+	cc := &scriptedRelayClient{
+		nonces:  []uint64{10},
+		results: []chain.SendResult{{Broadcast: false, Err: errors.New("execution reverted: Already relayed")}},
+	}
+	r := testRelayClient(t, cc)
+
+	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
+	require.Len(t, cc.sentNonces, 1) // no retry, treated as success
+}
+
+// A prior broadcast mined but reverted with the allowed "Already relayed" reason
+// must reconcile a subsequent "nonce too low" as success (no duplicate).
+func TestRelayReconcilesMinedRevertedAllowed(t *testing.T) {
+	cc := &scriptedRelayClient{
+		nonces: []uint64{10},
+		results: []chain.SendResult{
+			{Hash: relayHash0, Broadcast: true, Err: context.DeadlineExceeded}, // post-broadcast timeout
+			{Hash: relayHash1, Broadcast: false, Err: errors.New("nonce too low")},
+		},
+		receipts: map[common.Hash]*types.Receipt{relayHash0: {Status: types.ReceiptStatusFailed}},
+		reverts:  map[common.Hash]string{relayHash0: "Already relayed"},
+	}
+	r := testRelayClient(t, cc)
+
+	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
+	require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled, nonce not bumped
 }
