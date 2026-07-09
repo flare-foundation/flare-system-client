@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Startup warning when an enabled client's gas config sets `gas_price_fixed` (a backwards-compatibility option pinning the whole fee, so retries cannot replace a stuck transaction) or `base_fee_per_gas_cap` (pinning the base-fee component of the cap, which is not bumped on retry).
+
+### Changed
+
+- Relay nonce-too-low reconciliation now bounds each receipt/revert lookup to 5s (was the full 60s tx timeout), so a hung RPC endpoint cannot stall a retry cycle for minutes.
+
+### Fixed
+
+- Nonce-too-low reconciliation now decodes the revert reason from the JSON-RPC error geth/coreth return for a reverting `eth_call`; previously the reason was never recovered, so a relay tx that mined reverting with the non-fatal "Already relayed" was treated as undetermined and retried instead of recognized as already done.
+- A relay transaction that mines but reverts for a non-fatal reason is no longer retried (whether observed directly or via reconciliation): the revert is deterministic on the signed payload, so a resend only re-mines and wastes gas.
+- A not-found receipt during reconciliation is now treated as undetermined rather than conclusive, so a lagging RPC backend can no longer trigger a duplicate transaction at a bumped nonce.
+- Restored the relay nonce fetch's retry budget so a transient RPC failure no longer drops a finalization after only a few hundred milliseconds.
+- Transaction send-retry helpers now abort promptly on context cancellation instead of sleeping through the remaining retries, unblocking graceful shutdown (previously up to ~50s for the finalizer, longer for epoch paths).
+
 ## [v1.1.1](https://github.com/flare-foundation/flare-system-client/tree/v1.1.1) - 2026-7-15
 
 ### Added
