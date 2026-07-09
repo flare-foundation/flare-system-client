@@ -103,7 +103,7 @@ func NewSystemsManagerClient(
 }
 
 func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(ctx context.Context, rewardEpochId *big.Int, signingPolicy []byte) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(ctx, func() (any, error) {
 		err := s.sendSignNewSigningPolicy(ctx, rewardEpochId, signingPolicy)
 		if err != nil {
 			return nil, fmt.Errorf("sending sign new signing policy: %w", err)
@@ -184,7 +184,7 @@ func SigningPolicyHash(signingPolicy []byte) []byte {
 }
 
 func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {
-	return shared.ExecuteWithRetryChan(func() (*big.Int, error) {
+	return shared.ExecuteWithRetryChan(context.Background(), func() (*big.Int, error) {
 		id, err := s.flareSystemsManager.GetCurrentRewardEpochId(nil)
 		if err != nil {
 			return nil, err
@@ -338,7 +338,7 @@ func (s *systemsManagerContractClientImpl) parseSignUptimeVoteEnabledEvent(dbLog
 }
 
 func (s *systemsManagerContractClientImpl) SignUptimeVote(ctx context.Context, rewardEpochId *big.Int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(ctx, func() (any, error) {
 		err := s.sendSignUptimeVote(ctx, rewardEpochId)
 		if err != nil {
 			return nil, fmt.Errorf("sending sign uptime vote: %w", err)
@@ -461,7 +461,7 @@ func (s *systemsManagerContractClientImpl) IsRewardHashSigned(epochId *big.Int) 
 }
 
 func (s *systemsManagerContractClientImpl) SignRewards(ctx context.Context, epochId *big.Int, rewardHash *common.Hash, weightClaims int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(ctx, func() (any, error) {
 		err := s.sendSignRewards(ctx, epochId, rewardHash, weightClaims)
 		if err != nil {
 			return nil, fmt.Errorf("sending sign rewards: %w", err)

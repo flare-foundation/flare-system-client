@@ -65,10 +65,10 @@ func TestAnyAccepted(t *testing.T) {
 			wantHash: hA, want: chain.Accepted,
 		},
 		{
-			name:   "not mined -> conclusively not accepted",
+			name:   "receipt not found -> undetermined (may be a behind RPC backend)",
 			client: fakeClient{receipts: map[common.Hash]*types.Receipt{}},
 			hashes: []common.Hash{hA},
-			want:   chain.NotAccepted,
+			want:   chain.Undetermined,
 		},
 		{
 			name:     "reverted with allowed reason",
@@ -78,17 +78,17 @@ func TestAnyAccepted(t *testing.T) {
 			wantHash: hA, want: chain.Accepted,
 		},
 		{
-			name:    "reverted with other reason",
-			client:  fakeClient{receipts: map[common.Hash]*types.Receipt{hA: reverted}, reverts: map[common.Hash]string{hA: "boom"}},
-			hashes:  []common.Hash{hA},
-			allowed: []string{"Already relayed"},
-			want:    chain.NotAccepted,
+			name:     "reverted with other reason -> reverted (terminal)",
+			client:   fakeClient{receipts: map[common.Hash]*types.Receipt{hA: reverted}, reverts: map[common.Hash]string{hA: "boom"}},
+			hashes:   []common.Hash{hA},
+			allowed:  []string{"Already relayed"},
+			wantHash: hA, want: chain.Reverted,
 		},
 		{
-			name:   "reverted, no allowed list",
-			client: fakeClient{receipts: map[common.Hash]*types.Receipt{hA: reverted}},
-			hashes: []common.Hash{hA},
-			want:   chain.NotAccepted,
+			name:     "reverted, no allowed list -> reverted (terminal)",
+			client:   fakeClient{receipts: map[common.Hash]*types.Receipt{hA: reverted}},
+			hashes:   []common.Hash{hA},
+			wantHash: hA, want: chain.Reverted,
 		},
 		{
 			name:     "first pending, second mined",
@@ -116,10 +116,10 @@ func TestAnyAccepted(t *testing.T) {
 			wantHash: hB, want: chain.Accepted,
 		},
 		{
-			name:   "no hashes -> conclusively not accepted",
+			name:   "no hashes broadcast -> nonce consumed (foreign tx)",
 			client: fakeClient{},
 			hashes: nil,
-			want:   chain.NotAccepted,
+			want:   chain.NonceConsumed,
 		},
 	}
 
@@ -127,7 +127,7 @@ func TestAnyAccepted(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h, acc := chain.AnyAccepted(context.Background(), tc.client, common.Address{}, tc.hashes, tc.allowed, time.Second)
 			require.Equal(t, tc.want, acc)
-			if tc.want == chain.Accepted {
+			if tc.want == chain.Accepted || tc.want == chain.Reverted {
 				require.Equal(t, tc.wantHash, h)
 			}
 		})

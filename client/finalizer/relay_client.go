@@ -171,9 +171,11 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		return
 	}
 
-	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) {
+	// Fetch once (a stable nonce for the reconciliation below), with the full
+	// send-retry budget so a transient RPC blip doesn't drop the finalization.
+	nonceResult := <-shared.ExecuteWithRetryChan(ctx, func() (uint64, error) {
 		return r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
-	}, 3, 100*time.Millisecond)
+	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
 	if !nonceResult.Success {
 		logger.Warnf("Relaying failed for protocol %d: getting nonce: %v", protocolID, nonceResult.Message)
 		return
@@ -182,7 +184,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 
 	var broadcastHashes []common.Hash
 
-	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
+	sendResult := <-shared.ExecuteWithRetryAttempts(ctx, func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
 
 		res := r.chainClient.SendRawTx(ctx, r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
@@ -196,15 +198,24 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		case chain.MatchesError(res.Err, nonFatalRelayErrors):
 			logger.Debugf("Non fatal error sending relay tx for protocol %d: %v", protocolID, res.Err)
 			return "non fatal error", nil
+		case res.Mined:
+			// Mined-reverted is deterministic ("Already relayed" handled above); a resend can't help.
+			logger.Warnf("Relaying for protocol %d reverted, not retrying: %v", protocolID, res.Err)
+			return "reverted " + res.Hash.Hex(), nil
 		case chain.IsNonceTooLow(res.Err):
-			h, acc := chain.AnyAccepted(ctx, r.chainClient, r.senderAddress, broadcastHashes, nonFatalRelayErrors, chain.DefaultTxTimeout)
+			h, acc := chain.AnyAccepted(ctx, r.chainClient, r.senderAddress, broadcastHashes, nonFatalRelayErrors, chain.ReconcileLookupTimeout)
 			switch acc {
 			case chain.Accepted:
 				return "reconciled " + h.Hex(), nil
+			case chain.Reverted:
+				// Our prior broadcast mined but reverted — same terminal handling as
+				// a direct mined-revert (deterministic; a resend can't help).
+				logger.Warnf("Relaying for protocol %d reverted (reconciled), not retrying: %v", protocolID, res.Err)
+				return "reverted " + h.Hex(), nil
 			case chain.Undetermined:
 				logger.Warnf("Relay protocol %d: nonce %d too low but prior tx status unknown, retrying reconciliation", protocolID, nonce)
 				return "", res.Err
-			default: // NotAccepted
+			default: // NonceConsumed
 				nonce = r.refreshNonce(ctx, nonce)
 				return "", res.Err
 			}

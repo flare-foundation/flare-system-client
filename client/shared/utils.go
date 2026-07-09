@@ -15,22 +15,30 @@ type ExecuteStatus[T any] struct {
 	Value   T
 }
 
-// ExecuteWithRetryChan executes function with retry until success or maxRetries.
-// Between each retries there is a delay.
-func ExecuteWithRetryChan[T any](f func() (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
+// ExecuteWithRetryChan retries f until success, maxRetries, or ctx cancellation
+// (the delay between attempts is interruptible, so shutdown is not blocked).
+func ExecuteWithRetryChan[T any](ctx context.Context, f func() (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
 	out := make(chan ExecuteStatus[T])
 	go func() {
 		var finalError error
 		for ri := range maxRetries {
+			if err := ctx.Err(); err != nil {
+				out <- ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("context done: %v (last error: %v)", err, finalError)}
+				return
+			}
 			result, err := f()
 			if err == nil {
 				out <- ExecuteStatus[T]{Success: true, Value: result}
 				return
-			} else {
-				logger.Debugf("executing in retry no. %d: %v", ri, err)
-				finalError = err
 			}
-			time.Sleep(delay)
+			logger.Debugf("executing in retry no. %d: %v", ri, err)
+			finalError = err
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				out <- ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("context done: %v (last error: %v)", ctx.Err(), finalError)}
+				return
+			}
 		}
 		out <- ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("max retries reached: %v", finalError)}
 	}()
@@ -61,22 +69,30 @@ func ExecuteWithRetryWithContext[T any](ctx context.Context, f func() (T, error)
 	}
 }
 
-// ExecuteWithRetryAttempts  executes function f, that takes number of the attempt as the parameter, with retry until success or maxRetries.
-// Between each retries there is a delay.
-func ExecuteWithRetryAttempts[T any](f func(int) (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
+// ExecuteWithRetryAttempts is ExecuteWithRetryChan where f receives the attempt
+// number; same cancellation semantics.
+func ExecuteWithRetryAttempts[T any](ctx context.Context, f func(int) (T, error), maxRetries int, delay time.Duration) <-chan ExecuteStatus[T] {
 	out := make(chan ExecuteStatus[T])
 	go func() {
 		var finalError error
 		for ri := range maxRetries {
+			if err := ctx.Err(); err != nil {
+				out <- ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("context done: %v (last error: %v)", err, finalError)}
+				return
+			}
 			result, err := f(ri)
 			if err == nil {
 				out <- ExecuteStatus[T]{Success: true, Value: result}
 				return
-			} else {
-				logger.Debugf("executing in retry no. %d: %v", ri, err)
-				finalError = err
 			}
-			time.Sleep(delay)
+			logger.Debugf("executing in retry no. %d: %v", ri, err)
+			finalError = err
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				out <- ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("context done: %v (last error: %v)", ctx.Err(), finalError)}
+				return
+			}
 		}
 		out <- ExecuteStatus[T]{Success: false, Message: fmt.Sprintf("max retries reached: %v", finalError)}
 	}()

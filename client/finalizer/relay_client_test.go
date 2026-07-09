@@ -81,10 +81,11 @@ func TestRelayedKey_TwoNonNilSeedsDoNotCollide(t *testing.T) {
 }
 
 type scriptedRelayClient struct {
-	results  []chain.SendResult
-	nonces   []uint64
-	receipts map[common.Hash]*types.Receipt
-	reverts  map[common.Hash]string
+	results   []chain.SendResult
+	nonces    []uint64
+	receipts  map[common.Hash]*types.Receipt
+	reverts   map[common.Hash]string
+	nonceFail int // number of leading Nonce calls that fail before succeeding
 
 	sentNonces []uint64
 	sendIdx    int
@@ -98,9 +99,12 @@ func (c *scriptedRelayClient) SendRawTx(_ context.Context, _ *ecdsa.PrivateKey, 
 	return r
 }
 func (c *scriptedRelayClient) Nonce(context.Context, *ecdsa.PrivateKey, time.Duration) (uint64, error) {
-	n := c.nonces[min(c.nonceIdx, len(c.nonces)-1)]
+	i := c.nonceIdx
 	c.nonceIdx++
-	return n, nil
+	if i < c.nonceFail {
+		return 0, errors.New("rpc down")
+	}
+	return c.nonces[min(i-c.nonceFail, len(c.nonces)-1)], nil
 }
 func (c *scriptedRelayClient) Receipt(_ context.Context, h common.Hash, _ time.Duration) (*types.Receipt, error) {
 	return c.receipts[h], nil
@@ -156,4 +160,60 @@ func TestRelayReconcilesMinedRevertedAllowed(t *testing.T) {
 
 	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
 	require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled, nonce not bumped
+}
+
+// A mined-but-reverted relay tx with a fatal (non-"Already relayed") reason is
+// deterministic, so it must be terminal: no retry, no nonce refresh.
+func TestRelayMinedRevertedFatalIsTerminal(t *testing.T) {
+	cc := &scriptedRelayClient{
+		nonces:  []uint64{10, 11}, // 11 would appear if the nonce were refreshed
+		results: []chain.SendResult{{Hash: relayHash0, Broadcast: true, Mined: true, Err: errors.New("tx mined but reverted: Not enough weight")}},
+	}
+	r := testRelayClient(t, cc)
+
+	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
+	require.Equal(t, []uint64{10}, cc.sentNonces) // exactly one send: no retry, no bump
+}
+
+// A mined-but-reverted relay tx whose reason is the allowed "Already relayed" is
+// treated as a non-fatal success (not the terminal-revert case), so no retry.
+func TestRelayMinedRevertedAllowedIsSuccess(t *testing.T) {
+	cc := &scriptedRelayClient{
+		nonces:  []uint64{10},
+		results: []chain.SendResult{{Hash: relayHash0, Broadcast: true, Mined: true, Err: errors.New("tx mined but reverted: Already relayed")}},
+	}
+	r := testRelayClient(t, cc)
+
+	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
+	require.Len(t, cc.sentNonces, 1) // non-fatal: success, no retry
+}
+
+// A prior broadcast that timed out and then mined-reverted with a fatal reason is
+// discovered via nonce-too-low reconciliation. It must be terminal (no nonce bump,
+// no re-broadcast of the deterministically-reverting input).
+func TestRelayReconciledMinedRevertedFatalIsTerminal(t *testing.T) {
+	cc := &scriptedRelayClient{
+		nonces: []uint64{10, 11}, // 11 would appear only if the nonce were bumped
+		results: []chain.SendResult{
+			{Hash: relayHash0, Broadcast: true, Err: context.DeadlineExceeded},     // broadcast at 10, times out
+			{Hash: relayHash1, Broadcast: false, Err: errors.New("nonce too low")}, // resend at 10 rejected
+		},
+		receipts: map[common.Hash]*types.Receipt{relayHash0: {Status: types.ReceiptStatusFailed}},
+		reverts:  map[common.Hash]string{relayHash0: "Not enough weight"}, // fatal (not "Already relayed")
+	}
+	r := testRelayClient(t, cc)
+
+	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
+	require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled to terminal: no bump, no attempt 3
+}
+
+// A failing nonce fetch with a canceled ctx must abort promptly without sending.
+func TestRelayNonceFetchAbortsOnCanceledCtx(t *testing.T) {
+	cc := &scriptedRelayClient{nonceFail: 100, nonces: []uint64{10}}
+	r := testRelayClient(t, cc)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // canceled: the retry loop must bail instead of grinding the budget
+	r.SubmitPayloads(ctx, make([]byte, 40), false, 1)
+	require.Empty(t, cc.sentNonces) // never reached the send loop
 }

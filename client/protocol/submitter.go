@@ -72,7 +72,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 		return false
 	}
 
-	nonceResult := <-shared.ExecuteWithRetryChan(func() (uint64, error) { return s.chainClient.Nonce(ctx, s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
+	nonceResult := <-shared.ExecuteWithRetryChan(ctx, func() (uint64, error) { return s.chainClient.Nonce(ctx, s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
 	if !nonceResult.Success {
 		logger.Errorf("Submitter %s getting nonce: %v", s.name, nonceResult.Message)
 		return false
@@ -82,7 +82,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 	from := crypto.PubkeyToAddress(s.submitPrivateKey.PublicKey)
 	var broadcastHashes []common.Hash
 
-	sendResult := <-shared.ExecuteWithRetryAttempts(func(ri int) (string, error) {
+	sendResult := <-shared.ExecuteWithRetryAttempts(ctx, func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
 		logger.Debugf("[Attempt %d] Submitter %s sending tx with nonce %d, gas config: %+v, timeout: %s", ri, s.name, nonce, gasConfig, s.submitTimeout)
 
@@ -98,6 +98,8 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 			// Nonce is consumed by some mined tx. If it was one of ours the payload
 			// is submitted; if we cannot tell, do NOT resend (would duplicate);
 			// only bump once we know none of ours landed (a foreign tx took it).
+			// A tight lookup timeout: the submitter is vote-window sensitive, so it
+			// fails fast to an Undetermined retry rather than blocking on a slow RPC.
 			h, acc := chain.AnyAccepted(ctx, s.chainClient, from, broadcastHashes, nil, time.Second)
 			switch acc {
 			case chain.Accepted:
@@ -106,7 +108,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 			case chain.Undetermined:
 				logger.Warnf("Submitter %s: nonce %d too low but prior tx status unknown, retrying reconciliation", s.name, nonce)
 				return "", res.Err
-			default: // NotAccepted
+			default: // NonceConsumed
 				logger.Warnf("Submitter %s: nonce %d consumed by another tx, bumping nonce", s.name, nonce)
 				nonce = s.refreshNonce(ctx, nonce)
 				return "", res.Err

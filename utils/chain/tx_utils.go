@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
@@ -77,14 +78,25 @@ func (t TxVerifier) WaitUntilMined(ctx context.Context, from common.Address, tx 
 		return fmt.Errorf("bind.WaitMined: %w", err)
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		reason, err := errorReason(ctx, t.eth, from, tx, receipt.BlockNumber)
-		if err != nil {
-			return err
+		// Wrap errReverted whether or not the reason decodes: the tx still mined.
+		reason, rerr := errorReason(ctx, t.eth, from, tx, receipt.BlockNumber)
+		if rerr != nil {
+			return fmt.Errorf("%w: %v", errReverted, rerr)
 		}
-		return fmt.Errorf("tx failed: %s", reason)
+		return fmt.Errorf("%w: %s", errReverted, reason)
 	}
 	return nil
 }
+
+// errReverted marks a mined-but-reverted tx (nonce consumed; a resend is futile).
+// Callers detect it via SendResult.Mined.
+var errReverted = errors.New("tx mined but reverted")
+
+// errRevertUndecodable marks a deterministically-reverted tx whose revert reason
+// could not be decoded (e.g. a custom error, not Error(string)). Callers
+// reconciling acceptance must treat it as conclusively reverted, not as a
+// transient RPC failure worth retrying.
+var errRevertUndecodable = errors.New("revert reason not decodable")
 
 // Taken from: https://ethereum.stackexchange.com/questions/48383/how-to-retrieve-revert-reason-for-past-transactions
 func errorReason(ctx context.Context, b ethereum.ContractCaller, from common.Address, tx *types.Transaction, blockNum *big.Int) (string, error) {
@@ -98,9 +110,49 @@ func errorReason(ctx context.Context, b ethereum.ContractCaller, from common.Add
 	}
 	res, err := b.CallContract(ctx, msg, blockNum)
 	if err != nil {
+		// geth/coreth return a reverting eth_call as a JSON-RPC error carrying the
+		// ABI-encoded revert data in ErrorData(), not as return bytes; recover it.
+		if revert, ok := revertDataFromError(err); ok {
+			return decodeRevert(revert)
+		}
 		return "", fmt.Errorf("CallContract: %w", err)
 	}
-	return unpackError(res)
+	return decodeRevert(res)
+}
+
+// decodeRevert unpacks ABI-encoded revert data into its reason string. A revert
+// without an Error(string) payload is undecodable but deterministic, so the
+// error wraps errRevertUndecodable to separate it from a transient RPC failure.
+func decodeRevert(data []byte) (string, error) {
+	reason, err := unpackError(data)
+	if err != nil {
+		return reason, fmt.Errorf("%w: %w", errRevertUndecodable, err)
+	}
+	return reason, nil
+}
+
+// revertDataFromError extracts ABI-encoded revert data from a JSON-RPC error
+// (rpc.DataError) as returned by a reverting eth_call. ok is false for a plain
+// transport/RPC error, which carries no revert data.
+func revertDataFromError(err error) ([]byte, bool) {
+	var de rpc.DataError
+	if !errors.As(err, &de) {
+		return nil, false
+	}
+	switch data := de.ErrorData().(type) {
+	case string:
+		raw, decErr := hexutil.Decode(data)
+		if decErr != nil {
+			return nil, false
+		}
+		return raw, true
+	case hexutil.Bytes:
+		return data, true
+	case []byte:
+		return data, true
+	default:
+		return nil, false
+	}
 }
 
 var (

@@ -2,6 +2,7 @@ package epoch
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -134,7 +135,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 	}
 
 	logger.Infof("Fetching reward data at: %s", rewardsUrl)
-	result := <-shared.ExecuteWithRetryChan(func() (*rewardDistributionData, error) {
+	result := <-shared.ExecuteWithRetryChan(context.Background(), func() (*rewardDistributionData, error) {
 		client := &http.Client{Timeout: timeout}
 
 		resp, err := client.Get(rewardsUrl)

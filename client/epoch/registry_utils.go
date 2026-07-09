@@ -282,7 +282,7 @@ func NewRegistryContractClient(
 
 // RegisterVoter tries to register voter on VoterRegistry smart contract.
 func (r *registryContractClientImpl) RegisterVoter(ctx context.Context, nextRewardEpochID *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(ctx, func() (any, error) {
 		err := r.sendRegisterVoter(ctx, nextRewardEpochID, address)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRegisterErrors, err.Error()) {
@@ -364,7 +364,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 
 // PreregisterVoter tries to pre-register voter on VoterPreRegistry smart contract.
 func (r *registryContractClientImpl) PreregisterVoter(ctx context.Context, nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(ctx, func() (any, error) {
 		err := r.sendPreRegisterVoter(ctx, nextRewardEpochId, address)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalPreregisterErrors, err.Error()) {

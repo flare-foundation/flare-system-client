@@ -299,7 +299,7 @@ func (c testSystemsManagerClient) VotePowerBlockSelectedListener(
 func (c testSystemsManagerClient) SignNewSigningPolicy(
 	_ context.Context, epochID *big.Int, policy []byte,
 ) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(context.Background(), func() (any, error) {
 		if c.signingErr != nil {
 			return nil, c.signingErr
 		}
@@ -317,7 +317,7 @@ func (c testSystemsManagerClient) SignNewSigningPolicy(
 }
 
 func (c testSystemsManagerClient) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {
-	return shared.ExecuteWithRetryChan(func() (*big.Int, error) {
+	return shared.ExecuteWithRetryChan(context.Background(), func() (*big.Int, error) {
 		if c.rewardEpochErr != nil {
 			return nil, c.rewardEpochErr
 		}
@@ -360,7 +360,7 @@ func newTestRegistryClient() testRegistryClient {
 func (c testRegistryClient) RegisterVoter(
 	_ context.Context, epochID *big.Int, address common.Address,
 ) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(context.Background(), func() (any, error) {
 		if c.registerErr != nil {
 			return nil, c.registerErr
 		}
@@ -386,7 +386,7 @@ func (c testSystemsManagerClient) RewardEpochStartedListener(_ context.Context, 
 }
 
 func (c testRegistryClient) PreregisterVoter(_ context.Context, nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(context.Background(), func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }
@@ -396,7 +396,7 @@ func (c testSystemsManagerClient) SignUptimeVoteEnabledListener(_ context.Contex
 }
 
 func (c testSystemsManagerClient) SignUptimeVote(_ context.Context, b *big.Int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(context.Background(), func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }
@@ -406,7 +406,7 @@ func (c testSystemsManagerClient) UptimeVoteSignedListener(_ context.Context, db
 }
 
 func (c testSystemsManagerClient) SignRewards(_ context.Context, b *big.Int, hash *common.Hash, claims int) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(context.Background(), func() (any, error) {
 		return nil, nil
 	}, 1, 0)
 }
