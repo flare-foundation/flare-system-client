@@ -10,6 +10,65 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGasOverrideWarnings(t *testing.T) {
+	allClients := Clients{
+		EnabledRegistration: true, EnabledPreregistration: true, EnabledUptimeVoting: true,
+		EnabledRewardSigning: true, EnabledProtocolVoting: true, EnabledFinalizer: true,
+	}
+
+	// No overrides -> no warnings.
+	clean := &Client{
+		Clients:   allClients,
+		SubmitGas: Gas{TxType: 2}, RegisterGas: Gas{TxType: 2},
+		RelayGas: Gas{TxType: 2}, SystemsManagerGas: Gas{TxType: 2},
+	}
+	require.Empty(t, clean.GasOverrideWarnings())
+
+	// gas_price_fixed on gas_submit and base_fee_per_gas_cap on gas_relay -> one
+	// warning each, naming the offending config.
+	c := &Client{
+		Clients:           allClients,
+		SubmitGas:         Gas{TxType: 0, GasPriceFixed: big.NewInt(100e9)},
+		RegisterGas:       Gas{TxType: 2},
+		RelayGas:          Gas{TxType: 2, BaseFeePerGasCap: big.NewInt(100e9)},
+		SystemsManagerGas: Gas{TxType: 2},
+	}
+	warnings := c.GasOverrideWarnings()
+	require.Len(t, warnings, 2)
+	require.Contains(t, warnings[0], "gas_submit")
+	require.Contains(t, warnings[0], "gas_price_fixed")
+	require.Contains(t, warnings[1], "gas_relay")
+	require.Contains(t, warnings[1], "base_fee_per_gas_cap")
+
+	// A zero-valued override is treated as unset -> no warning.
+	zero := &Client{
+		Clients:   allClients,
+		SubmitGas: Gas{TxType: 0, GasPriceFixed: big.NewInt(0)}, RegisterGas: Gas{TxType: 2},
+		RelayGas: Gas{TxType: 2, BaseFeePerGasCap: big.NewInt(0)}, SystemsManagerGas: Gas{TxType: 2},
+	}
+	require.Empty(t, zero.GasOverrideWarnings())
+
+	// Overrides on configs whose consumer client is disabled are not warned about.
+	disabled := &Client{
+		Clients:   Clients{EnabledProtocolVoting: true},
+		SubmitGas: Gas{TxType: 0, GasPriceFixed: big.NewInt(100e9)},
+		RelayGas:  Gas{TxType: 2, BaseFeePerGasCap: big.NewInt(100e9)},
+	}
+	warnings = disabled.GasOverrideWarnings()
+	require.Len(t, warnings, 1)
+	require.Contains(t, warnings[0], "gas_submit")
+
+	// Pre-registration alone uses gas_register but never sends SystemsManager txs.
+	prereg := &Client{
+		Clients:           Clients{EnabledPreregistration: true},
+		RegisterGas:       Gas{TxType: 0, GasPriceFixed: big.NewInt(100e9)},
+		SystemsManagerGas: Gas{TxType: 0, GasPriceFixed: big.NewInt(100e9)},
+	}
+	warnings = prereg.GasOverrideWarnings()
+	require.Len(t, warnings, 1)
+	require.Contains(t, warnings[0], "gas_register")
+}
+
 func TestGasValidate(t *testing.T) {
 	tests := []struct {
 		name    string

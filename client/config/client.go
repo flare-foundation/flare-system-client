@@ -60,6 +60,37 @@ func Build(cfgFileName string) (*Client, error) {
 	return cfg, nil
 }
 
+// GasOverrideWarnings returns a warning per fee-pinning override (gas_price_fixed /
+// base_fee_per_gas_cap) on gas configs whose consumer client is enabled. Emitted
+// from main after logger.Set so the warnings reach the configured log.
+func (c *Client) GasOverrideWarnings() []string {
+	named := []struct {
+		name    string
+		gas     Gas
+		enabled bool
+	}{
+		{"gas_submit", c.SubmitGas, c.Clients.EnabledProtocolVoting},
+		{"gas_register", c.RegisterGas, c.Clients.EnabledRegistration || c.Clients.EnabledPreregistration},
+		{"gas_relay", c.RelayGas, c.Clients.EnabledFinalizer},
+		// pre-registration never sends SystemsManager txs, so it is not gated on
+		{"gas_systems_manager", c.SystemsManagerGas, c.Clients.EnabledRegistration || c.Clients.EnabledUptimeVoting || c.Clients.EnabledRewardSigning},
+	}
+
+	var warnings []string
+	for _, g := range named {
+		if !g.enabled {
+			continue
+		}
+		if g.gas.GasPriceFixed != nil && g.gas.GasPriceFixed.Sign() != 0 {
+			warnings = append(warnings, fmt.Sprintf("%s sets gas_price_fixed (backwards-compatibility option): retries reuse the fixed price and cannot replace a stuck transaction", g.name))
+		}
+		if g.gas.BaseFeePerGasCap != nil && g.gas.BaseFeePerGasCap.Sign() != 0 {
+			warnings = append(warnings, fmt.Sprintf("%s sets base_fee_per_gas_cap: the base-fee component of the cap is pinned and not bumped on retry", g.name))
+		}
+	}
+	return warnings
+}
+
 // methods to satisfy config.Global interface
 
 func (c Client) ChainConfig() config.Chain {

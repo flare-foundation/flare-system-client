@@ -29,6 +29,10 @@ func main() {
 		logger.Warnf("submitter config: %s", w)
 	}
 
+	for _, w := range clientCtx.Config().GasOverrideWarnings() {
+		logger.Warnf("gas config: %s", w)
+	}
+
 	// Prometheus metrics
 	shared.InitMetricsServer(&clientCtx.Config().Metrics)
 
