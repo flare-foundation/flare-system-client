@@ -19,6 +19,22 @@ var relayFunctionSelector []byte
 
 const (
 	finalizerQueueProcessorInterval = 100 * time.Millisecond
+
+	// Bounds how long one item's send may hold Run's loop (a full retry budget is
+	// ~11 min); grace items cut off by it retry via the delayed queue.
+	queueSendTimeout = 50 * time.Second
+
+	// Retry delay for an item whose grace-period-end target has already passed:
+	// the delayed queue drops past-time targets, so schedule slightly ahead
+	// instead, or a send cut off by queueSendTimeout would lose its retry.
+	delayedRetryDelay = 5 * time.Second
+
+	// A bounded send divides its remaining deadline into this many attempts so
+	// gas-bumped replacements still fire inside queueSendTimeout; must stay ≥2.
+	boundedSendAttempts = 3
+
+	// Floor for a derived per-attempt timeout when little deadline remains.
+	minAttemptTimeout = 2 * time.Second
 )
 
 func init() {
@@ -133,7 +149,10 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		if p.isVoterForCurrentEpoch(item) {
 			logger.Infof("Finalizer with address %v was selected for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
-			p.processItem(ctx, item, false)
+			p.processItemBounded(ctx, item, false)
+
+			// Retry via the delayed queue; it skips rounds already relayed.
+			p.delayedQueues.Add(ctx, p.delayedRetryTime(item.votingRoundID, time.Now()), item)
 		} else {
 			logger.Infof("Finalizer with address %v will send outside grace period for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
@@ -145,9 +164,9 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 
 				if st.Before(time.Now()) {
 					logger.Debugf("Finalizer will send now for voting round %v for protocol %v", item.votingRoundID, item.protocolID)
-					p.processItem(ctx, item, true)
+					p.processItemBounded(ctx, item, true)
 				}
-				p.delayedQueues.Add(ctx, st, item)
+				p.delayedQueues.Add(ctx, p.delayedRetryTime(item.votingRoundID, time.Now()), item)
 			} else {
 				logger.Errorf("Finalizer missing finalization data for protocol %v in votingRound %v", item.protocolID, item.votingRoundID)
 			}
@@ -171,6 +190,26 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	}
 
 	return voters[p.relayClient.senderAddress]
+}
+
+// delayedRetryTime returns when item's delayed-queue retry should run: at the
+// grace-period end of the following round, or delayedRetryDelay ahead of now
+// when that has already passed.
+func (p *finalizerQueueProcessor) delayedRetryTime(votingRoundID uint32, now time.Time) time.Time {
+	st := p.finalizerContext.votingRoundTiming.StartTime(int64(votingRoundID + 1)).Add(p.finalizerContext.gracePeriodEndOffset)
+	if st.After(now) {
+		return st
+	}
+	// truncate: timeMap keys compare exactly; sub-second/monotonic parts would defeat batching
+	return now.Add(delayedRetryDelay).Truncate(time.Second)
+}
+
+// processItemBounded runs processItem under queueSendTimeout so one item cannot
+// head-of-line-block the queue; delayed-queue sends stay unbounded.
+func (p *finalizerQueueProcessor) processItemBounded(ctx context.Context, item *queueItem, isDelayed bool) {
+	sendCtx, cancel := context.WithTimeout(ctx, queueSendTimeout)
+	defer cancel()
+	p.processItem(sendCtx, item, isDelayed)
 }
 
 // processItem prepares and sends finalization transaction for item.

@@ -182,13 +182,22 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	}
 	nonce := nonceResult.Value
 
+	// Fit boundedSendAttempts attempts into a bounded ctx (grace path) so gas
+	// bumps still fire; without a deadline (delayed queue) keep the full timeout.
+	perAttempt := chain.DefaultTxTimeout
+	if dl, ok := ctx.Deadline(); ok {
+		if v := time.Until(dl) / boundedSendAttempts; v < perAttempt {
+			perAttempt = max(v, minAttemptTimeout)
+		}
+	}
+
 	var broadcastHashes []common.Hash
 	undetermined := false // an own broadcast's fate was never resolved
 
 	sendResult := <-shared.ExecuteWithRetryAttempts(ctx, func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
 
-		res := r.chainClient.SendRawTx(ctx, r.privateKey, nonce, r.address, input, gasConfig, chain.DefaultTxTimeout, dryRun)
+		res := r.chainClient.SendRawTx(ctx, r.privateKey, nonce, r.address, input, gasConfig, perAttempt, dryRun)
 		if res.Broadcast {
 			broadcastHashes = append(broadcastHashes, res.Hash)
 		}

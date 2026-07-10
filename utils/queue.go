@@ -27,6 +27,7 @@ func NewDelayedQueueManager[T any](processor QueueProcessorFunc[T]) *DelayedQueu
 
 func (l *DelayedQueueManager[T]) Add(ctx context.Context, t time.Time, item T) {
 	if t.Before(time.Now()) {
+		logger.Warnf("DelayedQueueManager: dropping item %v scheduled at past time %v", item, t)
 		return
 	}
 
