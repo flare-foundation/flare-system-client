@@ -131,6 +131,11 @@ func TestGasValidate(t *testing.T) {
 			gas:     Gas{TxType: 1},
 			wantErr: true,
 		},
+		{
+			name:    "negative gas limit",
+			gas:     Gas{TxType: 0, GasLimit: -1},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

@@ -530,6 +530,11 @@ func isPositiveFinite(f float64) bool {
 
 // validate checks viability of gas configurations.
 func (g *Gas) validate() error {
+	// A negative value would silently wrap via uint64() at tx-build time.
+	if g.GasLimit < 0 {
+		return errors.New("gas_limit must not be negative (0 for auto-estimation)")
+	}
+
 	if g.GasPriceMultiplier != 0.0 && (!isPositiveFinite(float64(g.GasPriceMultiplier)) || g.GasPriceMultiplier < 1) {
 		return errors.New("if set, gas_price_multiplier must be a finite value not less than 1")
 	}
