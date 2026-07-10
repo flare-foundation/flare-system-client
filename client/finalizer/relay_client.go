@@ -183,6 +183,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	nonce := nonceResult.Value
 
 	var broadcastHashes []common.Hash
+	undetermined := false // an own broadcast's fate was never resolved
 
 	sendResult := <-shared.ExecuteWithRetryAttempts(ctx, func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
@@ -213,7 +214,11 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 				logger.Warnf("Relaying for protocol %d reverted (reconciled), not retrying: %v", protocolID, res.Err)
 				return "reverted " + h.Hex(), nil
 			case chain.Undetermined:
-				logger.Warnf("Relay protocol %d: nonce %d too low but prior tx status unknown, retrying reconciliation", protocolID, nonce)
+				// Outcome unknown: refresh the nonce and resend (a duplicate reverts
+				// non-fatally with "Already relayed").
+				undetermined = true
+				logger.Warnf("Relay protocol %d: nonce %d too low, prior tx status unknown; resending at a refreshed nonce", protocolID, nonce)
+				nonce = r.refreshNonce(ctx, nonce)
 				return "", res.Err
 			default: // NonceConsumed
 				nonce = r.refreshNonce(ctx, nonce)
@@ -233,6 +238,8 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 
 	if sendResult.Success {
 		logger.Infof("Relaying finished for protocol %d with %s", protocolID, sendResult.Value)
+	} else if undetermined {
+		logger.Warnf("Relay protocol %d: outcome unknown, a broadcast tx may be on chain: %v", protocolID, sendResult.Message)
 	} else {
 		logger.Warnf("Relaying failed for protocol %d with: %v", protocolID, sendResult.Message)
 	}

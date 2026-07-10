@@ -207,6 +207,50 @@ func TestRelayReconciledMinedRevertedFatalIsTerminal(t *testing.T) {
 	require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled to terminal: no bump, no attempt 3
 }
 
+// Reconciliation that cannot find the prior broadcast's receipt refreshes the
+// nonce and resends instead of retrying the dead nonce (a duplicate reverts
+// non-fatally with "Already relayed").
+func TestRelayNonceTooLowUndeterminedRefetchesNonce(t *testing.T) {
+	cc := &scriptedRelayClient{
+		nonces: []uint64{10, 11},
+		results: []chain.SendResult{
+			{Hash: relayHash0, Broadcast: true, Err: context.DeadlineExceeded},     // broadcast at 10, times out
+			{Hash: relayHash1, Broadcast: false, Err: errors.New("nonce too low")}, // consumed, relayHash0 not found
+			{Hash: relayHash1, Broadcast: true, Err: nil},                          // succeeds at the refreshed nonce
+		},
+	}
+	r := testRelayClient(t, cc)
+
+	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
+	require.Equal(t, []uint64{10, 10, 11}, cc.sentNonces)
+}
+
+// hangingRelayClient blocks every send until ctx is done, emulating a stuck tx.
+type hangingRelayClient struct {
+	scriptedRelayClient
+}
+
+func (c *hangingRelayClient) SendRawTx(ctx context.Context, _ *ecdsa.PrivateKey, nonce uint64, _ common.Address, _ []byte, _ *config.Gas, _ time.Duration, _ bool) chain.SendResult {
+	c.sentNonces = append(c.sentNonces, nonce)
+	<-ctx.Done()
+	return chain.SendResult{Hash: relayHash0, Broadcast: true, Err: ctx.Err()}
+}
+
+// The queue processor bounds each item's send with a deadline ctx (see
+// processItemBounded); SubmitPayloads must honor it instead of grinding the
+// full retry budget.
+func TestSubmitPayloadsHonorsContextDeadline(t *testing.T) {
+	cc := &hangingRelayClient{scriptedRelayClient{nonces: []uint64{10}}}
+	r := testRelayClient(t, cc)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	r.SubmitPayloads(ctx, make([]byte, 40), false, 1)
+	require.Less(t, time.Since(start), 5*time.Second) // deadline abort, not the ~100s budget
+	require.LessOrEqual(t, len(cc.sentNonces), 2)
+}
+
 // A failing nonce fetch with a canceled ctx must abort promptly without sending.
 func TestRelayNonceFetchAbortsOnCanceledCtx(t *testing.T) {
 	cc := &scriptedRelayClient{nonceFail: 100, nonces: []uint64{10}}

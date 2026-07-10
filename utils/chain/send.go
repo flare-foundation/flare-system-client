@@ -144,8 +144,8 @@ func BroadcastAndWait(ctx context.Context, client *ethclient.Client, from common
 //   - Reverted: one of our hashes mined but reverted with a non-allowed reason, so
 //     our tx consumed the nonce and a resend would revert again — terminal;
 //   - Undetermined: a lookup failed or a receipt was not found (a behind RPC
-//     backend may not have the mined tx yet), so the caller must NOT resend at a
-//     new nonce — doing so could duplicate a tx that did land;
+//     backend may not have the mined tx yet); duplicate-tolerant callers refresh
+//     the nonce and resend for liveness;
 //   - NonceConsumed: none of our hashes are on chain (nothing was broadcast, or a
 //     foreign tx took the nonce), so the caller must retry at a fresh nonce.
 func AnyAccepted(ctx context.Context, c Client, from common.Address, hashes []common.Hash, allowedErrors []string, timeout time.Duration) (common.Hash, Acceptance) {

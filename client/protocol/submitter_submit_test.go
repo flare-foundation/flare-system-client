@@ -112,23 +112,23 @@ func TestSubmitNonceTooLowForeignBumpsNonce(t *testing.T) {
 	require.Equal(t, []uint64{10, 11}, cc.sentNonces) // second attempt used the bumped nonce
 }
 
-// A broadcast hash whose receipt reads "not found" (e.g. a behind RPC backend)
-// must NOT bump the nonce — doing so would resend a duplicate if the tx actually
-// mined. Reconciliation stays Undetermined and, if the receipt never appears,
-// retries exhaust without ever resending at a new nonce.
-func TestSubmitNonceTooLowNotFoundDoesNotBump(t *testing.T) {
+// A broadcast hash whose receipt reads "not found" leaves the outcome unknown:
+// the nonce is refreshed and the payload resent (a duplicate submit is
+// idempotent; retrying a nonce consumed by another tx would drop the round).
+func TestSubmitNonceTooLowNotFoundRefetchesNonce(t *testing.T) {
 	cc := &scriptedChainClient{
-		nonces: []uint64{10, 999}, // 999 would appear only if the nonce were bumped
+		nonces: []uint64{10, 11}, // initial fetch, then refresh after Undetermined
 		results: []chain.SendResult{
 			{Hash: hash0, Broadcast: true, Err: context.DeadlineExceeded},     // broadcast at 10, times out
-			{Hash: hash1, Broadcast: false, Err: errors.New("nonce too low")}, // nonce consumed, but...
+			{Hash: hash1, Broadcast: false, Err: errors.New("nonce too low")}, // nonce consumed, hash0 not found
+			{Hash: hash1, Broadcast: true, Err: nil},                          // succeeds at the refreshed nonce
 		},
-		receipts: map[common.Hash]*types.Receipt{}, // ...hash0's receipt is not found anywhere
+		receipts: map[common.Hash]*types.Receipt{},
 	}
 	base := testSubmitterBase(t, cc, 3)
 
-	require.False(t, base.submit(context.Background(), make([]byte, 40))) // no false success
-	require.Equal(t, []uint64{10, 10, 10}, cc.sentNonces)                 // nonce never bumped to 999
+	require.True(t, base.submit(context.Background(), make([]byte, 40)))
+	require.Equal(t, []uint64{10, 10, 11}, cc.sentNonces) // resent at the refreshed nonce
 }
 
 // A pre-broadcast timeout never sent the tx, so the nonce must be refetched
@@ -148,21 +148,22 @@ func TestSubmitPreBroadcastTimeoutRefetchesNonce(t *testing.T) {
 }
 
 // When reconciliation can't determine whether our broadcast landed (RPC error),
-// the nonce must NOT be bumped — resending at a new nonce could duplicate a tx
-// that did land. The nonce stays put and reconciliation is retried.
-func TestSubmitNonceTooLowUndeterminedDoesNotBump(t *testing.T) {
+// the nonce is refreshed and the payload resent rather than retrying a possibly
+// dead nonce until the budget is exhausted.
+func TestSubmitNonceTooLowUndeterminedRefetchesNonce(t *testing.T) {
 	cc := &scriptedChainClient{
-		nonces: []uint64{10, 999}, // 999 would appear if the nonce were wrongly bumped
+		nonces: []uint64{10, 11},
 		results: []chain.SendResult{
 			{Hash: hash0, Broadcast: true, Err: context.DeadlineExceeded},     // post-broadcast timeout, keep nonce
-			{Hash: hash1, Broadcast: false, Err: errors.New("nonce too low")}, // consumed, but...
+			{Hash: hash1, Broadcast: false, Err: errors.New("nonce too low")}, // consumed, hash0's fate unknown
+			{Hash: hash1, Broadcast: true, Err: nil},                          // succeeds at the refreshed nonce
 		},
-		receiptErr: map[common.Hash]bool{hash0: true}, // ...cannot determine hash0's fate
+		receiptErr: map[common.Hash]bool{hash0: true},
 	}
-	base := testSubmitterBase(t, cc, 2)
+	base := testSubmitterBase(t, cc, 3)
 
-	require.False(t, base.submit(context.Background(), make([]byte, 40))) // retries exhaust, no false success
-	require.Equal(t, []uint64{10, 10}, cc.sentNonces)                     // nonce never bumped to 999
+	require.True(t, base.submit(context.Background(), make([]byte, 40)))
+	require.Equal(t, []uint64{10, 10, 11}, cc.sentNonces) // resent at the refreshed nonce
 }
 
 // A pre-broadcast failure on a retry, when a prior attempt already broadcast,

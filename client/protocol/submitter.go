@@ -81,6 +81,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 
 	from := crypto.PubkeyToAddress(s.submitPrivateKey.PublicKey)
 	var broadcastHashes []common.Hash
+	undetermined := false // an own broadcast's fate was never resolved
 
 	sendResult := <-shared.ExecuteWithRetryAttempts(ctx, func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
@@ -106,7 +107,10 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 				logger.Infof("Submitter %s: broadcast tx %s accepted, nonce too low is non-fatal", s.name, h.Hex())
 				return h.Hex(), nil
 			case chain.Undetermined:
-				logger.Warnf("Submitter %s: nonce %d too low but prior tx status unknown, retrying reconciliation", s.name, nonce)
+				// Outcome unknown: refresh the nonce and resend (duplicate submits are idempotent).
+				undetermined = true
+				logger.Warnf("Submitter %s: nonce %d too low, prior tx status unknown; resending at a refreshed nonce", s.name, nonce)
+				nonce = s.refreshNonce(ctx, nonce)
 				return "", res.Err
 			default: // NonceConsumed
 				logger.Warnf("Submitter %s: nonce %d consumed by another tx, bumping nonce", s.name, nonce)
@@ -132,6 +136,8 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 
 	if sendResult.Success {
 		logger.Infof("Submitter %s successfully sent tx %s", s.name, sendResult.Value)
+	} else if undetermined {
+		logger.Warnf("Submitter %s: submission outcome unknown, a broadcast tx may be on chain: %s", s.name, sendResult.Message)
 	} else {
 		logger.Errorf("Submitter %s unsuccessful tx: %s", s.name, sendResult.Message)
 	}
