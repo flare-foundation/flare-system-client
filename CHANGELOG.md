@@ -5,16 +5,20 @@
 ### Added
 
 - Startup warning when an enabled client's gas config sets `gas_price_fixed` (a backwards-compatibility option pinning the whole fee, so retries cannot replace a stuck transaction) or `base_fee_per_gas_cap` (pinning the base-fee component of the cap, which is not bumped on retry).
+- Startup validation rejecting a negative `gas_limit`, which previously wrapped via `uint64()` into an unusable ~1.8e19 gas limit at transaction-build time, permanently rejecting every relay and voter-registration transaction.
 
 ### Changed
 
 - Relay nonce-too-low reconciliation now bounds each receipt/revert lookup to 5s (was the full 60s tx timeout), so a hung RPC endpoint cannot stall a retry cycle for minutes.
+- A send that exhausts retries with an own broadcast still unresolved logs "outcome unknown, a broadcast tx may be on chain" at warning level instead of an unqualified error, distinguishing a possibly-successful send from a confirmed failure.
+- Example config: `submit1` start offset moved from 75s to 65s and a note added, keeping same-key submit1/submit2 fires well apart around the round so overlapping sends cannot collide on the nonce.
 
 ### Fixed
 
 - Nonce-too-low reconciliation now decodes the revert reason from the JSON-RPC error geth/coreth return for a reverting `eth_call`; previously the reason was never recovered, so a relay tx that mined reverting with the non-fatal "Already relayed" was treated as undetermined and retried instead of recognized as already done.
 - A relay transaction that mines but reverts for a non-fatal reason is no longer retried (whether observed directly or via reconciliation): the revert is deterministic on the signed payload, so a resend only re-mines and wastes gas.
-- A not-found receipt during reconciliation is now treated as undetermined rather than conclusive, so a lagging RPC backend can no longer trigger a duplicate transaction at a bumped nonce.
+- Nonce-too-low reconciliation treats a not-found receipt as undetermined rather than conclusive, and an unresolved undetermined now refreshes the nonce and resends instead of retrying the same nonce until the budget is exhausted: a submission whose nonce was consumed by another transaction is resent instead of dropped, at the cost of a rare benign duplicate (submits are idempotent; a duplicate relay reverts non-fatally with "Already relayed").
+- A stuck relay send no longer blocks the finalization queue processor for its full retry budget (~11 minutes), delaying other rounds' grace-period finalizations past their window: each queued item's send is bounded to 50 seconds, with per-attempt timeouts sized so gas-bumped replacements still fire within the bound, and the item then falls back to the delayed queue where already-relayed rounds are skipped; a fallback target already in the past — previously every post-grace "send now" item silently lost its retry this way — is rescheduled a few seconds ahead, and the delayed queue logs any dropped past-time entry instead of discarding it silently.
 - Restored the relay nonce fetch's retry budget so a transient RPC failure no longer drops a finalization after only a few hundred milliseconds.
 - Transaction send-retry helpers now abort promptly on context cancellation instead of sleeping through the remaining retries, unblocking graceful shutdown (previously up to ~50s for the finalizer, longer for epoch paths).
 
