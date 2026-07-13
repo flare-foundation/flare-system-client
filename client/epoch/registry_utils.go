@@ -30,23 +30,64 @@ const (
 	chainIDCoston  = 16
 	chainIDCoston2 = 114
 
-	breakingEpochCoston = 5451
+	chainIDFlare    = 14
+	chainIDSongbird = 19
+
+	breakingEpochCoston   = 5451
+	breakingEpochFlare    = 417
+	breakingEpochSongbird = 417
 )
 
 const (
+	// coston
+
 	newRegistryCostonAddr = "0x42F4526BFC6f892DB515a832a52eFc9edFADf6c0"
 	oldRegistryCostonAddr = "0xB4B93a3A3ADa93a574E6efeb5f295bf882934cB6"
 
 	newPreRegistryCostonAddr = "0x4A5538e86bc09cc1b02BAE720CCc39548e10dB28"
 	oldPreRegistryCostonAddr = "0xF660984B8597e31437cA4b7dEa0A41677982563b"
+
+	// flare
+
+	newRegistryFlareAddr = "0xA480457953Af3583E54DCd630b219353B8FC9Af7"
+	oldRegistryFlareAddr = "0x2580101692366e2f331e891180d9ffdF861Fce83"
+
+	newPreRegistryFlareAddr = "0x76D49E62B07e52A13b7FBB4602eD942f812c87e2"
+	oldPreRegistryFlareAddr = "0xeFDBf6F31Aa46c62414Aee82aF43036d16885b48"
+
+	// songbird
+
+	newRegistrySongbirdAddr = "0xd23FAE88c09e6A77dD9eFcc29D6bBC55D2e74310"
+	oldRegistrySongbirdAddr = "0x31B9EC65C731c7D973a33Ef3FC83B653f540dC8D"
+
+	newPreRegistrySongbirdAddr = "0xD8957603dE539118898BA2C321a1001d062Be7Ae"
+	oldPreRegistrySongbirdAddr = "0x9Ba9A142FD5B2953667B03dB40D1d77c83F225a2"
 )
 
 var (
-	newRegistryCoston = common.HexToAddress(newRegistryCostonAddr)
-	oldRegistryCoston = common.HexToAddress(oldRegistryCostonAddr)
+	// coston
 
-	newPreRegistryCoston = common.HexToAddress(newPreRegistryCostonAddr)
-	oldPreRegistryCoston = common.HexToAddress(oldPreRegistryCostonAddr)
+	NewRegistryCoston = common.HexToAddress(newRegistryCostonAddr)
+	OldRegistryCoston = common.HexToAddress(oldRegistryCostonAddr)
+
+	NewPreRegistryCoston = common.HexToAddress(newPreRegistryCostonAddr)
+	OldPreRegistryCoston = common.HexToAddress(oldPreRegistryCostonAddr)
+
+	// flare
+
+	NewRegistryFlare = common.HexToAddress(newRegistryFlareAddr)
+	OldRegistryFlare = common.HexToAddress(oldRegistryFlareAddr)
+
+	NewPreRegistryFlare = common.HexToAddress(newPreRegistryFlareAddr)
+	OldPreRegistryFlare = common.HexToAddress(oldPreRegistryFlareAddr)
+
+	// songbird
+
+	NewRegistrySongbird = common.HexToAddress(newRegistrySongbirdAddr)
+	OldRegistrySongbird = common.HexToAddress(oldRegistrySongbirdAddr)
+
+	NewPreRegistrySongbird = common.HexToAddress(newPreRegistrySongbirdAddr)
+	OldPreRegistrySongbird = common.HexToAddress(oldPreRegistrySongbirdAddr)
 )
 
 var (
@@ -162,16 +203,62 @@ func NewRegistryContractClient(
 	}
 
 	var oldRegistryBinding *registry.Registry
-	if registryAddress == newRegistryCoston {
-		oldRegistryBinding, err = registry.NewRegistry(oldRegistryCoston, ethClient)
+	switch registryAddress {
+	case NewRegistryCoston:
+		if chainID != chainIDCoston {
+			return nil, fmt.Errorf("new registry mismatch address from %s chainID: %d", "Coston", chainID)
+		}
+
+		oldRegistryBinding, err = registry.NewRegistry(OldRegistryCoston, ethClient)
+		if err != nil {
+			return nil, err
+		}
+	case NewRegistryFlare:
+		if chainID != chainIDFlare {
+			return nil, fmt.Errorf("new registry mismatch address from %s chainID: %d", "Flare", chainID)
+		}
+
+		oldRegistryBinding, err = registry.NewRegistry(OldRegistryFlare, ethClient)
+		if err != nil {
+			return nil, err
+		}
+	case NewRegistrySongbird:
+		if chainID != chainIDSongbird {
+			return nil, fmt.Errorf("new registry mismatch address from %s chainID: %d", "Songbird", chainID)
+		}
+
+		oldRegistryBinding, err = registry.NewRegistry(OldRegistrySongbird, ethClient)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	var oldPreRegistryBinding *preregistry.Preregistry
-	if preregistryAddress == newPreRegistryCoston {
-		oldPreRegistryBinding, err = preregistry.NewPreregistry(oldPreRegistryCoston, ethClient)
+	switch preregistryAddress {
+	case NewPreRegistryCoston:
+		if chainID != chainIDCoston {
+			return nil, fmt.Errorf("new pre registry mismatch address from %s chainID: %d", "Coston", chainID)
+		}
+
+		oldPreRegistryBinding, err = preregistry.NewPreregistry(OldPreRegistryCoston, ethClient)
+		if err != nil {
+			return nil, err
+		}
+	case NewPreRegistryFlare:
+		if chainID != chainIDFlare {
+			return nil, fmt.Errorf("new pre registry mismatch address from %s chainID: %d", "Flare", chainID)
+		}
+
+		oldPreRegistryBinding, err = preregistry.NewPreregistry(OldPreRegistryFlare, ethClient)
+		if err != nil {
+			return nil, err
+		}
+	case NewPreRegistrySongbird:
+		if chainID != chainIDSongbird {
+			return nil, fmt.Errorf("new pre registry mismatch address from %s chainID: %d", "Songbird", chainID)
+		}
+
+		oldPreRegistryBinding, err = preregistry.NewPreregistry(OldPreRegistrySongbird, ethClient)
 		if err != nil {
 			return nil, err
 		}
@@ -229,7 +316,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 		return fmt.Errorf("setting gas: %w", err)
 	}
 
-	useOldAddress, contractAddress := shouldUseOldRegistry(epochID, r.registryAddress)
+	useOldAddress, contractAddress := ShouldUseOldRegistry(epochID, r.registryAddress)
 
 	estimatedGasLimit, err := chain.DryRunTxAbi(
 		ctx,
@@ -426,17 +513,29 @@ func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient
 	}
 }
 
-func shouldUseOldRegistry(epochID uint32, address common.Address) (bool, common.Address) {
-	if address == newRegistryCoston && epochID < breakingEpochCoston {
-		return true, oldRegistryCoston
+func ShouldUseOldRegistry(epochID uint32, address common.Address) (bool, common.Address) {
+	if address == NewRegistryCoston && epochID < breakingEpochCoston {
+		return true, OldRegistryCoston
+	}
+	if address == NewRegistryFlare && epochID < breakingEpochFlare {
+		return true, OldRegistryFlare
+	}
+	if address == NewRegistrySongbird && epochID < breakingEpochSongbird {
+		return true, OldRegistrySongbird
 	}
 
 	return false, address
 }
 
 func shouldUseOldPreRegistry(epochID uint32, address common.Address) (bool, common.Address) {
-	if address == newPreRegistryCoston && epochID < breakingEpochCoston {
-		return true, oldPreRegistryCoston
+	if address == NewPreRegistryCoston && epochID < breakingEpochCoston {
+		return true, OldPreRegistryCoston
+	}
+	if address == NewPreRegistryFlare && epochID < breakingEpochFlare {
+		return true, OldPreRegistryFlare
+	}
+	if address == NewPreRegistrySongbird && epochID < breakingEpochSongbird {
+		return true, OldPreRegistrySongbird
 	}
 
 	return false, address
@@ -449,7 +548,9 @@ func (r *registryContractClientImpl) signature(epochID uint32, address common.Ad
 	)
 	switch {
 	case r.chainID == chainIDCoston2,
-		r.chainID == chainIDCoston && epochID >= breakingEpochCoston:
+		r.chainID == chainIDCoston && epochID >= breakingEpochCoston,
+		r.chainID == chainIDFlare && epochID >= breakingEpochFlare,
+		r.chainID == chainIDSongbird && epochID >= breakingEpochSongbird:
 		signature, err = r.createSignatureNew(r.chainID, epochID, address)
 		if err != nil {
 			return nil, fmt.Errorf("creating new: %w", err)
