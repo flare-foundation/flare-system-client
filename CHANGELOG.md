@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v1.1.0](https://github.com/flare-foundation/flare-system-client/tree/v1.1.0) - 2026-7-14
+
 ### Added
 
 - CI: test coverage reporting and full pipelines on merge requests.
@@ -9,6 +11,7 @@
 - Startup validation of the submitter config sections (`submit1`, `submit2`, `submit_signatures`): rejects negative start offsets, non-positive submit/data-fetch timeouts, retry counts below one, a `submit_signatures` deadline at or before its start offset, negative `max_cycles`/`cycle_duration`, and a `submit_signatures` start offset scheduled before the `submit2` reveal.
 - Startup validation that the finalizer requires protocol voting: `enabled_finalizer` needs `enabled_protocol_voting`, otherwise the finalizer would never receive submitted messages.
 - Startup validation of type-2 gas multipliers: rejects non-finite (`inf`/`nan`) or non-positive `max_priority_fee_multiplier` / `base_fee_multiplier`, requires `base_fee_multiplier` to be at least 1 (unless `base_fee_per_gas_cap` is set) so the fee cap covers the base fee, and rejects a non-finite or below-1 `gas_price_multiplier` — surfacing bad values at startup instead of panicking at transaction time.
+- Smooth transition for Flare and Songbird (previously Coston-only) for the voterRegistry and voterPreRegistry smart contracts: switches to the new contract addresses at a per-chain breaking epoch, and the voter registration message hash now also includes the chain ID.
 
 ### Changed
 
@@ -33,6 +36,7 @@
 - Panics on nil `big.Int` values during reward data verification.
 - Panic in gas config validation when `gas_price_fixed` was unset for type 0 transactions.
 - Round leak in finalization storage: `RemoveRoundsBefore` left one stale round stored forever and rejected new payloads for it.
+- Protocol client registration checks (`isRegistered`/`waitUntilRegistered`) now query the same old-or-new voterRegistry as the send path, based on the reward epoch relative to the breaking epoch, instead of always querying the new registry.
 
 ## [v.1.0.12](https://github.com/flare-foundation/flare-system-client/tree/v1.0.12) - 2026-4-17
 
