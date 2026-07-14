@@ -235,3 +235,46 @@ func TestAddMessageDoesNotRaceWithPrepare(t *testing.T) {
 		wg.Wait()
 	}
 }
+
+// TestBadPayloadClassification pins that the four payload-caused rejections wrap
+// errBadPayload: the Debug-vs-Error log split in ProcessSubmissionData and
+// addMessage's drain relies on errors.Is.
+func TestBadPayloadClassification(t *testing.T) {
+	hash := common.HexToHash("0x0102030405060708091011121314151617181920212223242526272829303132").Bytes()
+
+	t.Run("signature recovery failure", func(t *testing.T) {
+		priv, _ := newKeyAndAddress(t)
+		sig := signVRS(t, hash, priv)
+		sig[0] = 99 // invalid V
+		pld := &submitSignaturesPayload{signature: sig, voterIndex: -1}
+		set := voters.NewSet([]common.Address{{}}, []uint16{1}, nil)
+		require.ErrorIs(t, pld.AddSigner(hash, set), errBadPayload)
+	})
+
+	t.Run("unregistered signer", func(t *testing.T) {
+		priv, _ := newKeyAndAddress(t)
+		pld := &submitSignaturesPayload{signature: signVRS(t, hash, priv), voterIndex: -1}
+		stranger := common.HexToAddress("0x2222222222222222222222222222222222222222")
+		set := voters.NewSet([]common.Address{stranger}, []uint16{1}, nil)
+		require.ErrorIs(t, pld.AddSigner(hash, set), errBadPayload)
+	})
+
+	t.Run("duplicate signature", func(t *testing.T) {
+		_, addr := newKeyAndAddress(t)
+		sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{addr}, []uint16{1}, nil)}
+		sc := NewSignatureCollection(shared.Message{}, sp, 100)
+		pld := &submitSignaturesPayload{signature: []byte{1}, voterIndex: 0, signer: addr}
+		_, err := sc.addSignature(pld)
+		require.NoError(t, err)
+		_, err = sc.addSignature(pld)
+		require.ErrorIs(t, err, errBadPayload)
+	})
+
+	t.Run("round below lowest stored", func(t *testing.T) {
+		s := newFinalizationStorage()
+		s.lowestRoundStored = 5
+		sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{{}}, []uint16{1}, nil)}
+		_, err := s.addPayload(&submitSignaturesPayload{votingRoundID: 1}, sp, 100)
+		require.ErrorIs(t, err, errBadPayload)
+	})
+}
