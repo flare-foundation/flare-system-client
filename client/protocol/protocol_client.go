@@ -138,14 +138,26 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 
 	selectors := ContractSelectors()
 
-	pc.submitter1 = newSubmitter(cl, protocolContext, votingRoundTiming,
-		&cfg.Submit1, &cfg.SubmitGas, selectors.submit1, subProtocols, 0, "submit1")
+	if cfg.Submit1.Enabled {
+		pc.submitter1 = newSubmitter(cl, protocolContext, votingRoundTiming,
+			&cfg.Submit1, &cfg.SubmitGas, selectors.submit1, subProtocols, 0, "submit1")
+	} else {
+		logger.Warn("submit1 is disabled")
+	}
 
-	pc.submitter2 = newSubmitter(cl, protocolContext, votingRoundTiming,
-		&cfg.Submit2, &cfg.SubmitGas, selectors.submit2, subProtocols, -1, "submit2")
+	if cfg.Submit2.Enabled {
+		pc.submitter2 = newSubmitter(cl, protocolContext, votingRoundTiming,
+			&cfg.Submit2, &cfg.SubmitGas, selectors.submit2, subProtocols, -1, "submit2")
+	} else {
+		logger.Warn("submit2 is disabled")
+	}
 
-	pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingRoundTiming,
-		&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols, messageChannel)
+	if cfg.SubmitSignatures.Enabled {
+		pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingRoundTiming,
+			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols, messageChannel)
+	} else {
+		logger.Warn("submitSignatures is disabled")
+	}
 
 	return pc, nil
 }
@@ -163,10 +175,9 @@ func (c *client) Run(ctx context.Context) error {
 	for {
 		select {
 		case currentEpoch := <-ticker.C:
-			// submit1 (commit) -> submit2 (reveal) -> submitSignatures is a
-			// dependency chain: a submit1 with no submit2 is penalised (FTSO), as
-			// is a submit2 with no submitSignatures (FDC). Run them as one chain so
-			// these obligations survive shutdown (see runChain).
+			// submit1 (commit) -> submit2 (reveal) -> submitSignatures obligations
+			// are penalised if broken (FTSO/FDC); run the enabled submitters as one
+			// chain so they survive shutdown (see runChain).
 			if chain := c.submitterChain(ticker, currentEpoch); len(chain) > 0 {
 				wg.Go(func() { runChain(ctx, chain) })
 			}

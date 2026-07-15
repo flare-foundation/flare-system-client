@@ -25,6 +25,10 @@ func main() {
 
 	logger.Set(clientCtx.Config().Logger)
 
+	for _, w := range clientCtx.Config().SubmitterWarnings() {
+		logger.Warnf("submitter config: %s", w)
+	}
+
 	// Prometheus metrics
 	shared.InitMetricsServer(&clientCtx.Config().Metrics)
 

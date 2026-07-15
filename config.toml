@@ -84,8 +84,11 @@ type = 1 # Type of submitSignature payload
 
 
 # Configuration for the submit1 operation.
-# A submit1 commit obliges a submit2 reveal, so all submitters always run together.
+# Submitters can be opted out individually with enabled = false.
+# Skipping an obliged step warns at startup: every round with a submit1 and without a submit2 is penalised, likewise for submit2 without submit_signatures.
+# The finalizer requires submit_signatures.
 [submit1]
+enabled = true # Set to false to opt out.
 start_offset = "75s" # Offset from the start of the epoch.
 tx_submit_retries = 2
 tx_submit_timeout = "5s"
@@ -94,6 +97,7 @@ data_fetch_timeout = "5s"
 
 # Configuration for the submit2 operation.
 [submit2]
+enabled = true # Set to false to opt out.
 start_offset = "20s" # Offset from the start of the epoch.
 tx_submit_retries = 2
 tx_submit_timeout = "5s"
@@ -102,6 +106,7 @@ data_fetch_timeout = "5s"
 
 # Configuration for the submitSignatures operation.
 [submit_signatures]
+enabled = true # Set to false to opt out.
 start_offset = "45s" # Offset from the start of the epoch. Must be >= submit2 start_offset.
 tx_submit_retries = 5
 tx_submit_timeout = "5s"

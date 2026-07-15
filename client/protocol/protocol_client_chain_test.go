@@ -220,6 +220,23 @@ func TestSubmitterChain_Composition(t *testing.T) {
 		}
 	})
 
+	t.Run("submit2_disabled", func(t *testing.T) {
+		c := &client{
+			submitter1:         submitter(1 * time.Second),
+			signatureSubmitter: sigSubmitter(3 * time.Second),
+		}
+		chain := c.submitterChain(ticker, epoch)
+		wantOffsets := []time.Duration{1 * time.Second, period + 3*time.Second}
+		if len(chain) != len(wantOffsets) {
+			t.Fatalf("want chain of %d, got %d", len(wantOffsets), len(chain))
+		}
+		for i, s := range chain {
+			if s.offset != wantOffsets[i] {
+				t.Errorf("step %d offset = %v, want %v", i, s.offset, wantOffsets[i])
+			}
+		}
+	})
+
 	t.Run("none_enabled", func(t *testing.T) {
 		c := &client{}
 		if chain := c.submitterChain(ticker, epoch); len(chain) != 0 {
