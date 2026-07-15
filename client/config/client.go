@@ -125,21 +125,41 @@ func (c *Client) validate() error {
 
 // validateSubmitters rejects nonsensical submitter configs at startup, rather
 // than letting newSubmitter silently clamp them or fail obscurely at runtime.
+// Only enabled submitters are checked.
 func (c *Client) validateSubmitters() error {
-	if err := c.Submit1.validate("submit1"); err != nil {
-		return err
+	if c.Submit1.Enabled {
+		if err := c.Submit1.validate("submit1"); err != nil {
+			return err
+		}
 	}
 
-	if err := c.Submit2.validate("submit2"); err != nil {
-		return err
+	if c.Submit2.Enabled {
+		if err := c.Submit2.validate("submit2"); err != nil {
+			return err
+		}
 	}
 
-	if err := c.SubmitSignatures.validate(); err != nil {
-		return err
+	if c.SubmitSignatures.Enabled {
+		if err := c.SubmitSignatures.validate(); err != nil {
+			return err
+		}
+	}
+
+	if c.Clients.EnabledProtocolVoting &&
+		!c.Submit1.Enabled && !c.Submit2.Enabled && !c.SubmitSignatures.Enabled {
+		return errors.New(
+			"all submitters are disabled; set enabled_protocol_voting = false instead of opting out of every submitter",
+		)
+	}
+
+	// finalization is fed by submitSignatures messages
+	if c.Clients.EnabledFinalizer && !c.SubmitSignatures.Enabled {
+		return errors.New("finalizer needs the submit_signatures submitter enabled")
 	}
 
 	// submitSignatures must not be offset before the submit2 reveal
-	if c.SubmitSignatures.StartOffset < c.Submit2.StartOffset {
+	if c.Submit2.Enabled && c.SubmitSignatures.Enabled &&
+		c.SubmitSignatures.StartOffset < c.Submit2.StartOffset {
 		return fmt.Errorf(
 			"submit_signatures start_offset (%s) is before submit2 start_offset (%s)",
 			c.SubmitSignatures.StartOffset,
@@ -147,6 +167,22 @@ func (c *Client) validateSubmitters() error {
 		)
 	}
 	return nil
+}
+
+// SubmitterWarnings returns a warning per penalised opt-out combination.
+func (c *Client) SubmitterWarnings() []string {
+	if !c.Clients.EnabledProtocolVoting {
+		return nil
+	}
+
+	var warnings []string
+	if c.Submit1.Enabled && !c.Submit2.Enabled {
+		warnings = append(warnings, "submit1 is enabled without submit2: every committed round will be penalised (FTSO)")
+	}
+	if c.Submit2.Enabled && !c.SubmitSignatures.Enabled {
+		warnings = append(warnings, "submit2 is enabled without submit_signatures: every revealed round will be penalised (FDC)")
+	}
+	return warnings
 }
 
 func (cfg *Client) validateContracts() error {
@@ -201,6 +237,7 @@ type Credentials struct {
 }
 
 var defaultSubmitConfig = Submit{
+	Enabled:          true,
 	TxSubmitRetries:  1,
 	TxSubmitTimeout:  10 * time.Second,
 	DataFetchRetries: 1,
@@ -208,6 +245,7 @@ var defaultSubmitConfig = Submit{
 }
 
 type Submit struct {
+	Enabled          bool          `toml:"enabled"`      // default true; false opts out
 	StartOffset      time.Duration `toml:"start_offset"` // offset from the start of the epoch
 	TxSubmitRetries  int           `toml:"tx_submit_retries"`
 	TxSubmitTimeout  time.Duration `toml:"tx_submit_timeout"`

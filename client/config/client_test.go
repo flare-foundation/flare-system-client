@@ -88,6 +88,7 @@ func TestGasValidate(t *testing.T) {
 
 func validSubmit() Submit {
 	return Submit{
+		Enabled:          true,
 		StartOffset:      20 * time.Second,
 		TxSubmitRetries:  2,
 		TxSubmitTimeout:  5 * time.Second,
@@ -188,6 +189,102 @@ func TestValidateSubmitters(t *testing.T) {
 		c.SubmitSignatures.StartOffset = 20 * time.Second // before submit2
 		c.SubmitSignatures.Deadline = 30 * time.Second    // keep deadline > its start offset
 		require.Error(t, c.validateSubmitters())
+	})
+
+	t.Run("disabled submitter is not validated", func(t *testing.T) {
+		c := base()
+		c.Submit1.Enabled = false
+		c.Submit1.TxSubmitTimeout = -time.Second // would fail validate if checked
+		require.NoError(t, c.validateSubmitters())
+	})
+
+	t.Run("ordering check skipped when submit2 is disabled", func(t *testing.T) {
+		c := base()
+		c.Submit2.Enabled = false
+		c.Submit2.StartOffset = 45 * time.Second
+		c.SubmitSignatures.StartOffset = 20 * time.Second // before submit2
+		c.SubmitSignatures.Deadline = 30 * time.Second
+		require.NoError(t, c.validateSubmitters())
+	})
+
+	t.Run("ordering check skipped when submit_signatures is disabled", func(t *testing.T) {
+		c := base()
+		c.SubmitSignatures.Enabled = false
+		c.Submit2.StartOffset = 45 * time.Second
+		c.SubmitSignatures.StartOffset = 20 * time.Second // before submit2
+		require.NoError(t, c.validateSubmitters())
+	})
+
+	t.Run("all disabled with protocol voting enabled errors", func(t *testing.T) {
+		c := base()
+		c.Submit1.Enabled = false
+		c.Submit2.Enabled = false
+		c.SubmitSignatures.Enabled = false
+		c.Clients.EnabledProtocolVoting = true
+		require.Error(t, c.validateSubmitters())
+	})
+
+	t.Run("all disabled with protocol voting disabled is fine", func(t *testing.T) {
+		c := base()
+		c.Submit1.Enabled = false
+		c.Submit2.Enabled = false
+		c.SubmitSignatures.Enabled = false
+		require.NoError(t, c.validateSubmitters())
+	})
+
+	t.Run("finalizer needs submit_signatures enabled", func(t *testing.T) {
+		c := base()
+		c.SubmitSignatures.Enabled = false
+		c.Clients.EnabledProtocolVoting = true
+		c.Clients.EnabledFinalizer = true
+		require.Error(t, c.validateSubmitters())
+	})
+}
+
+func TestSubmitterWarnings(t *testing.T) {
+	base := func() *Client {
+		return &Client{
+			Submit1:          validSubmit(),
+			Submit2:          validSubmit(),
+			SubmitSignatures: validSubmitSignatures(),
+			Clients:          Clients{EnabledProtocolVoting: true},
+		}
+	}
+
+	t.Run("all enabled: no warnings", func(t *testing.T) {
+		require.Empty(t, base().SubmitterWarnings())
+	})
+
+	t.Run("submit1 without submit2: FTSO warning only", func(t *testing.T) {
+		c := base()
+		c.Submit2.Enabled = false
+		warnings := c.SubmitterWarnings()
+		require.Len(t, warnings, 1)
+		require.Contains(t, warnings[0], "submit1 is enabled without submit2")
+	})
+
+	t.Run("submit2 without submit_signatures: FDC warning only", func(t *testing.T) {
+		c := base()
+		c.SubmitSignatures.Enabled = false
+		warnings := c.SubmitterWarnings()
+		require.Len(t, warnings, 1)
+		require.Contains(t, warnings[0], "submit2 is enabled without submit_signatures")
+	})
+
+	// complementary on Submit2.Enabled: at most one warning fires
+	t.Run("penalised combos are mutually exclusive: never more than one warning", func(t *testing.T) {
+		c := base()
+		c.Submit2.Enabled = false
+		c.SubmitSignatures.Enabled = false
+		require.Len(t, c.SubmitterWarnings(), 1)
+	})
+
+	t.Run("penalised combo but protocol voting disabled: no warnings", func(t *testing.T) {
+		c := base()
+		c.Submit2.Enabled = false
+		c.SubmitSignatures.Enabled = false
+		c.Clients.EnabledProtocolVoting = false
+		require.Empty(t, c.SubmitterWarnings())
 	})
 }
 
