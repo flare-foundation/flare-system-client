@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- Per-submitter `enabled` option (default true) reintroduced in `[submit1]`, `[submit2]`, and `[submit_signatures]` sections, allowing individual submitter opt-out via `enabled = false`.
+- Startup warnings for penalised opt-out combinations: submit1 enabled without submit2 (FTSO penalises a commit with no reveal), and submit2 enabled without submit_signatures (FDC penalises a reveal with no signatures).
+- Startup validation rejecting all three submitters disabled while `enabled_protocol_voting = true`, and validation that `enabled_finalizer = true` requires `submit_signatures` to be enabled.
+
+### Changed
+
+- **Config:** leftover `enabled` keys in `[submit1]`/`[submit2]`/`[submit_signatures]` — documented as ignored in v1.1.0 — take effect again: a stale `enabled = false` now opts that submitter out of every round. Check configs for stale keys when upgrading.
+
 ## [v1.1.0](https://github.com/flare-foundation/flare-system-client/tree/v1.1.0) - 2026-7-14
 
 ### Added
