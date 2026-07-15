@@ -145,16 +145,17 @@ func (c *Client) validateSubmitters() error {
 		}
 	}
 
+	// finalization is fed by submitSignatures messages; checked before the
+	// all-disabled error, whose advice a finalizer user cannot follow
+	if c.Clients.EnabledFinalizer && !c.SubmitSignatures.Enabled {
+		return errors.New("finalizer needs the submit_signatures submitter enabled")
+	}
+
 	if c.Clients.EnabledProtocolVoting &&
 		!c.Submit1.Enabled && !c.Submit2.Enabled && !c.SubmitSignatures.Enabled {
 		return errors.New(
 			"all submitters are disabled; set enabled_protocol_voting = false instead of opting out of every submitter",
 		)
-	}
-
-	// finalization is fed by submitSignatures messages
-	if c.Clients.EnabledFinalizer && !c.SubmitSignatures.Enabled {
-		return errors.New("finalizer needs the submit_signatures submitter enabled")
 	}
 
 	// submitSignatures must not be offset before the submit2 reveal

@@ -239,6 +239,18 @@ func TestValidateSubmitters(t *testing.T) {
 		c.Clients.EnabledFinalizer = true
 		require.Error(t, c.validateSubmitters())
 	})
+
+	// the all-disabled advice (disable protocol voting) is a dead end for
+	// finalizer users, so the finalizer error must win
+	t.Run("finalizer error wins over all-disabled error", func(t *testing.T) {
+		c := base()
+		c.Submit1.Enabled = false
+		c.Submit2.Enabled = false
+		c.SubmitSignatures.Enabled = false
+		c.Clients.EnabledProtocolVoting = true
+		c.Clients.EnabledFinalizer = true
+		require.ErrorContains(t, c.validateSubmitters(), "finalizer needs the submit_signatures submitter enabled")
+	})
 }
 
 func TestSubmitterWarnings(t *testing.T) {
