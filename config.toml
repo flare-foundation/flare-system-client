@@ -85,7 +85,7 @@ type = 1 # Type of submitSignature payload
 
 # Configuration for the submit1 operation.
 # Submitters can be opted out individually with enabled = false.
-# Skipping an obliged step (submit1 -> submit2 -> submit_signatures) warns at startup: such rounds are penalised.
+# Skipping an obliged step warns at startup: every round with a submit1 and without a submit2 is penalised, likewise for submit2 without submit_signatures.
 # The finalizer requires submit_signatures.
 [submit1]
 enabled = true # Set to false to opt out.

@@ -177,10 +177,10 @@ func (c *Client) SubmitterWarnings() []string {
 
 	var warnings []string
 	if c.Submit1.Enabled && !c.Submit2.Enabled {
-		warnings = append(warnings, "submit1 is enabled without submit2: every committed round will be penalised (FTSO)")
+		warnings = append(warnings, "submit1 is enabled without submit2: every round with a submit1 and without a submit2 is penalised (FTSO)")
 	}
 	if c.Submit2.Enabled && !c.SubmitSignatures.Enabled {
-		warnings = append(warnings, "submit2 is enabled without submit_signatures: every revealed round will be penalised (FDC)")
+		warnings = append(warnings, "submit2 is enabled without submit_signatures: every round with a submit2 and without submitSignatures is penalised (FDC)")
 	}
 	return warnings
 }
