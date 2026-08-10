@@ -59,6 +59,8 @@ type relayContractClient struct {
 	relaySelector []byte      // for relay method
 	topic0SPI     common.Hash // for SigningPolicyInitialized event
 	topic0PMR     common.Hash // for ProtocolMessageRelayed event
+
+	retryDelay time.Duration // backoff between send/nonce retries; tests shrink it
 }
 
 type signingPolicyListenerResponse struct {
@@ -106,6 +108,7 @@ func NewRelayContractClient(
 		topic0SPI:     topic0SPI,
 		topic0PMR:     topic0PMR,
 		gasConfig:     gasConfig,
+		retryDelay:    shared.TxRetryInterval,
 	}, nil
 }
 
@@ -175,7 +178,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	// send-retry budget so a transient RPC blip doesn't drop the finalization.
 	nonceResult := <-shared.ExecuteWithRetryChan(ctx, func() (uint64, error) {
 		return r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
-	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+	}, shared.MaxTxSendRetries, r.retryDelay)
 	if !nonceResult.Success {
 		logger.Warnf("Relaying failed for protocol %d: getting nonce: %v", protocolID, nonceResult.Message)
 		return
@@ -243,7 +246,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 			}
 			return "", res.Err
 		}
-	}, shared.MaxTxSendRetries, shared.TxRetryInterval)
+	}, shared.MaxTxSendRetries, r.retryDelay)
 
 	if sendResult.Success {
 		logger.Infof("Relaying finished for protocol %d with %s", protocolID, sendResult.Value)

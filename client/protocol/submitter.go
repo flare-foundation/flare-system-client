@@ -35,6 +35,7 @@ type SubmitterBase struct {
 	startOffset      time.Duration
 	submitRetries    int           // number of retries for submitting tx
 	submitTimeout    time.Duration // timeout for waiting for tx to be mined
+	retryDelay       time.Duration // backoff between send attempts; tests shrink it
 	name             string        // e.g., "submit1", "submit2", "submit3", "signatureSubmitter"
 	submitPrivateKey *ecdsa.PrivateKey
 
@@ -132,7 +133,7 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 			logger.Warnf("Submitter %s: send failed at nonce %d: %v", s.name, nonce, res.Err)
 			return "", res.Err
 		}
-	}, s.submitRetries, 1*time.Second)
+	}, s.submitRetries, s.retryDelay)
 
 	if sendResult.Success {
 		logger.Infof("Submitter %s successfully sent tx %s", s.name, sendResult.Value)
@@ -176,6 +177,7 @@ func newSubmitter(
 			startOffset:       submitCfg.StartOffset,
 			submitRetries:     max(1, submitCfg.TxSubmitRetries),
 			submitTimeout:     max(2*time.Second, submitCfg.TxSubmitTimeout),
+			retryDelay:        time.Second,
 			name:              name,
 			submitPrivateKey:  pc.submitPrivateKey,
 			dataFetchRetries:  submitCfg.DataFetchRetries,
@@ -267,6 +269,7 @@ func newSignatureSubmitter(
 			subProtocols:      subProtocols,
 			submitRetries:     max(1, submitCfg.TxSubmitRetries),
 			submitTimeout:     max(2*time.Second, submitCfg.TxSubmitTimeout),
+			retryDelay:        time.Second,
 			name:              "submitSignatures",
 			submitPrivateKey:  pc.submitSignaturesPrivateKey,
 			dataFetchTimeout:  submitCfg.DataFetchTimeout,

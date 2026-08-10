@@ -123,6 +123,7 @@ func testRelayClient(t *testing.T, cc chain.Client) *relayContractClient {
 		privateKey:    pk,
 		address:       relayContractAddress,
 		senderAddress: crypto.PubkeyToAddress(pk.PublicKey),
+		retryDelay:    time.Millisecond,
 	}
 }
 

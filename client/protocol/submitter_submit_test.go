@@ -67,6 +67,7 @@ func testSubmitterBase(t *testing.T, cc chain.Client, retries int) *SubmitterBas
 		name:             "test",
 		submitRetries:    retries,
 		submitTimeout:    time.Second,
+		retryDelay:       time.Millisecond,
 		submitPrivateKey: pk,
 	}
 }
