@@ -1,5 +1,28 @@
+stages:
+  - test
+  - sbom
+  - report
+
+default:
+  tags:
+    - flarenetwork
+  artifacts:
+    expire_in: 3 days
+
 include:
-  - component: $CI_SERVER_FQDN/flarenetwork/infra-public/ci-components/dependency-track@~latest
+  - component: gitlab.com/flarenetwork/ci-components-private/lgtm@2
+  - component: gitlab.com/flarenetwork/ci-components-private/dependency-track@2
+  - component: gitlab.com/flarenetwork/ci-components-private/lint-dockerfile@2
+  - component: gitlab.com/flarenetwork/ci-components-private/lint-shell@2
+  - component: gitlab.com/flarenetwork/ci-components-private/test-go@2
+    inputs:
+      go_version: "1.26.4"
+  - component: gitlab.com/flarenetwork/ci-components-private/lint-go@2
+    inputs:
+      go_version: "1.26.4"
+      golangci_version: "v2.11.3"
+      golangci_config_file: ".golangci.yml"
+  - template: Jobs/Secret-Detection.latest.gitlab-ci.yml
   - component: gitlab.com/flarenetwork/ci-components-private/ai-code-review@2
     inputs:
       job_name_suffix: "-mr"
@@ -14,64 +37,3 @@ include:
       rules_condition: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       rules_when: manual
       repo_review_mode: true
-
-# Run the full pipeline on both branch pushes and merge-request events,
-# but avoid duplicate runs: when there's an open MR for the branch, skip
-# the push-triggered pipeline so only the MR pipeline runs.
-workflow:
-  rules:
-    - if: '$CI_OPEN_MERGE_REQUESTS && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "webide")'
-      when: never
-    - when: always
-
-stages:
-  - build
-  - test
-  - sbom
-  - report
-
-variables:
-  GOPATH: /go
-  GOLANG_VERSION: "1.26.4-trixie@sha256:0dcba0d95dbfb072e9917a106b9e07d7cc298097dc83e9307056ef1889de654d"
-  GOLINT_VERSION: "v2.11.3"
-
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - ${GOPATH}/pkg/mod
-    - ${GOPATH}/bin
-
-build:
-  stage: build
-  image: golang:${GOLANG_VERSION}
-  needs: []
-  script:
-    - go build ./...
-
-lint:
-  stage: test
-  needs: [build]
-  image: golangci/golangci-lint:${GOLINT_VERSION}
-  script:
-    - "! gofmt -l . | grep -q ."
-    - golangci-lint run --timeout 5m0s
-
-test:
-  stage: test
-  image: golang:${GOLANG_VERSION}
-  needs: [build]
-  script:
-    - go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
-    - go tool cover -func=coverage.out | tail -1
-    - go install github.com/boumenot/gocover-cobertura@v1.5.0
-    - ${GOPATH}/bin/gocover-cobertura < coverage.out > coverage.xml
-  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
-  artifacts:
-    when: always
-    paths:
-      - coverage.out
-      - coverage.xml
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
