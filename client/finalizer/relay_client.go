@@ -237,7 +237,9 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 				return "", res.Err
 			}
 		case res.Broadcast && chain.IsTimeout(res.Err):
-			return "", res.Err // keep nonce, retry as replacement
+			// Keep the nonce so the gas-bumped retry replaces the pending tx.
+			logger.Warnf("Relay protocol %d: timed out awaiting confirmation of tx %s (nonce %d), retrying as replacement", protocolID, res.Hash.Hex(), nonce)
+			return "", res.Err
 		default:
 			// Keep the nonce if a tx is already outstanding at it (retry replaces);
 			// only refresh when nothing has been broadcast yet.
