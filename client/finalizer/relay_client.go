@@ -190,7 +190,9 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	// bumps still fire; without a deadline (delayed queue) keep the full timeout.
 	perAttempt := chain.DefaultTxTimeout
 	if dl, ok := ctx.Deadline(); ok {
-		if v := time.Until(dl) / boundedSendAttempts; v < perAttempt {
+		// budget the inter-attempt sleeps too, or the last attempt's wait is cut short
+		budget := time.Until(dl) - (boundedSendAttempts-1)*r.retryDelay
+		if v := budget / boundedSendAttempts; v < perAttempt {
 			perAttempt = max(v, minAttemptTimeout)
 		}
 	}
