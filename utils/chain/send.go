@@ -197,8 +197,9 @@ func AnyAccepted(ctx context.Context, c Client, from common.Address, hashes []co
 		logger.Warnf("tx %s was mined but reverted: %s", h.Hex(), reason)
 		revertedHash, reverted = h, true
 	}
-	// A confirmed own-tx revert is deterministic, so it wins over an inconclusive
-	// lookup (all broadcast hashes share one nonce; only one can have mined).
+	// A confirmed own-tx revert wins over an inconclusive lookup: all broadcast
+	// hashes carry the same calldata (nonces can diverge after a refresh), so a
+	// sibling that mined later would revert the same deterministic way.
 	if reverted {
 		return revertedHash, Reverted
 	}
