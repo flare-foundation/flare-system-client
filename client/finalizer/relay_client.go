@@ -176,9 +176,22 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	}
 
 	// Fetch once (a stable nonce for the reconciliation below), with the full
-	// send-retry budget so a transient RPC blip doesn't drop the finalization.
-	nonceResult := <-shared.ExecuteWithRetryChan(ctx, func() (uint64, error) {
-		return r.chainClient.Nonce(ctx, r.privateKey, 2*time.Second)
+	// send-retry budget so a transient RPC blip doesn't drop the finalization;
+	// on a bounded ctx (grace path) the fetch stops sendPhaseReserve before the
+	// deadline so the send attempts keep a usable window.
+	nonceCtx := ctx
+	if dl, ok := ctx.Deadline(); ok {
+		fetchDeadline := dl.Add(-sendPhaseReserve)
+		// never below one attempt's floor, or a short window couldn't fetch at all
+		if earliest := time.Now().Add(minAttemptTimeout); fetchDeadline.Before(earliest) {
+			fetchDeadline = earliest
+		}
+		var cancel context.CancelFunc
+		nonceCtx, cancel = context.WithDeadline(ctx, fetchDeadline)
+		defer cancel()
+	}
+	nonceResult := <-shared.ExecuteWithRetryChan(nonceCtx, func() (uint64, error) {
+		return r.chainClient.Nonce(nonceCtx, r.privateKey, 2*time.Second)
 	}, shared.MaxTxSendRetries, r.retryDelay)
 	if !nonceResult.Success {
 		logger.Warnf("Relaying failed for protocol %d: getting nonce: %v", protocolID, nonceResult.Message)

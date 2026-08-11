@@ -35,6 +35,10 @@ const (
 
 	// Floor for a derived per-attempt timeout when little deadline remains.
 	minAttemptTimeout = 2 * time.Second
+
+	// Part of a bounded send's window reserved for the send attempts: the nonce
+	// prefetch may consume the rest, so a flaky fetch cannot starve the sends.
+	sendPhaseReserve = 30 * time.Second
 )
 
 func init() {
