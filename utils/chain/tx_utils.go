@@ -207,31 +207,49 @@ func buildAndSignRawTx(ctx context.Context, client *ethclient.Client, privateKey
 
 	value := big.NewInt(0)
 
-	var gasLimit uint64
-	var err error
-	if dryRun && gasConfig.GasLimit > 0 {
-		gasLimit = uint64(gasConfig.GasLimit)
-		_, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
-		if err != nil {
-			return nil, fromAddress, fmt.Errorf("dry run: %w", err)
-		}
-	} else if dryRun {
-		gasLimit, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
-		if err != nil {
-			return nil, fromAddress, fmt.Errorf("dry run: %w", err)
-		}
-	} else {
-		gasLimit = getGasLimit(ctx, gasConfig, client, fromAddress, toAddress, value, data, timeout)
+	if gasConfig.TxType != 0 && gasConfig.TxType != 2 {
+		return nil, fromAddress, errors.New("unsupported tx type: set TxType to 0 or 2")
+	}
+
+	// Gas limit and fee data are independent reads — fetch them concurrently so
+	// a slow node costs one stage timeout, not two.
+	type gasLimitResult struct {
+		gasLimit uint64
+		err      error
+	}
+	gasLimitCh := make(chan gasLimitResult, 1)
+	go func() {
+		gasLimit, err := resolveGasLimit(ctx, client, gasConfig, fromAddress, toAddress, value, data, dryRun, timeout)
+		gasLimitCh <- gasLimitResult{gasLimit, err}
+	}()
+
+	var feePerGas *big.Int // gas price (type 0) or base fee (type 2)
+	var feeErr error
+	switch gasConfig.TxType {
+	case 0:
+		feePerGas, feeErr = GetGasPrice(ctx, gasConfig, client, timeout)
+	case 2:
+		feeCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+		feePerGas, feeErr = BaseFee(feeCtx, client)
+		cancelFunc()
+	}
+
+	gl := <-gasLimitCh
+	// dry-run errors first — they carry the tx's own revert reason, fee errors are transport
+	if gl.err != nil {
+		return nil, fromAddress, gl.err
+	}
+	if feeErr != nil {
+		return nil, fromAddress, feeErr
 	}
 
 	var signedTx *types.Transaction
+	var err error
 	switch gasConfig.TxType {
 	case 0:
-		signedTx, err = prepareAndSignType0(ctx, client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
+		signedTx, err = prepareAndSignType0(privateKey, chainID, nonce, gl.gasLimit, feePerGas, toAddress, value, data)
 	case 2:
-		signedTx, err = prepareAndSignType2(ctx, client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
-	default:
-		return nil, fromAddress, errors.New("unsupported tx type: set TxType to 0 or 2")
+		signedTx, err = prepareAndSignType2(gasConfig, privateKey, chainID, nonce, gl.gasLimit, feePerGas, toAddress, value, data)
 	}
 	if err != nil {
 		return nil, fromAddress, err
@@ -240,13 +258,26 @@ func buildAndSignRawTx(ctx context.Context, client *ethclient.Client, privateKey
 	return signedTx, fromAddress, nil
 }
 
-// prepareAndSignType0 prepares a type 0 (legacy) transaction and signs it.
-func prepareAndSignType0(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
-	gasPrice, err := GetGasPrice(ctx, gasConfig, client, timeout)
-	if err != nil {
-		return nil, err
+// resolveGasLimit returns the tx gas limit: with dryRun the estimate (or, with a
+// configured limit, that limit after dry-run validation), otherwise the
+// configured/estimated limit, which never fails (falls back to a default).
+func resolveGasLimit(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, fromAddress, toAddress common.Address, value *big.Int, data []byte, dryRun bool, timeout time.Duration) (uint64, error) {
+	if !dryRun {
+		return getGasLimit(ctx, gasConfig, client, fromAddress, toAddress, value, data, timeout), nil
 	}
+	gasLimit, err := DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
+	if err != nil {
+		return 0, fmt.Errorf("dry run: %w", err)
+	}
+	if gasConfig.GasLimit > 0 {
+		gasLimit = uint64(gasConfig.GasLimit)
+	}
+	return gasLimit, nil
+}
 
+// prepareAndSignType0 builds and signs a type 0 (legacy) transaction from the
+// prefetched gasPrice.
+func prepareAndSignType0(privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, gasPrice *big.Int, toAddress common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
 	txData := types.LegacyTx{
 		Nonce:    nonce,
 		GasPrice: gasPrice,
@@ -265,19 +296,12 @@ func prepareAndSignType0(ctx context.Context, client *ethclient.Client, gasConfi
 	return signedTx, nil
 }
 
-// prepareAndSignType2 prepares a type 2 (eip 1559) transaction and signs it.
-func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+// prepareAndSignType2 builds and signs a type 2 (eip 1559) transaction from the
+// prefetched baseFeePerGas.
+func prepareAndSignType2(gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, baseFeePerGas *big.Int, toAddress common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
 	// Default unset fields so EnforceMaxPriorityFeeCaps never sees a nil cap,
 	// even if a caller passes a raw config.
 	cfg := gasConfig.CopyAndDefault()
-
-	feeCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-	baseFeePerGas, err := BaseFee(feeCtx, client)
-	cancelFunc()
-	if err != nil {
-		logger.Debugf("Error getting baseFee: %v", err)
-		return nil, err
-	}
 
 	gasFeeCap := new(big.Int)
 	if cfg.BaseFeePerGasCap != nil && cfg.BaseFeePerGasCap.Sign() == 1 {

@@ -14,6 +14,7 @@
 - Example config: `submit1` start offset moved from 75s to 65s and a note added, keeping same-key submit1/submit2 fires well apart around the round so overlapping sends cannot collide on the nonce.
 - Expected payload rejections in the finalizer (bad signature, unregistered signer, duplicate signature, round below the stored window) now log at debug instead of error; only unexpected failures remain at error, so an error from submission processing again signals a real problem.
 - Relay and submit transactions now sign with the `chain_id` from config instead of fetching the network id from the node on every send, so a transient `net_version` failure can no longer abort a send; `chain_id` is validated as set at startup.
+- The gas-limit estimate and fee reads of a transaction build run concurrently: a send's pre-broadcast phase costs at most one RPC round-trip timeout instead of three.
 
 ### Fixed
 
