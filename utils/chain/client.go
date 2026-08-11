@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"math/big"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -32,11 +33,17 @@ type Client interface {
 
 type ClientImpl struct {
 	EthClient *ethclient.Client
+	ChainID   *big.Int // EIP-155 chain id for tx signing, from config — immutable, so never refetched per send
+}
+
+// NewClientImpl returns a ClientImpl signing txs with the EIP-155 chainID.
+func NewClientImpl(ethClient *ethclient.Client, chainID int64) ClientImpl {
+	return ClientImpl{EthClient: ethClient, ChainID: big.NewInt(chainID)}
 }
 
 // SendRawTx sends a transaction with payload signed by privateKey to to address.
 func (c ClientImpl) SendRawTx(ctx context.Context, privateKey *ecdsa.PrivateKey, nonce uint64, to common.Address, payload []byte, gasConfig *config.Gas, timeout time.Duration, dryRun bool) SendResult {
-	return SendRawTx(ctx, c.EthClient, privateKey, nonce, to, payload, dryRun, gasConfig, timeout)
+	return SendRawTx(ctx, c.EthClient, privateKey, c.ChainID, nonce, to, payload, dryRun, gasConfig, timeout)
 }
 
 // Nonce returns the nonce of the address corresponding to the privateKey from the latest known block.

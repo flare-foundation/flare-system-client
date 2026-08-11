@@ -139,21 +139,21 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 	selectors := ContractSelectors()
 
 	if cfg.Submit1.Enabled {
-		pc.submitter1 = newSubmitter(cl, protocolContext, votingRoundTiming,
+		pc.submitter1 = newSubmitter(cl, chainCfg.ChainID, protocolContext, votingRoundTiming,
 			&cfg.Submit1, &cfg.SubmitGas, selectors.submit1, subProtocols, 0, "submit1")
 	} else {
 		logger.Warn("submit1 is disabled")
 	}
 
 	if cfg.Submit2.Enabled {
-		pc.submitter2 = newSubmitter(cl, protocolContext, votingRoundTiming,
+		pc.submitter2 = newSubmitter(cl, chainCfg.ChainID, protocolContext, votingRoundTiming,
 			&cfg.Submit2, &cfg.SubmitGas, selectors.submit2, subProtocols, -1, "submit2")
 	} else {
 		logger.Warn("submit2 is disabled")
 	}
 
 	if cfg.SubmitSignatures.Enabled {
-		pc.signatureSubmitter = newSignatureSubmitter(cl, protocolContext, votingRoundTiming,
+		pc.signatureSubmitter = newSignatureSubmitter(cl, chainCfg.ChainID, protocolContext, votingRoundTiming,
 			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols, messageChannel)
 	} else {
 		logger.Warn("submitSignatures is disabled")

@@ -130,6 +130,10 @@ func defaultConfig() *Client {
 
 // validate checks consistency of configurations.
 func (c *Client) validate() error {
+	// all txs are signed with the configured chain id; 0 would sign for the wrong chain
+	if c.Chain.ChainID <= 0 {
+		return errors.New("chain_id must be set to the network's chain id")
+	}
 	if err := c.Clients.validate(); err != nil {
 		return fmt.Errorf("validating Clients: %w", err)
 	}

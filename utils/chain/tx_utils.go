@@ -186,12 +186,12 @@ func BaseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	return (*big.Int)(&result), err
 }
 
-// SendRawTx signs a transaction to toAddress with the prescribed nonce and
-// gasConfig, broadcasts it and waits for it to be mined. SendResult classifies
-// the outcome (pre-broadcast failure vs post-broadcast timeout) and carries the
-// broadcast hash for nonce-too-low reconciliation.
-func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) SendResult {
-	signedTx, fromAddress, err := buildAndSignRawTx(ctx, client, privateKey, nonce, toAddress, data, dryRun, gasConfig, timeout)
+// SendRawTx signs a transaction to toAddress with the prescribed nonce,
+// gasConfig and EIP-155 chainID, broadcasts it and waits for it to be mined.
+// SendResult classifies the outcome (pre-broadcast failure vs post-broadcast
+// timeout) and carries the broadcast hash for nonce-too-low reconciliation.
+func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) SendResult {
+	signedTx, fromAddress, err := buildAndSignRawTx(ctx, client, privateKey, chainID, nonce, toAddress, data, dryRun, gasConfig, timeout)
 	if err != nil {
 		// Failed before broadcast: never reached the node, so Broadcast stays false.
 		return SendResult{Err: fmt.Errorf("preparing tx: %w", err)}
@@ -199,22 +199,16 @@ func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.
 	return BroadcastAndWait(ctx, client, fromAddress, signedTx, timeout)
 }
 
-// buildAndSignRawTx does the pre-broadcast work (chain id, gas limit, signing;
-// dry-running when dryRun is set). Any error it returns is a pre-broadcast
-// failure — nothing was sent to the network.
-func buildAndSignRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) (*types.Transaction, common.Address, error) {
+// buildAndSignRawTx does the pre-broadcast work (gas limit and fee reads,
+// signing; dry-running when dryRun is set). Any error it returns is a
+// pre-broadcast failure — nothing was sent to the network.
+func buildAndSignRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) (*types.Transaction, common.Address, error) {
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	value := big.NewInt(0)
 
-	chainIDCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-	chainID, err := client.NetworkID(chainIDCtx)
-	cancelFunc()
-	if err != nil {
-		return nil, fromAddress, err
-	}
-
 	var gasLimit uint64
+	var err error
 	if dryRun && gasConfig.GasLimit > 0 {
 		gasLimit = uint64(gasConfig.GasLimit)
 		_, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)

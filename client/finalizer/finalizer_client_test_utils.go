@@ -89,6 +89,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		privateKey,
 		fromAddress,
 		&config.Gas{},
+		114,
 	)
 	if err != nil {
 		return nil, err

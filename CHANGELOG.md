@@ -13,6 +13,7 @@
 - A send that exhausts retries with an own broadcast still unresolved logs "outcome unknown, a broadcast tx may be on chain" at warning level instead of an unqualified error, distinguishing a possibly-successful send from a confirmed failure.
 - Example config: `submit1` start offset moved from 75s to 65s and a note added, keeping same-key submit1/submit2 fires well apart around the round so overlapping sends cannot collide on the nonce.
 - Expected payload rejections in the finalizer (bad signature, unregistered signer, duplicate signature, round below the stored window) now log at debug instead of error; only unexpected failures remain at error, so an error from submission processing again signals a real problem.
+- Relay and submit transactions now sign with the `chain_id` from config instead of fetching the network id from the node on every send, so a transient `net_version` failure can no longer abort a send; `chain_id` is validated as set at startup.
 
 ### Fixed
 

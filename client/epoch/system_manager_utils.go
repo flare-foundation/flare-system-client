@@ -74,7 +74,7 @@ type systemsManagerContractClientImpl struct {
 	gasCfg              *config.Gas
 	txVerifier          *chain.TxVerifier
 	signerPrivateKey    *ecdsa.PrivateKey
-	chainID             int
+	chainID             int64
 	ethClient           *ethclient.Client
 }
 
@@ -84,7 +84,7 @@ func NewSystemsManagerClient(
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPrivateKey *ecdsa.PrivateKey,
-	chainID int) (*systemsManagerContractClientImpl, error) {
+	chainID int64) (*systemsManagerContractClientImpl, error) {
 	flareSystemsManager, err := system.NewFlareSystemsManager(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -487,7 +487,7 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, 
 
 	numberOfWeightBasedClaims := []system.IFlareSystemsManagerNumberOfWeightBasedClaims{
 		{
-			RewardManagerId:       big.NewInt(int64(s.chainID)),
+			RewardManagerId:       big.NewInt(s.chainID),
 			NoOfWeightBasedClaims: big.NewInt(int64(weightClaims)),
 		},
 	}

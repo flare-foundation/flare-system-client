@@ -21,7 +21,7 @@ const (
 )
 
 type Chain struct {
-	ChainID   int    `toml:"chain_id" envconfig:"CHAIN_ID"`
+	ChainID   int64  `toml:"chain_id" envconfig:"CHAIN_ID"`
 	EthRPCURL string `toml:"eth_rpc_url" envconfig:"ETH_RPC_URL"`
 	ApiKey    string `toml:"api_key" envconfig:"API_KEY"`
 }

@@ -106,10 +106,10 @@ func rewardClaimHash(epoch uint64, claim rewardClaimBody) (common.Hash, error) {
 	return crypto.Keccak256Hash(encoded), nil
 }
 
-func encodeRewardsData(epochId *big.Int, chainId int, rewardHash *common.Hash, weightClaims int) []byte {
+func encodeRewardsData(epochId *big.Int, chainId int64, rewardHash *common.Hash, weightClaims int) []byte {
 	weightClaimsWithId, err := weightClaimsArgs.Pack(
 		[]system.IFlareSystemsManagerNumberOfWeightBasedClaims{{
-			RewardManagerId: big.NewInt(int64(chainId)), NoOfWeightBasedClaims: big.NewInt(int64(weightClaims))},
+			RewardManagerId: big.NewInt(chainId), NoOfWeightBasedClaims: big.NewInt(int64(weightClaims))},
 		},
 	)
 	if err != nil {

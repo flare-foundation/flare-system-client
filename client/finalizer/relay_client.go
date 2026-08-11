@@ -74,6 +74,7 @@ func NewRelayContractClient(
 	privateKey *ecdsa.PrivateKey,
 	senderAddress common.Address,
 	gasConfig *config.Gas,
+	chainID int64,
 ) (*relayContractClient, error) {
 	relayContract, err := relay.NewRelay(address, ethClient)
 	if err != nil {
@@ -99,7 +100,7 @@ func NewRelayContractClient(
 	}
 
 	return &relayContractClient{
-		chainClient:   chain.ClientImpl{EthClient: ethClient},
+		chainClient:   chain.NewClientImpl(ethClient, chainID),
 		address:       address,
 		relay:         relayContract,
 		privateKey:    privateKey,

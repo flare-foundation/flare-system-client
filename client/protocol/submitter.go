@@ -157,6 +157,7 @@ func (s *SubmitterBase) refreshNonce(ctx context.Context, current uint64) uint64
 
 func newSubmitter(
 	ethClient *ethclient.Client,
+	chainID int64,
 	pc *protocolContext,
 	votingRoundTiming *utils.EpochTimingConfig,
 	submitCfg *config.Submit,
@@ -168,7 +169,7 @@ func newSubmitter(
 ) *Submitter {
 	return &Submitter{
 		SubmitterBase: SubmitterBase{
-			chainClient:       chain.ClientImpl{EthClient: ethClient},
+			chainClient:       chain.NewClientImpl(ethClient, chainID),
 			gasConfig:         gasCfg,
 			protocolContext:   pc,
 			votingRoundTiming: votingRoundTiming,
@@ -245,6 +246,7 @@ func (s *Submitter) RunEpoch(ctx context.Context, currentEpoch int64) {
 
 func newSignatureSubmitter(
 	ethClient *ethclient.Client,
+	chainID int64,
 	pc *protocolContext,
 	votingRoundTiming *utils.EpochTimingConfig,
 	submitCfg *config.SubmitSignatures,
@@ -260,7 +262,7 @@ func newSignatureSubmitter(
 
 	return &SignatureSubmitter{
 		SubmitterBase: SubmitterBase{
-			chainClient:       chain.ClientImpl{EthClient: ethClient},
+			chainClient:       chain.NewClientImpl(ethClient, chainID),
 			gasConfig:         gasCfg,
 			protocolContext:   pc,
 			votingRoundTiming: votingRoundTiming,

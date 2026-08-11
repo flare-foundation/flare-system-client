@@ -181,7 +181,7 @@ type registryContractClientImpl struct {
 	gasCfg             *config.Gas
 	txVerifier         *chain.TxVerifier
 	signerPrivateKey   *ecdsa.PrivateKey
-	chainID            int
+	chainID            int64
 }
 
 func NewRegistryContractClient(
@@ -191,7 +191,7 @@ func NewRegistryContractClient(
 	preregistryAddress common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPk *ecdsa.PrivateKey,
-	chainID int,
+	chainID int64,
 ) (*registryContractClientImpl, error) {
 	registryBinding, err := registry.NewRegistry(registryAddress, ethClient)
 	if err != nil {
@@ -455,8 +455,8 @@ func (r *registryContractClientImpl) createSignature(nextRewardEpochID uint32, a
 }
 
 // createSignatureNew creates ECDSA message signature keccak256(abi.encode(chainID, nextRewardEpochID, address)) with signerPrivateKey
-func (r *registryContractClientImpl) createSignatureNew(chainID int, nextRewardEpochID uint32, address common.Address) ([]byte, error) {
-	chainIDB := big.NewInt(int64(chainID))
+func (r *registryContractClientImpl) createSignatureNew(chainID int64, nextRewardEpochID uint32, address common.Address) ([]byte, error) {
+	chainIDB := big.NewInt(chainID)
 
 	message, err := registratorArgumentsNew.Pack(chainIDB, nextRewardEpochID, address)
 	if err != nil {
