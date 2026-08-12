@@ -216,8 +216,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	sendResult := <-shared.ExecuteWithRetryAttempts(ctx, func(ri int) (string, error) {
 		gasConfig := chain.GasConfigForAttempt(r.gasConfig, ri)
 
-		// one slice per attempt — SendRawTx spends `timeout` per phase (build,
-		// broadcast, wait), so an uncapped slow attempt could eat ~3 slices
+		// one slice per attempt — SendRawTx spends timeout per phase, uncapped that's ~3 slices
 		attemptCtx, cancelAttempt := context.WithTimeout(ctx, perAttempt)
 		res := r.chainClient.SendRawTx(attemptCtx, r.privateKey, nonce, r.address, input, gasConfig, perAttempt, dryRun)
 		cancelAttempt()

@@ -151,9 +151,7 @@ func TestRelayAlreadyRelayedIsNonFatal(t *testing.T) {
 	require.Len(t, cc.sentNonces, 1) // no retry, treated as success
 }
 
-// Every send attempt runs under its own perAttempt-scoped ctx — SendRawTx
-// spends its timeout per phase, so without the cap one slow attempt could eat
-// the following attempts' slices and the last gas bump would never fire.
+// pins the per-attempt ctx cap — without it one slow attempt eats later attempts' slices
 func TestRelaySendAttemptsAreDeadlineScoped(t *testing.T) {
 	failing := func() *scriptedRelayClient {
 		return &scriptedRelayClient{

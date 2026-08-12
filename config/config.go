@@ -41,8 +41,7 @@ func (cfg *Chain) DialETH() (*ethclient.Client, error) {
 // ErrChainIDMismatch reports a configured chain_id that contradicts the node's.
 var ErrChainIDMismatch = errors.New("chain_id mismatch")
 
-// VerifyChainID compares the configured chain_id against the node's eth_chainId.
-// Returns ErrChainIDMismatch on mismatch; any other error means the node could not be queried.
+// VerifyChainID compares chain_id with the node's eth_chainId; mismatch → ErrChainIDMismatch.
 func (cfg *Chain) VerifyChainID(ctx context.Context) error {
 	rpcURL, err := cfg.getRPCURL()
 	if err != nil {
