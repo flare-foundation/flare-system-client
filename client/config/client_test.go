@@ -136,6 +136,17 @@ func TestGasValidate(t *testing.T) {
 			gas:     Gas{TxType: 0, GasLimit: -1},
 			wantErr: true,
 		},
+		{
+			// the sign checks run before the tx-type switch, so type 0 covers both
+			name:    "negative gas price fixed",
+			gas:     Gas{TxType: 0, GasPriceFixed: big.NewInt(-1)},
+			wantErr: true,
+		},
+		{
+			name:    "negative base fee per gas cap",
+			gas:     Gas{TxType: 0, BaseFeePerGasCap: big.NewInt(-1)},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

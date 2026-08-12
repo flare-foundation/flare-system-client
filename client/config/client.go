@@ -557,6 +557,14 @@ func (g *Gas) validate() error {
 		return errors.New("gas_limit must not be negative (0 for auto-estimation)")
 	}
 
+	// negative fee overrides are silently ignored at send time — reject the typo
+	if g.GasPriceFixed != nil && g.GasPriceFixed.Sign() < 0 {
+		return errors.New("gas_price_fixed must not be negative")
+	}
+	if g.BaseFeePerGasCap != nil && g.BaseFeePerGasCap.Sign() < 0 {
+		return errors.New("base_fee_per_gas_cap must not be negative")
+	}
+
 	if g.GasPriceMultiplier != 0.0 && (!isPositiveFinite(float64(g.GasPriceMultiplier)) || g.GasPriceMultiplier < 1) {
 		return errors.New("if set, gas_price_multiplier must be a finite value not less than 1")
 	}
