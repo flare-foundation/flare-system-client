@@ -249,9 +249,10 @@ func (p *finalizerQueueProcessor) processDelayedQueue(ctx context.Context, items
 	currentEpoch := p.finalizerContext.votingRoundTiming.EpochIndex(now)
 	startTime := p.finalizerContext.votingRoundTiming.StartTime(currentEpoch)
 
+	// best-effort dedup — the batch is already off the queue, a DB error must not drop it
 	relayedItems, err := p.relayClient.ProtocolMessageRelayed(ctx, p.db, startTime, now)
 	if err != nil {
-		return err
+		logger.Warnf("Finalizer delayed queue: proceeding without the already-relayed check: %v", err)
 	}
 
 	for _, item := range items {

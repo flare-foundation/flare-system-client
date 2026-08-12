@@ -1,12 +1,21 @@
 package finalizer
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/flare-foundation/flare-system-client/client/config"
 	"github.com/flare-foundation/flare-system-client/utils"
+
+	"github.com/flare-foundation/go-flare-common/pkg/policy"
+	"github.com/flare-foundation/go-flare-common/pkg/voters"
 )
 
 func TestDelayedRetryTime(t *testing.T) {
@@ -54,4 +63,43 @@ func TestDelayedRetryTime(t *testing.T) {
 		live := p.delayedRetryTime(1, time.Now())
 		require.Equal(t, live.Round(0), live)
 	})
+}
+
+// a failed already-relayed lookup must not drop the batch — items are already off the queue
+func TestProcessDelayedQueueSurvivesDBError(t *testing.T) {
+	privateKey, err := crypto.HexToECDSA(testPrivateKeyHex)
+	require.NoError(t, err)
+	sender := crypto.PubkeyToAddress(privateKey.PublicKey)
+
+	msg, err := encodeMessage(1, 1, true, bytes.Repeat([]byte{0xff}, 32))
+	require.NoError(t, err)
+	sig, err := signMessage(msg, privateKey)
+	require.NoError(t, err)
+
+	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{sender}, []uint16{2}, nil)}
+	storage := newFinalizationStorage()
+	ready, err := storage.addPayload(&submitSignaturesPayload{
+		protocolID: 1, votingRoundID: 1, typeID: 0, message: msg, signature: sig, sender: sender,
+	}, sp, 1)
+	require.NoError(t, err)
+	require.True(t, ready.thresholdReached)
+
+	eth := new(testEthClient)
+	relayClient, err := NewRelayContractClient(nil, relayContractAddress, privateKey, sender, &config.Gas{}, 114)
+	require.NoError(t, err)
+	relayClient.chainClient = eth
+	relayClient.retryDelay = time.Millisecond
+
+	qp := newFinalizerQueueProcessor(
+		&testDB{fetchLogsErr: errors.New("db down")},
+		storage,
+		relayClient,
+		&finalizerContext{votingRoundTiming: &utils.EpochTimingConfig{Start: time.Unix(0, 0), Period: time.Hour}},
+	)
+
+	err = qp.processDelayedQueue(context.Background(), []*queueItem{
+		{votingRoundID: ready.votingRoundID, protocolID: ready.protocolID, msgHash: ready.msgHash},
+	})
+	require.NoError(t, err)
+	require.Len(t, eth.sentTxs, 1, "item must be sent despite the failed dedup query")
 }
