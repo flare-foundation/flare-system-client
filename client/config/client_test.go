@@ -150,6 +150,13 @@ func TestGasValidate(t *testing.T) {
 	}
 }
 
+func TestFinalizerValidate(t *testing.T) {
+	require.NoError(t, Finalizer{GracePeriodEndOffset: 65 * time.Second, VoterThresholdBIPS: 500}.validate())
+	require.ErrorContains(t, Finalizer{VoterThresholdBIPS: 500}.validate(), "grace_period_end_offset")
+	require.ErrorContains(t, Finalizer{GracePeriodEndOffset: -time.Second, VoterThresholdBIPS: 500}.validate(), "grace_period_end_offset")
+	require.ErrorContains(t, Finalizer{GracePeriodEndOffset: 65 * time.Second}.validate(), "voter_threshold_bips")
+}
+
 func validSubmit() Submit {
 	return Submit{
 		Enabled:          true,

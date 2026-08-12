@@ -155,6 +155,11 @@ func (c *Client) validate() error {
 	if err := c.validateContracts(); err != nil {
 		return fmt.Errorf("validating contracts: %w", err)
 	}
+	if c.Clients.EnabledFinalizer {
+		if err := c.Finalizer.validate(); err != nil {
+			return fmt.Errorf("validating finalizer: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -374,6 +379,19 @@ type Finalizer struct {
 
 	// Offset from the start of the voting round.
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
+}
+
+// validate rejects a finalizer config whose grace gating cannot work.
+func (f Finalizer) validate() error {
+	// no default — unset silently degenerates to relaying every round immediately
+	if f.GracePeriodEndOffset <= 0 {
+		return errors.New("grace_period_end_offset must be set (> 0)")
+	}
+	// 0 selects no voters, and SelectVoters errors are swallowed at runtime
+	if f.VoterThresholdBIPS == 0 {
+		return errors.New("voter_threshold_bips must be > 0")
+	}
+	return nil
 }
 
 // Gas dictates how gas for the transaction is set.
