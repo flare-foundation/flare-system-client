@@ -49,6 +49,12 @@ func TestVerifyChainID(t *testing.T) {
 		require.ErrorContains(t, err, "node reports 14")
 	})
 
+	t.Run("node id beyond int64 is a mismatch, not a panic", func(t *testing.T) {
+		srv := newChainIDRPCStub(t, "0x1ffffffffffffffff")
+		cfg := &Chain{ChainID: 114, EthRPCURL: srv.URL}
+		require.ErrorIs(t, cfg.VerifyChainID(context.Background()), ErrChainIDMismatch)
+	})
+
 	t.Run("unreachable node errors but is not a mismatch", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 		url := srv.URL

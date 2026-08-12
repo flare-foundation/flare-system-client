@@ -44,7 +44,12 @@ var ErrChainIDMismatch = errors.New("chain_id mismatch")
 // VerifyChainID compares the configured chain_id against the node's eth_chainId.
 // Returns ErrChainIDMismatch on mismatch; any other error means the node could not be queried.
 func (cfg *Chain) VerifyChainID(ctx context.Context) error {
-	cl, err := cfg.DialETH()
+	rpcURL, err := cfg.getRPCURL()
+	if err != nil {
+		return err
+	}
+	// DialContext so the ctx also bounds eager transports (ws/ipc)
+	cl, err := ethclient.DialContext(ctx, rpcURL)
 	if err != nil {
 		return err
 	}
