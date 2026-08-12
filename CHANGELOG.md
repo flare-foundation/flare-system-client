@@ -27,6 +27,7 @@
 - A stuck relay send no longer blocks the finalization queue processor for its full retry budget (~11 minutes), delaying other rounds' grace-period finalizations past their window: each queued item's send is bounded to 50 seconds, with per-attempt timeouts sized (inter-attempt backoff included) so gas-bumped replacements still fire within the bound, the nonce prefetch capped so a flaky fetch cannot starve the send attempts, and the item then falls back to the delayed queue where already-relayed rounds are skipped; a fallback target already in the past — previously every post-grace "send now" item silently lost its retry this way — is rescheduled a few seconds ahead, and the delayed queue logs any dropped past-time entry instead of discarding it silently.
 - Restored the relay nonce fetch's retry budget so a transient RPC failure no longer drops a finalization after only a few hundred milliseconds.
 - Transaction send-retry helpers now abort promptly on context cancellation instead of sleeping through the remaining retries, unblocking graceful shutdown (previously up to ~50s for the finalizer, longer for epoch paths).
+- A transient indexer-DB error during the delayed queue's already-relayed check no longer drops the whole batch of pending finalizations (the items are consumed from the queue before processing and were never retried): the check is skipped instead, and the dry-run send catches already-relayed rounds pre-broadcast.
 
 ## [v1.1.1](https://github.com/flare-foundation/flare-system-client/tree/v1.1.1) - 2026-7-15
 
