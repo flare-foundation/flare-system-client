@@ -87,13 +87,19 @@ type scriptedRelayClient struct {
 	reverts   map[common.Hash]string
 	nonceFail int // number of leading Nonce calls that fail before succeeding
 
-	sentNonces []uint64
-	sendIdx    int
-	nonceIdx   int
+	sentNonces    []uint64
+	sendRemaining []time.Duration // per send: time left on its ctx deadline (0 = none)
+	sendIdx       int
+	nonceIdx      int
 }
 
-func (c *scriptedRelayClient) SendRawTx(_ context.Context, _ *ecdsa.PrivateKey, nonce uint64, _ common.Address, _ []byte, _ *config.Gas, _ time.Duration, _ bool) chain.SendResult {
+func (c *scriptedRelayClient) SendRawTx(ctx context.Context, _ *ecdsa.PrivateKey, nonce uint64, _ common.Address, _ []byte, _ *config.Gas, _ time.Duration, _ bool) chain.SendResult {
 	c.sentNonces = append(c.sentNonces, nonce)
+	remaining := time.Duration(0)
+	if dl, ok := ctx.Deadline(); ok {
+		remaining = time.Until(dl)
+	}
+	c.sendRemaining = append(c.sendRemaining, remaining)
 	r := c.results[min(c.sendIdx, len(c.results)-1)]
 	c.sendIdx++
 	return r
@@ -143,6 +149,47 @@ func TestRelayAlreadyRelayedIsNonFatal(t *testing.T) {
 
 	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
 	require.Len(t, cc.sentNonces, 1) // no retry, treated as success
+}
+
+// Every send attempt runs under its own perAttempt-scoped ctx — SendRawTx
+// spends its timeout per phase, so without the cap one slow attempt could eat
+// the following attempts' slices and the last gas bump would never fire.
+func TestRelaySendAttemptsAreDeadlineScoped(t *testing.T) {
+	failing := func() *scriptedRelayClient {
+		return &scriptedRelayClient{
+			nonces:  []uint64{10},
+			results: []chain.SendResult{{Broadcast: false, Err: errors.New("send failed")}},
+		}
+	}
+
+	t.Run("unbounded path caps each attempt at the default timeout", func(t *testing.T) {
+		cc := failing()
+		r := testRelayClient(t, cc)
+
+		r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1)
+
+		require.NotEmpty(t, cc.sendRemaining)
+		for _, remaining := range cc.sendRemaining {
+			require.Greater(t, remaining, chain.DefaultTxTimeout-5*time.Second)
+			require.LessOrEqual(t, remaining, chain.DefaultTxTimeout)
+		}
+	})
+
+	t.Run("bounded path caps each attempt at its perAttempt slice", func(t *testing.T) {
+		cc := failing()
+		r := testRelayClient(t, cc)
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+		defer cancel()
+
+		r.SubmitPayloads(ctx, make([]byte, 40), false, 1)
+
+		require.NotEmpty(t, cc.sendRemaining)
+		// perAttempt = (remaining − 2×retryDelay)/3 ≈ 16.7s, well below the 50s parent
+		for _, remaining := range cc.sendRemaining {
+			require.Greater(t, remaining, 10*time.Second)
+			require.Less(t, remaining, 18*time.Second)
+		}
+	})
 }
 
 // A prior broadcast mined but reverted with the allowed "Already relayed" reason
