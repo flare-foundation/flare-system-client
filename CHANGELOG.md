@@ -8,6 +8,7 @@
 - Startup validation rejecting a negative `gas_limit`, which previously wrapped via `uint64()` into an unusable ~1.8e19 gas limit at transaction-build time, permanently rejecting every relay and voter-registration transaction.
 - Startup verification of the configured `chain_id` against the node's `eth_chainId`: a mismatch (which would make every send fail with "invalid sender") aborts startup with a fatal log; an unreachable node only warns, so a node outage does not block a restart.
 - Startup validation for an enabled finalizer: `grace_period_end_offset` must be set (it has no default, and unset silently disabled grace gating, relaying every round immediately) and `voter_threshold_bips` must be positive (0 silently made the node never-selected for grace finalization).
+- Startup validation rejecting a negative `gas_price_fixed` or `base_fee_per_gas_cap`: both were silently ignored at send time, while the gas-override startup warning still described the pin as active.
 
 ### Changed
 
