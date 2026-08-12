@@ -1,9 +1,11 @@
 package config
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"strings"
@@ -34,6 +36,28 @@ func (cfg *Chain) DialETH() (*ethclient.Client, error) {
 	}
 
 	return ethclient.Dial(rpcURL)
+}
+
+// ErrChainIDMismatch reports a configured chain_id that contradicts the node's.
+var ErrChainIDMismatch = errors.New("chain_id mismatch")
+
+// VerifyChainID compares the configured chain_id against the node's eth_chainId.
+// Returns ErrChainIDMismatch on mismatch; any other error means the node could not be queried.
+func (cfg *Chain) VerifyChainID(ctx context.Context) error {
+	cl, err := cfg.DialETH()
+	if err != nil {
+		return err
+	}
+	defer cl.Close()
+
+	nodeID, err := cl.ChainID(ctx)
+	if err != nil {
+		return err
+	}
+	if nodeID.Cmp(big.NewInt(cfg.ChainID)) != 0 {
+		return fmt.Errorf("%w: config has %d, node reports %v", ErrChainIDMismatch, cfg.ChainID, nodeID)
+	}
+	return nil
 }
 
 // Get the full RPC URL which may be passed to ethclient.Dial.
