@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -20,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
@@ -77,14 +79,25 @@ func (t TxVerifier) WaitUntilMined(ctx context.Context, from common.Address, tx 
 		return fmt.Errorf("bind.WaitMined: %w", err)
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		reason, err := errorReason(ctx, t.eth, from, tx, receipt.BlockNumber)
-		if err != nil {
-			return err
+		// Wrap errReverted whether or not the reason decodes: the tx still mined.
+		reason, rerr := errorReason(ctx, t.eth, from, tx, receipt.BlockNumber)
+		if rerr != nil {
+			return fmt.Errorf("%w: %v", errReverted, rerr)
 		}
-		return fmt.Errorf("tx failed: %s", reason)
+		return fmt.Errorf("%w: %s", errReverted, reason)
 	}
 	return nil
 }
+
+// errReverted marks a mined-but-reverted tx (nonce consumed; a resend is futile).
+// Callers detect it via SendResult.Mined.
+var errReverted = errors.New("tx mined but reverted")
+
+// errRevertUndecodable marks a deterministically-reverted tx whose revert reason
+// could not be decoded (e.g. a custom error, not Error(string)). Callers
+// reconciling acceptance must treat it as conclusively reverted, not as a
+// transient RPC failure worth retrying.
+var errRevertUndecodable = errors.New("revert reason not decodable")
 
 // Taken from: https://ethereum.stackexchange.com/questions/48383/how-to-retrieve-revert-reason-for-past-transactions
 func errorReason(ctx context.Context, b ethereum.ContractCaller, from common.Address, tx *types.Transaction, blockNum *big.Int) (string, error) {
@@ -98,9 +111,49 @@ func errorReason(ctx context.Context, b ethereum.ContractCaller, from common.Add
 	}
 	res, err := b.CallContract(ctx, msg, blockNum)
 	if err != nil {
+		// geth/coreth return a reverting eth_call as a JSON-RPC error carrying the
+		// ABI-encoded revert data in ErrorData(), not as return bytes; recover it.
+		if revert, ok := revertDataFromError(err); ok {
+			return decodeRevert(revert)
+		}
 		return "", fmt.Errorf("CallContract: %w", err)
 	}
-	return unpackError(res)
+	return decodeRevert(res)
+}
+
+// decodeRevert unpacks ABI-encoded revert data into its reason string. A revert
+// without an Error(string) payload is undecodable but deterministic, so the
+// error wraps errRevertUndecodable to separate it from a transient RPC failure.
+func decodeRevert(data []byte) (string, error) {
+	reason, err := unpackError(data)
+	if err != nil {
+		return reason, fmt.Errorf("%w: %w", errRevertUndecodable, err)
+	}
+	return reason, nil
+}
+
+// revertDataFromError extracts ABI-encoded revert data from a JSON-RPC error
+// (rpc.DataError) as returned by a reverting eth_call. ok is false for a plain
+// transport/RPC error, which carries no revert data.
+func revertDataFromError(err error) ([]byte, bool) {
+	var de rpc.DataError
+	if !errors.As(err, &de) {
+		return nil, false
+	}
+	switch data := de.ErrorData().(type) {
+	case string:
+		raw, decErr := hexutil.Decode(data)
+		if decErr != nil {
+			return nil, false
+		}
+		return raw, true
+	case hexutil.Bytes:
+		return data, true
+	case []byte:
+		return data, true
+	default:
+		return nil, false
+	}
 }
 
 var (
@@ -134,73 +187,99 @@ func BaseFee(ctx context.Context, client *ethclient.Client) (*big.Int, error) {
 	return (*big.Int)(&result), err
 }
 
-// SendRawTx sends a transaction to toAddress with input data with prescribed nonce and gasConfig.
-func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) error {
+// SendRawTx signs a transaction to toAddress with the prescribed nonce,
+// gasConfig and EIP-155 chainID, broadcasts it and waits for it to be mined.
+// SendResult classifies the outcome (pre-broadcast failure vs post-broadcast
+// timeout) and carries the broadcast hash for nonce-too-low reconciliation.
+func SendRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) SendResult {
+	signedTx, fromAddress, err := buildAndSignRawTx(ctx, client, privateKey, chainID, nonce, toAddress, data, dryRun, gasConfig, timeout)
+	if err != nil {
+		// Failed before broadcast: never reached the node, so Broadcast stays false.
+		return SendResult{Err: fmt.Errorf("preparing tx: %w", err)}
+	}
+	return BroadcastAndWait(ctx, client, fromAddress, signedTx, timeout)
+}
+
+// buildAndSignRawTx does the pre-broadcast work (gas limit and fee reads,
+// signing; dry-running when dryRun is set). Any error it returns is a
+// pre-broadcast failure — nothing was sent to the network.
+func buildAndSignRawTx(ctx context.Context, client *ethclient.Client, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, toAddress common.Address, data []byte, dryRun bool, gasConfig *config.Gas, timeout time.Duration) (*types.Transaction, common.Address, error) {
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	value := big.NewInt(0)
 
-	chainIDCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-	chainID, err := client.NetworkID(chainIDCtx)
-	cancelFunc()
-	if err != nil {
-		return err
+	if gasConfig.TxType != 0 && gasConfig.TxType != 2 {
+		return nil, fromAddress, errors.New("unsupported tx type: set TxType to 0 or 2")
 	}
 
-	var gasLimit uint64
-	if dryRun && gasConfig.GasLimit > 0 {
-		gasLimit = uint64(gasConfig.GasLimit)
-		_, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
-		if err != nil {
-			return fmt.Errorf("dry run: %w", err)
-		}
-	} else if dryRun {
-		gasLimit, err = DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
-		if err != nil {
-			return fmt.Errorf("dry run: %w", err)
-		}
-	} else {
-		gasLimit = getGasLimit(ctx, gasConfig, client, fromAddress, toAddress, value, data, timeout)
+	// Gas limit and fee data are independent reads — fetch them concurrently so
+	// a slow node costs one stage timeout, not two.
+	type gasLimitResult struct {
+		gasLimit uint64
+		err      error
+	}
+	gasLimitCh := make(chan gasLimitResult, 1)
+	go func() {
+		gasLimit, err := resolveGasLimit(ctx, client, gasConfig, fromAddress, toAddress, value, data, dryRun, timeout)
+		gasLimitCh <- gasLimitResult{gasLimit, err}
+	}()
+
+	var feePerGas *big.Int // gas price (type 0) or base fee (type 2)
+	var feeErr error
+	switch gasConfig.TxType {
+	case 0:
+		feePerGas, feeErr = GetGasPrice(ctx, gasConfig, client, timeout)
+	case 2:
+		feeCtx, cancelFunc := context.WithTimeout(ctx, timeout)
+		feePerGas, feeErr = BaseFee(feeCtx, client)
+		cancelFunc()
+	}
+
+	gl := <-gasLimitCh
+	// dry-run errors first — they carry the tx's own revert reason, fee errors are transport
+	if gl.err != nil {
+		return nil, fromAddress, gl.err
+	}
+	if feeErr != nil {
+		return nil, fromAddress, feeErr
 	}
 
 	var signedTx *types.Transaction
+	var err error
 	switch gasConfig.TxType {
 	case 0:
-		signedTx, err = prepareAndSignType0(ctx, client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
+		signedTx, err = prepareAndSignType0(privateKey, chainID, nonce, gl.gasLimit, feePerGas, toAddress, value, data)
 	case 2:
-		signedTx, err = prepareAndSignType2(ctx, client, gasConfig, privateKey, chainID, nonce, gasLimit, toAddress, value, data, timeout)
-	default:
-		return errors.New("unsupported tx type: set TxType to 0 or 2")
+		signedTx, err = prepareAndSignType2(gasConfig, privateKey, chainID, nonce, gl.gasLimit, feePerGas, toAddress, value, data)
 	}
 	if err != nil {
-		return fmt.Errorf("preparing tx: %w", err)
+		return nil, fromAddress, err
 	}
 
-	logger.Debugf("Sending signed tx: %s, nonce: %d", signedTx.Hash().Hex(), nonce)
-	sendCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-	err = client.SendTransaction(sendCtx, signedTx)
-	cancelFunc()
-	if err != nil {
-		return err
-	}
-
-	verifier := NewTxVerifier(client)
-
-	err = verifier.WaitUntilMined(ctx, fromAddress, signedTx, timeout)
-	if err != nil {
-		return err
-	}
-	logger.Debugf("Successful tx: %s", signedTx.Hash().Hex())
-
-	return nil
+	return signedTx, fromAddress, nil
 }
 
-// prepareAndSignType0 prepares a type 0 (legacy) transaction and signs it.
-func prepareAndSignType0(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
-	gasPrice, err := GetGasPrice(ctx, gasConfig, client, timeout)
-	if err != nil {
-		return nil, err
+// resolveGasLimit returns the tx gas limit: with dryRun the estimate (or, with a
+// configured limit, that limit after dry-run validation), otherwise the
+// configured/estimated limit, which never fails (falls back to a default).
+func resolveGasLimit(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, fromAddress, toAddress common.Address, value *big.Int, data []byte, dryRun bool, timeout time.Duration) (uint64, error) {
+	if !dryRun {
+		return getGasLimit(ctx, gasConfig, client, fromAddress, toAddress, value, data, timeout), nil
 	}
+	gasLimit, err := DryRunTx(ctx, client, fromAddress, toAddress, value, data, timeout)
+	if err != nil {
+		return 0, fmt.Errorf("dry run: %w", err)
+	}
+	if gasConfig.GasLimit > 0 {
+		gasLimit = uint64(gasConfig.GasLimit)
+	}
+	return gasLimit, nil
+}
+
+// prepareAndSignType0 builds and signs a type 0 (legacy) transaction from the
+// prefetched gasPrice.
+func prepareAndSignType0(privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, gasPrice *big.Int, toAddress common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
+	logger.Debugf("built tx nonce=%d tx_type=0 gas_limit=%d gas_price_gwei=%s", nonce, gasLimit, utils.Gwei(gasPrice))
 
 	txData := types.LegacyTx{
 		Nonce:    nonce,
@@ -220,31 +299,43 @@ func prepareAndSignType0(ctx context.Context, client *ethclient.Client, gasConfi
 	return signedTx, nil
 }
 
-// prepareAndSignType2 prepares a type 2 (eip 1559) transaction and signs it.
-func prepareAndSignType2(ctx context.Context, client *ethclient.Client, gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) (*types.Transaction, error) {
+// tipClampNote reports which cap bound the tip, "" when it was not clamped. A tip
+// pinned below market times out every attempt with nothing else saying why.
+func tipClampNote(wanted, enforced *big.Int, cfg *config.Gas) string {
+	if wanted.Cmp(enforced) == 0 {
+		return ""
+	}
+	if wanted.Cmp(cfg.MinimalMaxPriorityFee) < 0 {
+		return "(clamped:minimal_max_priority_fee)"
+	}
+	return "(clamped:maximal_max_priority_fee)"
+}
+
+// prepareAndSignType2 builds and signs a type 2 (eip 1559) transaction from the
+// prefetched baseFeePerGas.
+func prepareAndSignType2(gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, baseFeePerGas *big.Int, toAddress common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
 	// Default unset fields so EnforceMaxPriorityFeeCaps never sees a nil cap,
 	// even if a caller passes a raw config.
 	cfg := gasConfig.CopyAndDefault()
 
-	feeCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-	baseFeePerGas, err := BaseFee(feeCtx, client)
-	cancelFunc()
-	if err != nil {
-		logger.Debugf("Error getting baseFee: %v", err)
-		return nil, err
-	}
-
 	gasFeeCap := new(big.Int)
+	baseFeeSource := "multiplier"
 	if cfg.BaseFeePerGasCap != nil && cfg.BaseFeePerGasCap.Sign() == 1 {
+		// pinned: the per-attempt bump no longer moves the base-fee component
 		gasFeeCap.Set(cfg.BaseFeePerGasCap)
+		baseFeeSource = "base_fee_per_gas_cap"
 	} else {
 		gasFeeCap = MultiplyWithFloat(baseFeePerGas, float64(cfg.BaseFeeMultiplier), gasFeeCap)
 	}
 
-	gasTipCap := MultiplyWithFloat(baseFeePerGas, float64(cfg.MaxPriorityMultiplier), nil)
-	gasTipCap = cfg.EnforceMaxPriorityFeeCaps(gasTipCap)
+	wantedTipCap := MultiplyWithFloat(baseFeePerGas, float64(cfg.MaxPriorityMultiplier), nil)
+	gasTipCap := cfg.EnforceMaxPriorityFeeCaps(wantedTipCap)
 
 	gasFeeCap.Add(gasFeeCap, gasTipCap)
+
+	logger.Debugf("built tx nonce=%d tx_type=2 gas_limit=%d base_fee_gwei=%s tip_cap_gwei=%s%s fee_cap_gwei=%s (base fee from %s)",
+		nonce, gasLimit, utils.Gwei(baseFeePerGas), utils.Gwei(gasTipCap),
+		tipClampNote(wantedTipCap, gasTipCap, cfg), utils.Gwei(gasFeeCap), baseFeeSource)
 
 	txData := types.DynamicFeeTx{
 		ChainID:   chainID,
@@ -307,11 +398,11 @@ func getGasLimit(ctx context.Context, gasConfig *config.Gas, client *ethclient.C
 		})
 		cancelFunc()
 		if err != nil {
-			logger.Warnf("Unable to estimate gas: %v, using default gas limit: %d", err, DefaultGasLimit)
+			// estimation usually fails because the call would revert: the tx still sends and burns the nonce
+			logger.Warnf("Unable to estimate gas (the tx may revert): %v; using default gas limit: %d", err, DefaultGasLimit)
 			gasLimit = DefaultGasLimit
 		} else {
 			gasLimit = 3 * estimatedGas / 2
-			logger.Debugf("Gas limit: %d", gasLimit)
 		}
 	} else {
 		gasLimit = uint64(gasConfig.GasLimit)
@@ -351,7 +442,8 @@ func GetGasPrice(ctx context.Context, gasConfig *config.Gas, client *ethclient.C
 // For type 2 transaction on i-th attempt,
 // the multipliers are increased by i, and caps are increased by 11% per attempt.
 //
-// Any unset values will be set to default.
+// Only the type 2 branch defaults unset values; type 0 returns the config as configured
+// (the fixed-price branch returns the caller's own pointer).
 func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 	switch cfg.TxType {
 	case 0:

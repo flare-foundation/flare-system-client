@@ -263,7 +263,7 @@ func (c *client) isFutureEpoch(epochID *big.Int) bool {
 // Since reward claim data is currently published manually, and it might take a day or so for the data to be available,
 // a retry mechanism is employed with a large retry interval (configurable).
 func (c *client) signRewards(ctx context.Context, epochId *big.Int) {
-	res := shared.ExecuteWithRetryAttempts(func(i int) (*struct{}, error) {
+	res := shared.ExecuteWithRetryAttempts(ctx, func(i int) (*struct{}, error) {
 		if c.systemsManagerClient.IsRewardHashSigned(epochId) {
 			return nil, nil
 		}

@@ -2,6 +2,7 @@ package finalizer
 
 import (
 	"encoding/hex"
+	"errors"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -79,8 +80,11 @@ func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) erro
 		}
 		finalizationReady, err := c.finalizationStorage.addPayload(payloadItem, sp, threshold)
 		if err != nil {
-			// Error is non-fatal, skip this submission
-			logger.Debugf("Ignoring submitted signature for voting round %d, protocolID  %d - %v", payloadItem.votingRoundID, payloadItem.protocolID, err)
+			if errors.Is(err, errBadPayload) {
+				logger.Debugf("Ignoring submitted signature for voting round %d, protocolID %d from sender %s: %v", payloadItem.votingRoundID, payloadItem.protocolID, payloadItem.sender, err)
+			} else {
+				logger.Errorf("Failed to add submitted signature for voting round %d, protocolID %d from sender %s: %v", payloadItem.votingRoundID, payloadItem.protocolID, payloadItem.sender, err)
+			}
 			continue
 		}
 

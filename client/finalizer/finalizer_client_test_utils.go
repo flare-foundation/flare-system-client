@@ -16,6 +16,7 @@ import (
 	"github.com/flare-foundation/flare-system-client/client/config"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/utils"
+	"github.com/flare-foundation/flare-system-client/utils/chain"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -88,6 +89,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		privateKey,
 		fromAddress,
 		&config.Gas{},
+		114,
 	)
 	if err != nil {
 		return nil, err
@@ -147,14 +149,14 @@ type sentTxInfo struct {
 	data       []byte
 }
 
-func (eth *testEthClient) SendRawTx(_ context.Context, privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, data []byte, _ *config.Gas, _ time.Duration, _ bool) error {
+func (eth *testEthClient) SendRawTx(_ context.Context, privateKey *ecdsa.PrivateKey, _ uint64, to common.Address, data []byte, _ *config.Gas, _ time.Duration, _ bool) chain.SendResult {
 	eth.mu.Lock()
 	defer eth.mu.Unlock()
 
 	eth.calls++
 
 	if eth.sendTxErr != nil {
-		return eth.sendTxErr
+		return chain.SendResult{Err: eth.sendTxErr}
 	}
 
 	eth.sentTxs = append(eth.sentTxs, &sentTxInfo{
@@ -163,10 +165,18 @@ func (eth *testEthClient) SendRawTx(_ context.Context, privateKey *ecdsa.Private
 		data:       data,
 	})
 
-	return nil
+	return chain.SendResult{Broadcast: true}
 }
 func (eth *testEthClient) Nonce(_ context.Context, _ *ecdsa.PrivateKey, _ time.Duration) (uint64, error) {
 	return 10, nil
+}
+
+func (eth *testEthClient) Receipt(_ context.Context, _ common.Hash, _ time.Duration) (*types.Receipt, error) {
+	return nil, nil
+}
+
+func (eth *testEthClient) RevertReason(_ context.Context, _ common.Address, _ common.Hash, _ time.Duration) (string, error) {
+	return "", nil
 }
 
 func (eth *testEthClient) hasAnyCalls() bool {

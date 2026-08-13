@@ -1,5 +1,38 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Startup warning when an enabled client's gas config sets `gas_price_fixed` (a backwards-compatibility option pinning the whole fee, so retries cannot replace a stuck transaction) or `base_fee_per_gas_cap` (pinning the base-fee component of the cap, which is not bumped on retry).
+- Startup validation rejecting a negative `gas_limit`, which previously wrapped via `uint64()` into an unusable ~1.8e19 gas limit at transaction-build time, permanently rejecting every relay and voter-registration transaction.
+- Startup verification of the configured `chain_id` against the node's `eth_chainId`: a mismatch (which would make every send fail with "invalid sender") aborts startup with a fatal log; an unreachable node only warns, so a node outage does not block a restart.
+- Startup validation for an enabled finalizer: `grace_period_end_offset` must be set (it has no default, and unset silently disabled grace gating, relaying every round immediately) and `voter_threshold_bips` must be positive (0 silently made the node never-selected for grace finalization).
+- Startup validation rejecting a negative `gas_price_fixed` or `base_fee_per_gas_cap`: both were silently ignored at send time, while the gas-override startup warning still described the pin as active.
+
+### Changed
+
+- Every line of both send loops now carries the voting round, `attempt N/M`, the nonce and, on the terminal line, the elapsed time; the round is threaded into the submitter's and the relay's send functions, which previously logged nothing that could be tied to a round. A nonce refresh logs its result, including when it comes back unchanged — the nonce is read from the latest mined block, so a resend at an already-rejected nonce looked like a successful refresh.
+- Gas is logged as key-value text in gwei under the TOML key names, showing only the fields the configured transaction type uses (was a raw struct dump in wei), the fees actually signed on the broadcast line, and at debug the observed base fee plus any priority-fee clamp — a tip pinned below market previously timed out every attempt with nothing explaining why. The relay loop, which bumped gas per attempt and logged none of it, now logs it too.
+- The relay's silent outcomes (reconciled-accepted, nonce consumed by another transaction, and every pre-broadcast failure) now log like the submitter's; a reconciled revert prints the reverted transaction hash instead of the unrelated nonce-too-low error, a submitter's own mined-but-reverted transaction is no longer reported as another transaction consuming the nonce, and a not-found receipt during reconciliation — previously the only unlogged branch, and the one that drives a resend — is logged at debug.
+- Relay nonce-fetch and terminal send failures log at error, matching the submitter. A send that exhausts its budget with a transaction still outstanding reports "outcome unknown" with the hashes on both paths, now including after post-broadcast timeouts, which were reported as flat failures.
+- Relay nonce-too-low reconciliation now bounds each receipt/revert lookup to 5s (was the full 60s tx timeout), so a hung RPC endpoint cannot stall a retry cycle for minutes.
+- A send that exhausts retries with an own broadcast still unresolved logs "outcome unknown, a broadcast tx may be on chain" at warning level instead of an unqualified error, distinguishing a possibly-successful send from a confirmed failure.
+- Example config: `submit1` start offset moved from 75s to 65s and a note added, keeping same-key submit1/submit2 fires well apart around the round so overlapping sends cannot collide on the nonce.
+- Expected payload rejections in the finalizer (bad signature, unregistered signer, duplicate signature, round below the stored window) now log at debug instead of error; only unexpected failures remain at error, so an error from submission processing again signals a real problem.
+- Relay and submit transactions now sign with the `chain_id` from config instead of fetching the network id from the node on every send, so a transient `net_version` failure can no longer abort a send; `chain_id` is validated as set at startup.
+- The gas-limit estimate and fee reads of a transaction build run concurrently: a send's pre-broadcast phase costs at most one RPC round-trip timeout instead of three.
+
+### Fixed
+
+- Nonce-too-low reconciliation now decodes the revert reason from the JSON-RPC error geth/coreth return for a reverting `eth_call`; previously the reason was never recovered, so a relay tx that mined reverting with the non-fatal "Already relayed" was treated as undetermined and retried instead of recognized as already done.
+- A relay transaction that mines but reverts for a non-fatal reason is no longer retried (whether observed directly or via reconciliation): the revert is deterministic on the signed payload, so a resend only re-mines and wastes gas.
+- Nonce-too-low reconciliation treats a not-found receipt as undetermined rather than conclusive, and an unresolved undetermined now refreshes the nonce and resends instead of retrying the same nonce until the budget is exhausted: a submission whose nonce was consumed by another transaction is resent instead of dropped, at the cost of a rare benign duplicate (submits are idempotent; a duplicate relay reverts non-fatally with "Already relayed").
+- A stuck relay send no longer blocks the finalization queue processor for its full retry budget (~11 minutes), delaying other rounds' grace-period finalizations past their window: each queued item's send is bounded to 50 seconds, with per-attempt timeouts sized (inter-attempt backoff included) so gas-bumped replacements still fire within the bound, the nonce prefetch capped so a flaky fetch cannot starve the send attempts, and the item then falls back to the delayed queue where already-relayed rounds are skipped; a fallback target already in the past — previously every post-grace "send now" item silently lost its retry this way — is rescheduled a few seconds ahead, and the delayed queue logs any dropped past-time entry instead of discarding it silently.
+- Restored the relay nonce fetch's retry budget so a transient RPC failure no longer drops a finalization after only a few hundred milliseconds.
+- Transaction send-retry helpers now abort promptly on context cancellation instead of sleeping through the remaining retries, unblocking graceful shutdown (previously up to ~50s for the finalizer, longer for epoch paths).
+- A transient indexer-DB error during the delayed queue's already-relayed check no longer drops the whole batch of pending finalizations (the items are consumed from the queue before processing and were never retried): the check is skipped instead, and the dry-run send catches already-relayed rounds pre-broadcast.
+
 ## [v1.1.1](https://github.com/flare-foundation/flare-system-client/tree/v1.1.1) - 2026-7-15
 
 ### Added

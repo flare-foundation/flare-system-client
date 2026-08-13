@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	clientContext "github.com/flare-foundation/flare-system-client/client/context"
 	"github.com/flare-foundation/flare-system-client/client/runner"
 	"github.com/flare-foundation/flare-system-client/client/shared"
+	globalConfig "github.com/flare-foundation/flare-system-client/config"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
@@ -27,6 +30,20 @@ func main() {
 
 	for _, w := range clientCtx.Config().SubmitterWarnings() {
 		logger.Warnf("submitter config: %s", w)
+	}
+
+	for _, w := range clientCtx.Config().GasOverrideWarnings() {
+		logger.Warnf("gas config: %s", w)
+	}
+
+	// txs are signed with the configured chain_id — a mismatch fails every send
+	verifyCtx, cancelVerify := context.WithTimeout(context.Background(), 10*time.Second)
+	err = clientCtx.Config().Chain.VerifyChainID(verifyCtx)
+	cancelVerify()
+	if errors.Is(err, globalConfig.ErrChainIDMismatch) {
+		logger.Fatalf("chain config: %v", err)
+	} else if err != nil {
+		logger.Warnf("chain config: could not verify chain_id against the node: %v", err)
 	}
 
 	// Prometheus metrics

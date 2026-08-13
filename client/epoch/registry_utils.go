@@ -181,7 +181,7 @@ type registryContractClientImpl struct {
 	gasCfg             *config.Gas
 	txVerifier         *chain.TxVerifier
 	signerPrivateKey   *ecdsa.PrivateKey
-	chainID            int
+	chainID            int64
 }
 
 func NewRegistryContractClient(
@@ -191,7 +191,7 @@ func NewRegistryContractClient(
 	preregistryAddress common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPk *ecdsa.PrivateKey,
-	chainID int,
+	chainID int64,
 ) (*registryContractClientImpl, error) {
 	registryBinding, err := registry.NewRegistry(registryAddress, ethClient)
 	if err != nil {
@@ -282,7 +282,7 @@ func NewRegistryContractClient(
 
 // RegisterVoter tries to register voter on VoterRegistry smart contract.
 func (r *registryContractClientImpl) RegisterVoter(ctx context.Context, nextRewardEpochID *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(ctx, func() (any, error) {
 		err := r.sendRegisterVoter(ctx, nextRewardEpochID, address)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalRegisterErrors, err.Error()) {
@@ -364,7 +364,7 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 
 // PreregisterVoter tries to pre-register voter on VoterPreRegistry smart contract.
 func (r *registryContractClientImpl) PreregisterVoter(ctx context.Context, nextRewardEpochId *big.Int, address common.Address) <-chan shared.ExecuteStatus[any] {
-	return shared.ExecuteWithRetryChan(func() (any, error) {
+	return shared.ExecuteWithRetryChan(ctx, func() (any, error) {
 		err := r.sendPreRegisterVoter(ctx, nextRewardEpochId, address)
 		if err != nil {
 			if shared.ExistsAsSubstring(nonFatalPreregisterErrors, err.Error()) {
@@ -455,8 +455,8 @@ func (r *registryContractClientImpl) createSignature(nextRewardEpochID uint32, a
 }
 
 // createSignatureNew creates ECDSA message signature keccak256(abi.encode(chainID, nextRewardEpochID, address)) with signerPrivateKey
-func (r *registryContractClientImpl) createSignatureNew(chainID int, nextRewardEpochID uint32, address common.Address) ([]byte, error) {
-	chainIDB := big.NewInt(int64(chainID))
+func (r *registryContractClientImpl) createSignatureNew(chainID int64, nextRewardEpochID uint32, address common.Address) ([]byte, error) {
+	chainIDB := big.NewInt(chainID)
 
 	message, err := registratorArgumentsNew.Pack(chainIDB, nextRewardEpochID, address)
 	if err != nil {

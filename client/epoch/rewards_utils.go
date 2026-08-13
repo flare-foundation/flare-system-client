@@ -2,6 +2,7 @@ package epoch
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -105,10 +106,10 @@ func rewardClaimHash(epoch uint64, claim rewardClaimBody) (common.Hash, error) {
 	return crypto.Keccak256Hash(encoded), nil
 }
 
-func encodeRewardsData(epochId *big.Int, chainId int, rewardHash *common.Hash, weightClaims int) []byte {
+func encodeRewardsData(epochId *big.Int, chainId int64, rewardHash *common.Hash, weightClaims int) []byte {
 	weightClaimsWithId, err := weightClaimsArgs.Pack(
 		[]system.IFlareSystemsManagerNumberOfWeightBasedClaims{{
-			RewardManagerId: big.NewInt(int64(chainId)), NoOfWeightBasedClaims: big.NewInt(int64(weightClaims))},
+			RewardManagerId: big.NewInt(chainId), NoOfWeightBasedClaims: big.NewInt(int64(weightClaims))},
 		},
 	)
 	if err != nil {
@@ -134,7 +135,7 @@ func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDis
 	}
 
 	logger.Infof("Fetching reward data at: %s", rewardsUrl)
-	result := <-shared.ExecuteWithRetryChan(func() (*rewardDistributionData, error) {
+	result := <-shared.ExecuteWithRetryChan(context.Background(), func() (*rewardDistributionData, error) {
 		client := &http.Client{Timeout: timeout}
 
 		resp, err := client.Get(rewardsUrl)

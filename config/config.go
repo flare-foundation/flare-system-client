@@ -1,9 +1,11 @@
 package config
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"strings"
@@ -21,7 +23,7 @@ const (
 )
 
 type Chain struct {
-	ChainID   int    `toml:"chain_id" envconfig:"CHAIN_ID"`
+	ChainID   int64  `toml:"chain_id" envconfig:"CHAIN_ID"`
 	EthRPCURL string `toml:"eth_rpc_url" envconfig:"ETH_RPC_URL"`
 	ApiKey    string `toml:"api_key" envconfig:"API_KEY"`
 }
@@ -34,6 +36,32 @@ func (cfg *Chain) DialETH() (*ethclient.Client, error) {
 	}
 
 	return ethclient.Dial(rpcURL)
+}
+
+// ErrChainIDMismatch reports a configured chain_id that contradicts the node's.
+var ErrChainIDMismatch = errors.New("chain_id mismatch")
+
+// VerifyChainID compares chain_id with the node's eth_chainId; mismatch → ErrChainIDMismatch.
+func (cfg *Chain) VerifyChainID(ctx context.Context) error {
+	rpcURL, err := cfg.getRPCURL()
+	if err != nil {
+		return err
+	}
+	// DialContext so the ctx also bounds eager transports (ws/ipc)
+	cl, err := ethclient.DialContext(ctx, rpcURL)
+	if err != nil {
+		return err
+	}
+	defer cl.Close()
+
+	nodeID, err := cl.ChainID(ctx)
+	if err != nil {
+		return err
+	}
+	if nodeID.Cmp(big.NewInt(cfg.ChainID)) != 0 {
+		return fmt.Errorf("%w: config has %d, node reports %v", ErrChainIDMismatch, cfg.ChainID, nodeID)
+	}
+	return nil
 }
 
 // Get the full RPC URL which may be passed to ethclient.Dial.

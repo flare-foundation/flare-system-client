@@ -149,7 +149,7 @@ func (sp *SubProtocol) fetchDataWithRetryChan(
 
 	logger.Infof("Calling protocol %v client API: %s", sp.ID, url.String())
 
-	return shared.ExecuteWithRetryChan(sp.fetchWithVerificationFunc(url, timeout, dataVerifier), nRetries, 0)
+	return shared.ExecuteWithRetryChan(context.Background(), sp.fetchWithVerificationFunc(url, timeout, dataVerifier), nRetries, 0)
 }
 
 // fetchDataWithRetry

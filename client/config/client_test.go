@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -9,6 +10,65 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGasOverrideWarnings(t *testing.T) {
+	allClients := Clients{
+		EnabledRegistration: true, EnabledPreregistration: true, EnabledUptimeVoting: true,
+		EnabledRewardSigning: true, EnabledProtocolVoting: true, EnabledFinalizer: true,
+	}
+
+	// No overrides -> no warnings.
+	clean := &Client{
+		Clients:   allClients,
+		SubmitGas: Gas{TxType: 2}, RegisterGas: Gas{TxType: 2},
+		RelayGas: Gas{TxType: 2}, SystemsManagerGas: Gas{TxType: 2},
+	}
+	require.Empty(t, clean.GasOverrideWarnings())
+
+	// gas_price_fixed on gas_submit and base_fee_per_gas_cap on gas_relay -> one
+	// warning each, naming the offending config.
+	c := &Client{
+		Clients:           allClients,
+		SubmitGas:         Gas{TxType: 0, GasPriceFixed: big.NewInt(100e9)},
+		RegisterGas:       Gas{TxType: 2},
+		RelayGas:          Gas{TxType: 2, BaseFeePerGasCap: big.NewInt(100e9)},
+		SystemsManagerGas: Gas{TxType: 2},
+	}
+	warnings := c.GasOverrideWarnings()
+	require.Len(t, warnings, 2)
+	require.Contains(t, warnings[0], "gas_submit")
+	require.Contains(t, warnings[0], "gas_price_fixed")
+	require.Contains(t, warnings[1], "gas_relay")
+	require.Contains(t, warnings[1], "base_fee_per_gas_cap")
+
+	// A zero-valued override is treated as unset -> no warning.
+	zero := &Client{
+		Clients:   allClients,
+		SubmitGas: Gas{TxType: 0, GasPriceFixed: big.NewInt(0)}, RegisterGas: Gas{TxType: 2},
+		RelayGas: Gas{TxType: 2, BaseFeePerGasCap: big.NewInt(0)}, SystemsManagerGas: Gas{TxType: 2},
+	}
+	require.Empty(t, zero.GasOverrideWarnings())
+
+	// Overrides on configs whose consumer client is disabled are not warned about.
+	disabled := &Client{
+		Clients:   Clients{EnabledProtocolVoting: true},
+		SubmitGas: Gas{TxType: 0, GasPriceFixed: big.NewInt(100e9)},
+		RelayGas:  Gas{TxType: 2, BaseFeePerGasCap: big.NewInt(100e9)},
+	}
+	warnings = disabled.GasOverrideWarnings()
+	require.Len(t, warnings, 1)
+	require.Contains(t, warnings[0], "gas_submit")
+
+	// Pre-registration alone uses gas_register but never sends SystemsManager txs.
+	prereg := &Client{
+		Clients:           Clients{EnabledPreregistration: true},
+		RegisterGas:       Gas{TxType: 0, GasPriceFixed: big.NewInt(100e9)},
+		SystemsManagerGas: Gas{TxType: 0, GasPriceFixed: big.NewInt(100e9)},
+	}
+	warnings = prereg.GasOverrideWarnings()
+	require.Len(t, warnings, 1)
+	require.Contains(t, warnings[0], "gas_register")
+}
 
 func TestGasValidate(t *testing.T) {
 	tests := []struct {
@@ -72,6 +132,22 @@ func TestGasValidate(t *testing.T) {
 			gas:     Gas{TxType: 1},
 			wantErr: true,
 		},
+		{
+			name:    "negative gas limit",
+			gas:     Gas{TxType: 0, GasLimit: -1},
+			wantErr: true,
+		},
+		{
+			// the sign checks run before the tx-type switch, so type 0 covers both
+			name:    "negative gas price fixed",
+			gas:     Gas{TxType: 0, GasPriceFixed: big.NewInt(-1)},
+			wantErr: true,
+		},
+		{
+			name:    "negative base fee per gas cap",
+			gas:     Gas{TxType: 0, BaseFeePerGasCap: big.NewInt(-1)},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -84,6 +160,13 @@ func TestGasValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFinalizerValidate(t *testing.T) {
+	require.NoError(t, Finalizer{GracePeriodEndOffset: 65 * time.Second, VoterThresholdBIPS: 500}.validate())
+	require.ErrorContains(t, Finalizer{VoterThresholdBIPS: 500}.validate(), "grace_period_end_offset")
+	require.ErrorContains(t, Finalizer{GracePeriodEndOffset: -time.Second, VoterThresholdBIPS: 500}.validate(), "grace_period_end_offset")
+	require.ErrorContains(t, Finalizer{GracePeriodEndOffset: 65 * time.Second}.validate(), "voter_threshold_bips")
 }
 
 func validSubmit() Submit {
@@ -426,4 +509,67 @@ base_fee_multiplier = 4
 
 	_, err = toml.Decode(`base_fee_multiplier = "abc"`, &g)
 	require.ErrorContains(t, err, "invalid multiplier")
+}
+
+func TestGasString(t *testing.T) {
+	tests := []struct {
+		name string
+		gas  *Gas
+		want string
+	}{
+		{"nil", nil, "<nil>"},
+		{
+			"type 2 defaults",
+			func() *Gas { g := DefaultGas(); return &g }(),
+			"tx_type=2 gas_limit=auto base_fee_multiplier=4 max_priority_fee_multiplier=2 max_priority_fee_gwei=[100,5000]",
+		},
+		{
+			"type 2 bumped for attempt 2, fixed gas limit",
+			&Gas{
+				TxType: 2, GasLimit: 300000,
+				BaseFeeMultiplier: 6, MaxPriorityMultiplier: 4,
+				MinimalMaxPriorityFee: big.NewInt(123210000000), MaximalMaxPriorityFee: big.NewInt(6160500000000),
+			},
+			"tx_type=2 gas_limit=300000 base_fee_multiplier=6 max_priority_fee_multiplier=4 max_priority_fee_gwei=[123.21,6160.5]",
+		},
+		{
+			"type 2 with base fee cap",
+			&Gas{
+				TxType: 2, BaseFeeMultiplier: 4, MaxPriorityMultiplier: 2,
+				MinimalMaxPriorityFee: big.NewInt(100e9), MaximalMaxPriorityFee: big.NewInt(5000e9),
+				BaseFeePerGasCap: big.NewInt(50e9),
+			},
+			"tx_type=2 gas_limit=auto base_fee_multiplier=4 max_priority_fee_multiplier=2 max_priority_fee_gwei=[100,5000] base_fee_per_gas_cap_gwei=50",
+		},
+		{
+			// unset caps must not read as zero
+			"type 2 raw config, caps unset",
+			&Gas{TxType: 2},
+			"tx_type=2 gas_limit=auto base_fee_multiplier=0 max_priority_fee_multiplier=0 max_priority_fee_gwei=[unset,unset]",
+		},
+		{
+			"type 0 multiplier",
+			&Gas{TxType: 0, GasPriceMultiplier: 1.5},
+			"tx_type=0 gas_limit=auto gas_price_multiplier=1.5",
+		},
+		{
+			// a zero fixed price is inactive: the multiplier branch applies
+			"type 0 zero fixed price",
+			&Gas{TxType: 0, GasPriceFixed: big.NewInt(0)},
+			"tx_type=0 gas_limit=auto gas_price_multiplier=0",
+		},
+		{
+			"type 0 fixed price",
+			&Gas{TxType: 0, GasLimit: 21000, GasPriceFixed: big.NewInt(100e9)},
+			"tx_type=0 gas_limit=21000 gas_price_fixed_gwei=100",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, test.gas.String())
+			// pins Stringer dispatch: the log lines format the pointer, not .String()
+			require.Equal(t, "gas: "+test.want, fmt.Sprintf("gas: %v", test.gas))
+		})
+	}
 }

@@ -73,7 +73,7 @@ func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, 
 	}
 
 	if len(sc.signatures[p.voterIndex]) != 0 {
-		return false, fmt.Errorf("signature for signer %d with address %s already added", p.voterIndex, p.signer)
+		return false, fmt.Errorf("%w: signature for signer %d with address %s already added", errBadPayload, p.voterIndex, p.signer)
 	}
 
 	sc.signatures[p.voterIndex] = p.signature
@@ -113,10 +113,12 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 
 	for _, up := range pc.unprocessedPayloads {
 		tr, msgHashCheck, err := pc.addPayload(up)
-		if err != nil {
-			logger.Error("Adding payload after message error:", err)
-		}
-		if msgHashCheck != msgHsh {
+		switch {
+		case errors.Is(err, errBadPayload):
+			logger.Debugf("Ignoring buffered signature for voting round %d, protocolID %d from sender %s: %v", up.votingRoundID, up.protocolID, up.sender, err)
+		case err != nil:
+			logger.Errorf("Failed to add buffered signature for voting round %d, protocolID %d from sender %s: %v", up.votingRoundID, up.protocolID, up.sender, err)
+		case msgHashCheck != msgHsh:
 			logger.Debug("Unexpected behavior, hashes should match")
 		}
 		if tr {
@@ -167,7 +169,7 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 
 	err := payload.AddSigner(msgHash, sigCollection.signingPolicy.Voters)
 	if err != nil {
-		return false, common.Hash{}, fmt.Errorf("adding payload: %w", err)
+		return false, common.Hash{}, err
 	}
 
 	thresholdReached, err := sigCollection.addSignature(payload)
@@ -189,7 +191,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 	defer s.Unlock()
 
 	if p.votingRoundID < s.lowestRoundStored {
-		return FinalizationReady{thresholdReached: false}, fmt.Errorf("payload for round %d before lowest stored round %d", p.votingRoundID, s.lowestRoundStored)
+		return FinalizationReady{thresholdReached: false}, fmt.Errorf("%w: round %d before lowest stored round %d", errBadPayload, p.votingRoundID, s.lowestRoundStored)
 	}
 
 	rc, exists := s.stg[p.votingRoundID]

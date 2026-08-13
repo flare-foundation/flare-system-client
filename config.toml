@@ -87,9 +87,11 @@ type = 1 # Type of submitSignature payload
 # Submitters can be opted out individually with enabled = false.
 # Skipping an obliged step warns at startup: every round with a submit1 and without a submit2 is penalised, likewise for submit2 without submit_signatures.
 # The finalizer requires submit_signatures.
+# submit1 and submit2 send from the same key: keep their fires well apart in both
+# directions around the round so overlapping sends can't collide on the nonce.
 [submit1]
 enabled = true # Set to false to opt out.
-start_offset = "75s" # Offset from the start of the epoch.
+start_offset = "65s" # Offset from the start of the epoch.
 tx_submit_retries = 2
 tx_submit_timeout = "5s"
 data_fetch_retries = 1

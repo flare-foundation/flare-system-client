@@ -14,6 +14,11 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/voters"
 )
 
+// errBadPayload marks rejections caused by the submitted payload itself, as
+// opposed to internal invariant violations. Expected in normal operation —
+// log at Debug, not Error.
+var errBadPayload = errors.New("bad payload")
+
 // payloadMessage is a general structure that is used in the submit calls to the chain.
 type payloadMessage struct {
 	protocolID    uint8
@@ -122,14 +127,14 @@ func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *vote
 
 	pk, err := crypto.SigToPub(messageHash, transformedSignature)
 	if err != nil {
-		return fmt.Errorf("recovering signer: %w", err)
+		return fmt.Errorf("%w: recovering signer: %w", errBadPayload, err)
 	}
 
 	pld.signer = crypto.PubkeyToAddress(*pk)
 
 	pld.voterIndex = voterSet.VoterIndex(pld.signer)
 	if pld.voterIndex < 0 {
-		return fmt.Errorf("signer %s is not a registered voter in the current reward epoch", pld.signer.Hex())
+		return fmt.Errorf("%w: signer %s is not a registered voter in the current reward epoch", errBadPayload, pld.signer.Hex())
 	}
 
 	pld.weight = voterSet.VoterWeight(pld.voterIndex)

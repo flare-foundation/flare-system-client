@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/config"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
@@ -60,6 +61,37 @@ func Build(cfgFileName string) (*Client, error) {
 	return cfg, nil
 }
 
+// GasOverrideWarnings returns a warning per fee-pinning override (gas_price_fixed /
+// base_fee_per_gas_cap) on gas configs whose consumer client is enabled. Emitted
+// from main after logger.Set so the warnings reach the configured log.
+func (c *Client) GasOverrideWarnings() []string {
+	named := []struct {
+		name    string
+		gas     Gas
+		enabled bool
+	}{
+		{"gas_submit", c.SubmitGas, c.Clients.EnabledProtocolVoting},
+		{"gas_register", c.RegisterGas, c.Clients.EnabledRegistration || c.Clients.EnabledPreregistration},
+		{"gas_relay", c.RelayGas, c.Clients.EnabledFinalizer},
+		// pre-registration never sends SystemsManager txs, so it is not gated on
+		{"gas_systems_manager", c.SystemsManagerGas, c.Clients.EnabledRegistration || c.Clients.EnabledUptimeVoting || c.Clients.EnabledRewardSigning},
+	}
+
+	var warnings []string
+	for _, g := range named {
+		if !g.enabled {
+			continue
+		}
+		if g.gas.GasPriceFixed != nil && g.gas.GasPriceFixed.Sign() != 0 {
+			warnings = append(warnings, fmt.Sprintf("%s sets gas_price_fixed (backwards-compatibility option): retries reuse the fixed price and cannot replace a stuck transaction", g.name))
+		}
+		if g.gas.BaseFeePerGasCap != nil && g.gas.BaseFeePerGasCap.Sign() != 0 {
+			warnings = append(warnings, fmt.Sprintf("%s sets base_fee_per_gas_cap: the base-fee component of the cap is pinned and not bumped on retry", g.name))
+		}
+	}
+	return warnings
+}
+
 // methods to satisfy config.Global interface
 
 func (c Client) ChainConfig() config.Chain {
@@ -99,6 +131,10 @@ func defaultConfig() *Client {
 
 // validate checks consistency of configurations.
 func (c *Client) validate() error {
+	// all txs are signed with the configured chain id; 0 would sign for the wrong chain
+	if c.Chain.ChainID <= 0 {
+		return errors.New("chain_id must be set to the network's chain id")
+	}
 	if err := c.Clients.validate(); err != nil {
 		return fmt.Errorf("validating Clients: %w", err)
 	}
@@ -119,6 +155,11 @@ func (c *Client) validate() error {
 	}
 	if err := c.validateContracts(); err != nil {
 		return fmt.Errorf("validating contracts: %w", err)
+	}
+	if c.Clients.EnabledFinalizer {
+		if err := c.Finalizer.validate(); err != nil {
+			return fmt.Errorf("validating finalizer: %w", err)
+		}
 	}
 	return nil
 }
@@ -341,6 +382,19 @@ type Finalizer struct {
 	GracePeriodEndOffset time.Duration `toml:"grace_period_end_offset"`
 }
 
+// validate rejects a finalizer config whose grace gating cannot work.
+func (f Finalizer) validate() error {
+	// no default — unset silently degenerates to relaying every round immediately
+	if f.GracePeriodEndOffset <= 0 {
+		return errors.New("grace_period_end_offset must be set (> 0)")
+	}
+	// 0 selects no voters, and SelectVoters errors are swallowed at runtime
+	if f.VoterThresholdBIPS == 0 {
+		return errors.New("voter_threshold_bips must be > 0")
+	}
+	return nil
+}
+
 // Gas dictates how gas for the transaction is set.
 //
 // TxType decides the type of the transaction. The available options are 0 and 2.
@@ -424,6 +478,35 @@ func DefaultGas() Gas {
 	}
 }
 
+// String renders the gas config for logs: only the fields the tx type uses, TOML key
+// names, fees in gwei. Never format the receiver with %v/%s here — that recurses.
+func (g *Gas) String() string {
+	if g == nil {
+		return "<nil>"
+	}
+
+	limit := "auto"
+	if g.GasLimit != 0 {
+		limit = strconv.Itoa(g.GasLimit)
+	}
+
+	if g.TxType == 0 {
+		if g.GasPriceFixed != nil && g.GasPriceFixed.Sign() > 0 {
+			return fmt.Sprintf("tx_type=0 gas_limit=%s gas_price_fixed_gwei=%s", limit, utils.Gwei(g.GasPriceFixed))
+		}
+		return fmt.Sprintf("tx_type=0 gas_limit=%s gas_price_multiplier=%g", limit, g.GasPriceMultiplier)
+	}
+
+	s := fmt.Sprintf("tx_type=%d gas_limit=%s base_fee_multiplier=%g max_priority_fee_multiplier=%g max_priority_fee_gwei=[%s,%s]",
+		g.TxType, limit, float64(g.BaseFeeMultiplier), float64(g.MaxPriorityMultiplier),
+		utils.Gwei(g.MinimalMaxPriorityFee), utils.Gwei(g.MaximalMaxPriorityFee))
+	if g.BaseFeePerGasCap != nil && g.BaseFeePerGasCap.Sign() > 0 {
+		s += " base_fee_per_gas_cap_gwei=" + utils.Gwei(g.BaseFeePerGasCap)
+	}
+
+	return s
+}
+
 // CopyAndDefault copies Gas and sets default values for any unset configs.
 // A zero multiplier is treated as unset and replaced with its default.
 func (g *Gas) CopyAndDefault() *Gas {
@@ -499,6 +582,19 @@ func isPositiveFinite(f float64) bool {
 
 // validate checks viability of gas configurations.
 func (g *Gas) validate() error {
+	// A negative value would silently wrap via uint64() at tx-build time.
+	if g.GasLimit < 0 {
+		return errors.New("gas_limit must not be negative (0 for auto-estimation)")
+	}
+
+	// negative fee overrides are silently ignored at send time — reject the typo
+	if g.GasPriceFixed != nil && g.GasPriceFixed.Sign() < 0 {
+		return errors.New("gas_price_fixed must not be negative")
+	}
+	if g.BaseFeePerGasCap != nil && g.BaseFeePerGasCap.Sign() < 0 {
+		return errors.New("base_fee_per_gas_cap must not be negative")
+	}
+
 	if g.GasPriceMultiplier != 0.0 && (!isPositiveFinite(float64(g.GasPriceMultiplier)) || g.GasPriceMultiplier < 1) {
 		return errors.New("if set, gas_price_multiplier must be a finite value not less than 1")
 	}
