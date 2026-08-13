@@ -68,25 +68,30 @@ type SignatureSubmitter struct {
 //     the pending tx rather than duplicating it;
 //   - "nonce too low" is reconciled against the hashes broadcast so far: if one
 //     was accepted the send succeeded, otherwise the nonce is bumped and resent.
-func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
+func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) bool {
 	if len(input) <= 4 {
+		logger.Infof("Submitter %s round %d: payload is the selector only, nothing to send", s.name, round)
 		return false
 	}
 
+	start := time.Now()
+
 	nonceResult := <-shared.ExecuteWithRetryChan(ctx, func() (uint64, error) { return s.chainClient.Nonce(ctx, s.submitPrivateKey, 2*time.Second) }, 3, 100*time.Millisecond)
 	if !nonceResult.Success {
-		logger.Errorf("Submitter %s getting nonce: %v", s.name, nonceResult.Message)
+		logger.Errorf("Submitter %s round %d: getting nonce: %v", s.name, round, nonceResult.Message)
 		return false
 	}
 	nonce := nonceResult.Value
 
 	from := crypto.PubkeyToAddress(s.submitPrivateKey.PublicKey)
 	var broadcastHashes []common.Hash
-	undetermined := false // an own broadcast's fate was never resolved
+	attempts := 0
 
 	sendResult := <-shared.ExecuteWithRetryAttempts(ctx, func(ri int) (string, error) {
+		attempts = ri + 1
 		gasConfig := chain.GasConfigForAttempt(s.gasConfig, ri)
-		logger.Debugf("[Attempt %d] Submitter %s sending tx with nonce %d, gas config: %+v, timeout: %s", ri, s.name, nonce, gasConfig, s.submitTimeout)
+		p := s.sendPrefix(round, ri, nonce) // holds the nonce this attempt used, even after a refresh below
+		logger.Debugf("%s: sending tx, timeout %s, gas: %s", p, s.submitTimeout, gasConfig)
 
 		res := s.chainClient.SendRawTx(ctx, s.submitPrivateKey, nonce, s.protocolContext.submitContractAddress, input, gasConfig, s.submitTimeout, true)
 		if res.Broadcast {
@@ -105,52 +110,73 @@ func (s *SubmitterBase) submit(ctx context.Context, input []byte) bool {
 			h, acc := chain.AnyAccepted(ctx, s.chainClient, from, broadcastHashes, nil, time.Second)
 			switch acc {
 			case chain.Accepted:
-				logger.Infof("Submitter %s: broadcast tx %s accepted, nonce too low is non-fatal", s.name, h.Hex())
+				logger.Infof("%s: reconciled, earlier broadcast %s mined successfully; nonce too low is non-fatal", p, h.Hex())
 				return h.Hex(), nil
+			case chain.Reverted:
+				// the protocol obliges us to keep submitting, so a revert retries like a consumed nonce
+				logger.Warnf("%s: own tx %s mined but reverted; resending at a refreshed nonce", p, h.Hex())
+				nonce = s.refreshNonce(ctx, p, nonce)
+				return "", res.Err
 			case chain.Undetermined:
 				// Outcome unknown: refresh the nonce and resend (duplicate submits are idempotent).
-				undetermined = true
-				logger.Warnf("Submitter %s: nonce %d too low, prior tx status unknown; resending at a refreshed nonce", s.name, nonce)
-				nonce = s.refreshNonce(ctx, nonce)
+				logger.Warnf("%s: rejected as nonce too low, fate of own broadcast(s) %s unresolved; resending at a refreshed nonce",
+					p, chain.HashList(broadcastHashes))
+				nonce = s.refreshNonce(ctx, p, nonce)
 				return "", res.Err
 			default: // NonceConsumed
-				logger.Warnf("Submitter %s: nonce %d consumed by another tx, bumping nonce", s.name, nonce)
-				nonce = s.refreshNonce(ctx, nonce)
+				logger.Warnf("%s: nonce consumed by another tx; resending at a refreshed nonce", p)
+				nonce = s.refreshNonce(ctx, p, nonce)
 				return "", res.Err
 			}
 		case res.Broadcast && chain.IsTimeout(res.Err):
 			// Post-broadcast timeout: tx may be in the mempool at this nonce. Keep
 			// the nonce and bump gas next attempt so it replaces the pending tx.
-			logger.Warnf("Submitter %s: timed out awaiting confirmation of tx %s (nonce %d), retrying as replacement", s.name, res.Hash.Hex(), nonce)
+			logger.Warnf("%s: no confirmation of tx %s within %s; retrying as a gas-bumped replacement at the same nonce",
+				p, res.Hash.Hex(), s.submitTimeout)
 			return "", res.Err
 		default:
 			// Not confirmed. If we have already broadcast a tx it is outstanding at
 			// this nonce, so keep it (a retry replaces it); only refresh the nonce
 			// when nothing has been broadcast yet.
 			if len(broadcastHashes) == 0 {
-				nonce = s.refreshNonce(ctx, nonce)
+				nonce = s.refreshNonce(ctx, p, nonce)
 			}
-			logger.Warnf("Submitter %s: send failed at nonce %d: %v", s.name, nonce, res.Err)
+			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			return "", res.Err
 		}
 	}, s.submitRetries, s.retryDelay)
 
-	if sendResult.Success {
-		logger.Infof("Submitter %s successfully sent tx %s", s.name, sendResult.Value)
-	} else if undetermined {
-		logger.Warnf("Submitter %s: submission outcome unknown, a broadcast tx may be on chain: %s", s.name, sendResult.Message)
-	} else {
-		logger.Errorf("Submitter %s unsuccessful tx: %s", s.name, sendResult.Message)
+	elapsed := time.Since(start).Round(time.Millisecond)
+	switch {
+	case sendResult.Success:
+		logger.Infof("Submitter %s round %d: submitted tx %s in %d attempt(s), %s", s.name, round, sendResult.Value, attempts, elapsed)
+	case len(broadcastHashes) > 0:
+		// an outstanding broadcast can still mine: not a confirmed failure
+		logger.Warnf("Submitter %s round %d: outcome unknown after %d attempt(s), %s; broadcast tx(s) %s may be on chain: %s",
+			s.name, round, attempts, elapsed, chain.HashList(broadcastHashes), sendResult.Message)
+	default:
+		logger.Errorf("Submitter %s round %d: send failed after %d attempt(s), %s: %s", s.name, round, attempts, elapsed, sendResult.Message)
 	}
 	return sendResult.Success
 }
 
+func (s *SubmitterBase) sendPrefix(round int64, attempt int, nonce uint64) string {
+	return fmt.Sprintf("Submitter %s round %d attempt %d/%d nonce %d", s.name, round, attempt+1, s.submitRetries, nonce)
+}
+
 // refreshNonce best-effort re-fetches the account nonce, keeping current on error.
-func (s *SubmitterBase) refreshNonce(ctx context.Context, current uint64) uint64 {
+// Nonce reads the latest mined nonce, so an accepted-but-unmined tx (or a lagging
+// backend) reads back the rejected nonce — hence the log on an unchanged value.
+func (s *SubmitterBase) refreshNonce(ctx context.Context, prefix string, current uint64) uint64 {
 	nonce, err := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
 	if err != nil {
-		logger.Warnf("Submitter %s failed to refresh nonce: %v", s.name, err)
+		logger.Warnf("%s: nonce refresh failed, keeping %d: %v", prefix, current, err)
 		return current
+	}
+	if nonce == current {
+		logger.Warnf("%s: nonce refresh returned %d unchanged", prefix, current)
+	} else {
+		logger.Infof("%s: nonce refreshed %d -> %d", prefix, current, nonce)
 	}
 	return nonce
 }
@@ -238,7 +264,7 @@ func (s *Submitter) RunEpoch(ctx context.Context, currentEpoch int64) {
 	payload := s.GetPayload(ctx, currentEpoch)
 
 	if payload != nil {
-		s.submit(ctx, payload)
+		s.submit(ctx, currentEpoch+s.epochOffset, payload)
 	} else {
 		logger.Infof("Submitter %s did not get any data, skipping submission", s.name)
 	}
@@ -459,7 +485,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 			cancel()
 
 			if protocolsDone > 0 {
-				txSent := s.submit(ctx, buffer.Bytes())
+				txSent := s.submit(ctx, round, buffer.Bytes())
 				if !txSent {
 					for i := range s.subProtocols {
 						protocolsToQuery[i] = true
@@ -540,7 +566,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round in
 			}
 		}
 		if len(protocolsSent) > 0 && buffer.Len() > 0 {
-			if s.submit(ctx, buffer.Bytes()) {
+			if s.submit(ctx, round, buffer.Bytes()) {
 				for _, i := range protocolsSent {
 					delete(protocolsToQuery, i)
 				}

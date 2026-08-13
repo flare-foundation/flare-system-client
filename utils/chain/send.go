@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/flare-foundation/flare-system-client/utils"
+
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
@@ -105,6 +107,28 @@ func isAlreadyKnown(err error) bool {
 	return err != nil && strings.Contains(err.Error(), alreadyKnownMsg)
 }
 
+// HashList renders broadcast hashes for logs; "none" when empty.
+func HashList(hashes []common.Hash) string {
+	if len(hashes) == 0 {
+		return "none"
+	}
+	hexes := make([]string, len(hashes))
+	for i, h := range hashes {
+		hexes[i] = h.Hex()
+	}
+	return strings.Join(hexes, ",")
+}
+
+// txFees renders the tx's committed gas parameters. For type 2 these are caps:
+// the effective price needs the block base fee, unknown until the tx mines.
+func txFees(tx *types.Transaction) string {
+	if tx.Type() == types.LegacyTxType {
+		return fmt.Sprintf("gas_limit=%d gas_price_gwei=%s", tx.Gas(), utils.Gwei(tx.GasPrice()))
+	}
+	return fmt.Sprintf("gas_limit=%d tip_cap_gwei=%s fee_cap_gwei=%s",
+		tx.Gas(), utils.Gwei(tx.GasTipCap()), utils.Gwei(tx.GasFeeCap()))
+}
+
 // BroadcastAndWait broadcasts an already-signed transaction and waits for it to
 // be mined, classifying the outcome for retry decisions and logging the hash of
 // every broadcast tx. It is the shared post-signing half of a send.
@@ -112,6 +136,7 @@ func BroadcastAndWait(ctx context.Context, client *ethclient.Client, from common
 	hash := signedTx.Hash()
 
 	sendCtx, cancel := context.WithTimeout(ctx, timeout)
+	start := time.Now()
 	err := client.SendTransaction(sendCtx, signedTx)
 	cancel()
 	if err != nil {
@@ -122,9 +147,10 @@ func BroadcastAndWait(ctx context.Context, client *ethclient.Client, from common
 			return SendResult{Hash: hash, Broadcast: mayBeInMempool(err), Err: fmt.Errorf("broadcasting tx %s: %w", hash.Hex(), err)}
 		}
 		// The node already has this exact tx: treat as broadcast, wait for it.
-		logger.Infof("Broadcast tx %s (nonce %d): already known, waiting to be mined", hash.Hex(), signedTx.Nonce())
+		logger.Infof("Broadcast tx %s (nonce %d) %s: already known, identical tx replayed, waiting to be mined",
+			hash.Hex(), signedTx.Nonce(), txFees(signedTx))
 	} else {
-		logger.Infof("Broadcast tx %s (nonce %d)", hash.Hex(), signedTx.Nonce())
+		logger.Infof("Broadcast tx %s (nonce %d) %s", hash.Hex(), signedTx.Nonce(), txFees(signedTx))
 	}
 
 	verifier := NewTxVerifier(client)
@@ -132,7 +158,7 @@ func BroadcastAndWait(ctx context.Context, client *ethclient.Client, from common
 		// Mined marks a reverted receipt (nonce consumed), unlike a pending timeout.
 		return SendResult{Hash: hash, Broadcast: true, Mined: errors.Is(err, errReverted), Err: err}
 	}
-	logger.Debugf("Mined tx %s (nonce %d)", hash.Hex(), signedTx.Nonce())
+	logger.Infof("Mined tx %s (nonce %d) after %s", hash.Hex(), signedTx.Nonce(), time.Since(start).Round(time.Millisecond))
 	return SendResult{Hash: hash, Broadcast: true, Mined: true, Err: nil}
 }
 
@@ -155,7 +181,7 @@ func AnyAccepted(ctx context.Context, c Client, from common.Address, hashes []co
 	for _, h := range hashes {
 		receipt, err := c.Receipt(ctx, h, timeout)
 		if err != nil {
-			logger.Warnf("checking receipt for tx %s: %v", h.Hex(), err)
+			logger.Warnf("reconcile: checking receipt for tx %s: %v; outcome undetermined", h.Hex(), err)
 			conclusive = false
 			continue
 		}
@@ -163,6 +189,7 @@ func AnyAccepted(ctx context.Context, c Client, from common.Address, hashes []co
 			// Not found on this backend. "nonce too low" means some tx at this nonce
 			// mined, so our tx may have mined on a node this (behind) backend hasn't
 			// caught up to. Stay inconclusive rather than risk resending a duplicate.
+			logger.Debugf("reconcile: no receipt for tx %s yet (backend may lag the chain); outcome undetermined", h.Hex())
 			conclusive = false
 			continue
 		}
@@ -172,7 +199,7 @@ func AnyAccepted(ctx context.Context, c Client, from common.Address, hashes []co
 		// Mined but reverted: honor the path's non-fatal errors, matching the way
 		// those errors are treated when they surface on the current attempt.
 		if len(allowedErrors) == 0 {
-			logger.Warnf("tx %s was mined but reverted", h.Hex())
+			logger.Warnf("reconcile: tx %s mined but reverted (reason not looked up: no non-fatal errors on this path)", h.Hex())
 			revertedHash, reverted = h, true
 			continue
 		}
@@ -181,20 +208,20 @@ func AnyAccepted(ctx context.Context, c Client, from common.Address, hashes []co
 			if errors.Is(rerr, errRevertUndecodable) {
 				// Deterministically reverted with a reason we cannot decode: it
 				// cannot match allowedErrors, so this hash is conclusively reverted.
-				logger.Warnf("tx %s mined but reverted with an undecodable reason: %v", h.Hex(), rerr)
+				logger.Warnf("reconcile: tx %s mined but reverted with an undecodable reason, conclusively reverted: %v", h.Hex(), rerr)
 				revertedHash, reverted = h, true
 				continue
 			}
 			// Transient lookup failure: outcome unknown, so the caller must not resend.
-			logger.Warnf("getting revert reason for mined tx %s: %v", h.Hex(), rerr)
+			logger.Warnf("reconcile: getting revert reason for mined tx %s: %v; outcome undetermined", h.Hex(), rerr)
 			conclusive = false
 			continue
 		}
 		if MatchesError(errors.New(reason), allowedErrors) {
-			logger.Infof("tx %s mined but reverted with non-fatal error %q; treating as accepted", h.Hex(), reason)
+			logger.Infof("reconcile: tx %s mined but reverted with non-fatal error %q; treating as accepted", h.Hex(), reason)
 			return h, Accepted
 		}
-		logger.Warnf("tx %s was mined but reverted: %s", h.Hex(), reason)
+		logger.Warnf("reconcile: tx %s mined but reverted, conclusively reverted: %s", h.Hex(), reason)
 		revertedHash, reverted = h, true
 	}
 	// A confirmed own-tx revert wins over an inconclusive lookup: all broadcast

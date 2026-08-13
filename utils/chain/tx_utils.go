@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -278,6 +279,8 @@ func resolveGasLimit(ctx context.Context, client *ethclient.Client, gasConfig *c
 // prepareAndSignType0 builds and signs a type 0 (legacy) transaction from the
 // prefetched gasPrice.
 func prepareAndSignType0(privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, gasPrice *big.Int, toAddress common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
+	logger.Debugf("built tx nonce=%d tx_type=0 gas_limit=%d gas_price_gwei=%s", nonce, gasLimit, utils.Gwei(gasPrice))
+
 	txData := types.LegacyTx{
 		Nonce:    nonce,
 		GasPrice: gasPrice,
@@ -296,6 +299,18 @@ func prepareAndSignType0(privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce u
 	return signedTx, nil
 }
 
+// tipClampNote reports which cap bound the tip, "" when it was not clamped. A tip
+// pinned below market times out every attempt with nothing else saying why.
+func tipClampNote(wanted, enforced *big.Int, cfg *config.Gas) string {
+	if wanted.Cmp(enforced) == 0 {
+		return ""
+	}
+	if wanted.Cmp(cfg.MinimalMaxPriorityFee) < 0 {
+		return "(clamped:minimal_max_priority_fee)"
+	}
+	return "(clamped:maximal_max_priority_fee)"
+}
+
 // prepareAndSignType2 builds and signs a type 2 (eip 1559) transaction from the
 // prefetched baseFeePerGas.
 func prepareAndSignType2(gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, gasLimit uint64, baseFeePerGas *big.Int, toAddress common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
@@ -304,16 +319,23 @@ func prepareAndSignType2(gasConfig *config.Gas, privateKey *ecdsa.PrivateKey, ch
 	cfg := gasConfig.CopyAndDefault()
 
 	gasFeeCap := new(big.Int)
+	baseFeeSource := "multiplier"
 	if cfg.BaseFeePerGasCap != nil && cfg.BaseFeePerGasCap.Sign() == 1 {
+		// pinned: the per-attempt bump no longer moves the base-fee component
 		gasFeeCap.Set(cfg.BaseFeePerGasCap)
+		baseFeeSource = "base_fee_per_gas_cap"
 	} else {
 		gasFeeCap = MultiplyWithFloat(baseFeePerGas, float64(cfg.BaseFeeMultiplier), gasFeeCap)
 	}
 
-	gasTipCap := MultiplyWithFloat(baseFeePerGas, float64(cfg.MaxPriorityMultiplier), nil)
-	gasTipCap = cfg.EnforceMaxPriorityFeeCaps(gasTipCap)
+	wantedTipCap := MultiplyWithFloat(baseFeePerGas, float64(cfg.MaxPriorityMultiplier), nil)
+	gasTipCap := cfg.EnforceMaxPriorityFeeCaps(wantedTipCap)
 
 	gasFeeCap.Add(gasFeeCap, gasTipCap)
+
+	logger.Debugf("built tx nonce=%d tx_type=2 gas_limit=%d base_fee_gwei=%s tip_cap_gwei=%s%s fee_cap_gwei=%s (base fee from %s)",
+		nonce, gasLimit, utils.Gwei(baseFeePerGas), utils.Gwei(gasTipCap),
+		tipClampNote(wantedTipCap, gasTipCap, cfg), utils.Gwei(gasFeeCap), baseFeeSource)
 
 	txData := types.DynamicFeeTx{
 		ChainID:   chainID,
@@ -376,11 +398,11 @@ func getGasLimit(ctx context.Context, gasConfig *config.Gas, client *ethclient.C
 		})
 		cancelFunc()
 		if err != nil {
-			logger.Warnf("Unable to estimate gas: %v, using default gas limit: %d", err, DefaultGasLimit)
+			// estimation usually fails because the call would revert: the tx still sends and burns the nonce
+			logger.Warnf("Unable to estimate gas (the tx may revert): %v; using default gas limit: %d", err, DefaultGasLimit)
 			gasLimit = DefaultGasLimit
 		} else {
 			gasLimit = 3 * estimatedGas / 2
-			logger.Debugf("Gas limit: %d", gasLimit)
 		}
 	} else {
 		gasLimit = uint64(gasConfig.GasLimit)
@@ -420,7 +442,8 @@ func GetGasPrice(ctx context.Context, gasConfig *config.Gas, client *ethclient.C
 // For type 2 transaction on i-th attempt,
 // the multipliers are increased by i, and caps are increased by 11% per attempt.
 //
-// Any unset values will be set to default.
+// Only the type 2 branch defaults unset values; type 0 returns the config as configured
+// (the fixed-price branch returns the caller's own pointer).
 func GasConfigForAttempt(cfg *config.Gas, attempt int) *config.Gas {
 	switch cfg.TxType {
 	case 0:

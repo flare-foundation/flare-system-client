@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -508,4 +509,67 @@ base_fee_multiplier = 4
 
 	_, err = toml.Decode(`base_fee_multiplier = "abc"`, &g)
 	require.ErrorContains(t, err, "invalid multiplier")
+}
+
+func TestGasString(t *testing.T) {
+	tests := []struct {
+		name string
+		gas  *Gas
+		want string
+	}{
+		{"nil", nil, "<nil>"},
+		{
+			"type 2 defaults",
+			func() *Gas { g := DefaultGas(); return &g }(),
+			"tx_type=2 gas_limit=auto base_fee_multiplier=4 max_priority_fee_multiplier=2 max_priority_fee_gwei=[100,5000]",
+		},
+		{
+			"type 2 bumped for attempt 2, fixed gas limit",
+			&Gas{
+				TxType: 2, GasLimit: 300000,
+				BaseFeeMultiplier: 6, MaxPriorityMultiplier: 4,
+				MinimalMaxPriorityFee: big.NewInt(123210000000), MaximalMaxPriorityFee: big.NewInt(6160500000000),
+			},
+			"tx_type=2 gas_limit=300000 base_fee_multiplier=6 max_priority_fee_multiplier=4 max_priority_fee_gwei=[123.21,6160.5]",
+		},
+		{
+			"type 2 with base fee cap",
+			&Gas{
+				TxType: 2, BaseFeeMultiplier: 4, MaxPriorityMultiplier: 2,
+				MinimalMaxPriorityFee: big.NewInt(100e9), MaximalMaxPriorityFee: big.NewInt(5000e9),
+				BaseFeePerGasCap: big.NewInt(50e9),
+			},
+			"tx_type=2 gas_limit=auto base_fee_multiplier=4 max_priority_fee_multiplier=2 max_priority_fee_gwei=[100,5000] base_fee_per_gas_cap_gwei=50",
+		},
+		{
+			// unset caps must not read as zero
+			"type 2 raw config, caps unset",
+			&Gas{TxType: 2},
+			"tx_type=2 gas_limit=auto base_fee_multiplier=0 max_priority_fee_multiplier=0 max_priority_fee_gwei=[unset,unset]",
+		},
+		{
+			"type 0 multiplier",
+			&Gas{TxType: 0, GasPriceMultiplier: 1.5},
+			"tx_type=0 gas_limit=auto gas_price_multiplier=1.5",
+		},
+		{
+			// a zero fixed price is inactive: the multiplier branch applies
+			"type 0 zero fixed price",
+			&Gas{TxType: 0, GasPriceFixed: big.NewInt(0)},
+			"tx_type=0 gas_limit=auto gas_price_multiplier=0",
+		},
+		{
+			"type 0 fixed price",
+			&Gas{TxType: 0, GasLimit: 21000, GasPriceFixed: big.NewInt(100e9)},
+			"tx_type=0 gas_limit=21000 gas_price_fixed_gwei=100",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, test.gas.String())
+			// pins Stringer dispatch: the log lines format the pointer, not .String()
+			require.Equal(t, "gas: "+test.want, fmt.Sprintf("gas: %v", test.gas))
+		})
+	}
 }

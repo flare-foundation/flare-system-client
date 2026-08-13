@@ -91,7 +91,7 @@ func TestSubmitPostBroadcastTimeoutThenNonceTooLowAccepted(t *testing.T) {
 	}
 	base := testSubmitterBase(t, cc, 3)
 
-	require.True(t, base.submit(context.Background(), make([]byte, 40)))
+	require.True(t, base.submit(context.Background(), 100, make([]byte, 40)))
 	// Nonce reused on the second attempt (post-broadcast timeout keeps the nonce).
 	require.Equal(t, []uint64{10, 10}, cc.sentNonces)
 }
@@ -109,7 +109,7 @@ func TestSubmitNonceTooLowForeignBumpsNonce(t *testing.T) {
 	}
 	base := testSubmitterBase(t, cc, 3)
 
-	require.True(t, base.submit(context.Background(), make([]byte, 40)))
+	require.True(t, base.submit(context.Background(), 100, make([]byte, 40)))
 	require.Equal(t, []uint64{10, 11}, cc.sentNonces) // second attempt used the bumped nonce
 }
 
@@ -128,7 +128,7 @@ func TestSubmitNonceTooLowNotFoundRefetchesNonce(t *testing.T) {
 	}
 	base := testSubmitterBase(t, cc, 3)
 
-	require.True(t, base.submit(context.Background(), make([]byte, 40)))
+	require.True(t, base.submit(context.Background(), 100, make([]byte, 40)))
 	require.Equal(t, []uint64{10, 10, 11}, cc.sentNonces) // resent at the refreshed nonce
 }
 
@@ -144,7 +144,7 @@ func TestSubmitPreBroadcastTimeoutRefetchesNonce(t *testing.T) {
 	}
 	base := testSubmitterBase(t, cc, 3)
 
-	require.True(t, base.submit(context.Background(), make([]byte, 40)))
+	require.True(t, base.submit(context.Background(), 100, make([]byte, 40)))
 	require.Equal(t, []uint64{10, 11}, cc.sentNonces) // refetched, not reused
 }
 
@@ -163,7 +163,7 @@ func TestSubmitNonceTooLowUndeterminedRefetchesNonce(t *testing.T) {
 	}
 	base := testSubmitterBase(t, cc, 3)
 
-	require.True(t, base.submit(context.Background(), make([]byte, 40)))
+	require.True(t, base.submit(context.Background(), 100, make([]byte, 40)))
 	require.Equal(t, []uint64{10, 10, 11}, cc.sentNonces) // resent at the refreshed nonce
 }
 
@@ -181,7 +181,7 @@ func TestSubmitPreBroadcastFailureAfterBroadcastKeepsNonce(t *testing.T) {
 	}
 	base := testSubmitterBase(t, cc, 3)
 
-	require.True(t, base.submit(context.Background(), make([]byte, 40)))
+	require.True(t, base.submit(context.Background(), 100, make([]byte, 40)))
 	require.Equal(t, []uint64{10, 10, 10}, cc.sentNonces) // nonce held across the pre-broadcast failure
 }
 
@@ -193,6 +193,6 @@ func TestSubmitExhaustsRetries(t *testing.T) {
 	}
 	base := testSubmitterBase(t, cc, 2)
 
-	require.False(t, base.submit(context.Background(), make([]byte, 40)))
+	require.False(t, base.submit(context.Background(), 100, make([]byte, 40)))
 	require.Len(t, cc.sentNonces, 2) // exactly submitRetries attempts
 }

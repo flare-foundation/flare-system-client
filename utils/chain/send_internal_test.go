@@ -180,3 +180,37 @@ func TestAnyAcceptedRevertClassification(t *testing.T) {
 	_, acc = AnyAccepted(context.Background(), transient, common.Address{}, []common.Hash{h}, []string{"Already relayed"}, time.Second)
 	require.Equal(t, Undetermined, acc)
 }
+
+// txFees must read the right getters per tx type: geth aliases GasTipCap/GasFeeCap
+// to gasPrice on a legacy tx, so a type-blind renderer prints three equal numbers.
+func TestTxFees(t *testing.T) {
+	legacy := types.NewTx(&types.LegacyTx{Nonce: 1, GasPrice: big.NewInt(100e9), Gas: 21000})
+	require.Equal(t, "gas_limit=21000 gas_price_gwei=100", txFees(legacy))
+
+	dynamic := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     1,
+		GasTipCap: big.NewInt(50600000000),
+		GasFeeCap: big.NewInt(152800000000),
+		Gas:       214000,
+	})
+	require.Equal(t, "gas_limit=214000 tip_cap_gwei=50.6 fee_cap_gwei=152.8", txFees(dynamic))
+}
+
+func TestHashList(t *testing.T) {
+	one, two := common.HexToHash("0x0a"), common.HexToHash("0x0b")
+
+	require.Equal(t, "none", HashList(nil))
+	require.Equal(t, one.Hex(), HashList([]common.Hash{one}))
+	require.Equal(t, one.Hex()+","+two.Hex(), HashList([]common.Hash{one, two}))
+}
+
+func TestTipClampNote(t *testing.T) {
+	cfg := &config.Gas{
+		MinimalMaxPriorityFee: big.NewInt(100e9),
+		MaximalMaxPriorityFee: big.NewInt(5000e9),
+	}
+
+	require.Empty(t, tipClampNote(big.NewInt(200e9), big.NewInt(200e9), cfg))
+	require.Equal(t, "(clamped:minimal_max_priority_fee)", tipClampNote(big.NewInt(50e9), big.NewInt(100e9), cfg))
+	require.Equal(t, "(clamped:maximal_max_priority_fee)", tipClampNote(big.NewInt(9000e9), big.NewInt(5000e9), cfg))
+}

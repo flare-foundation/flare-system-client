@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/config"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
@@ -475,6 +476,35 @@ func DefaultGas() Gas {
 
 		BaseFeeMultiplier: DefaultBaseFeeMultiplier,
 	}
+}
+
+// String renders the gas config for logs: only the fields the tx type uses, TOML key
+// names, fees in gwei. Never format the receiver with %v/%s here — that recurses.
+func (g *Gas) String() string {
+	if g == nil {
+		return "<nil>"
+	}
+
+	limit := "auto"
+	if g.GasLimit != 0 {
+		limit = strconv.Itoa(g.GasLimit)
+	}
+
+	if g.TxType == 0 {
+		if g.GasPriceFixed != nil && g.GasPriceFixed.Sign() > 0 {
+			return fmt.Sprintf("tx_type=0 gas_limit=%s gas_price_fixed_gwei=%s", limit, utils.Gwei(g.GasPriceFixed))
+		}
+		return fmt.Sprintf("tx_type=0 gas_limit=%s gas_price_multiplier=%g", limit, g.GasPriceMultiplier)
+	}
+
+	s := fmt.Sprintf("tx_type=%d gas_limit=%s base_fee_multiplier=%g max_priority_fee_multiplier=%g max_priority_fee_gwei=[%s,%s]",
+		g.TxType, limit, float64(g.BaseFeeMultiplier), float64(g.MaxPriorityMultiplier),
+		utils.Gwei(g.MinimalMaxPriorityFee), utils.Gwei(g.MaximalMaxPriorityFee))
+	if g.BaseFeePerGasCap != nil && g.BaseFeePerGasCap.Sign() > 0 {
+		s += " base_fee_per_gas_cap_gwei=" + utils.Gwei(g.BaseFeePerGasCap)
+	}
+
+	return s
 }
 
 // CopyAndDefault copies Gas and sets default values for any unset configs.
