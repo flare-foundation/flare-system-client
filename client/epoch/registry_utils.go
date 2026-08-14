@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
@@ -24,75 +23,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/registry"
 )
 
-// TODO configure addresses and breaking change
-
-const (
-	chainIDCoston  = 16
-	chainIDCoston2 = 114
-
-	chainIDFlare    = 14
-	chainIDSongbird = 19
-
-	breakingEpochCoston   = 5451
-	breakingEpochFlare    = 417
-	breakingEpochSongbird = 417
-)
-
-const (
-	// coston
-
-	newRegistryCostonAddr = "0x42F4526BFC6f892DB515a832a52eFc9edFADf6c0"
-	oldRegistryCostonAddr = "0xB4B93a3A3ADa93a574E6efeb5f295bf882934cB6"
-
-	newPreRegistryCostonAddr = "0x4A5538e86bc09cc1b02BAE720CCc39548e10dB28"
-	oldPreRegistryCostonAddr = "0xF660984B8597e31437cA4b7dEa0A41677982563b"
-
-	// flare
-
-	newRegistryFlareAddr = "0xA480457953Af3583E54DCd630b219353B8FC9Af7"
-	oldRegistryFlareAddr = "0x2580101692366e2f331e891180d9ffdF861Fce83"
-
-	newPreRegistryFlareAddr = "0x76D49E62B07e52A13b7FBB4602eD942f812c87e2"
-	oldPreRegistryFlareAddr = "0xeFDBf6F31Aa46c62414Aee82aF43036d16885b48"
-
-	// songbird
-
-	newRegistrySongbirdAddr = "0xd23FAE88c09e6A77dD9eFcc29D6bBC55D2e74310"
-	oldRegistrySongbirdAddr = "0x31B9EC65C731c7D973a33Ef3FC83B653f540dC8D"
-
-	newPreRegistrySongbirdAddr = "0xD8957603dE539118898BA2C321a1001d062Be7Ae"
-	oldPreRegistrySongbirdAddr = "0x9Ba9A142FD5B2953667B03dB40D1d77c83F225a2"
-)
-
 var (
-	// coston
-
-	NewRegistryCoston = common.HexToAddress(newRegistryCostonAddr)
-	OldRegistryCoston = common.HexToAddress(oldRegistryCostonAddr)
-
-	NewPreRegistryCoston = common.HexToAddress(newPreRegistryCostonAddr)
-	OldPreRegistryCoston = common.HexToAddress(oldPreRegistryCostonAddr)
-
-	// flare
-
-	NewRegistryFlare = common.HexToAddress(newRegistryFlareAddr)
-	OldRegistryFlare = common.HexToAddress(oldRegistryFlareAddr)
-
-	NewPreRegistryFlare = common.HexToAddress(newPreRegistryFlareAddr)
-	OldPreRegistryFlare = common.HexToAddress(oldPreRegistryFlareAddr)
-
-	// songbird
-
-	NewRegistrySongbird = common.HexToAddress(newRegistrySongbirdAddr)
-	OldRegistrySongbird = common.HexToAddress(oldRegistrySongbirdAddr)
-
-	NewPreRegistrySongbird = common.HexToAddress(newPreRegistrySongbirdAddr)
-	OldPreRegistrySongbird = common.HexToAddress(oldPreRegistrySongbirdAddr)
-)
-
-var (
-	registratorArguments    abi.Arguments
-	registratorArgumentsNew abi.Arguments
+	registratorArguments abi.Arguments
 
 	registryAbi    *abi.ABI
 	preregistryAbi *abi.ABI
@@ -132,15 +64,6 @@ func init() {
 	}
 
 	registratorArguments = abi.Arguments{
-		{ // nextRewardEpochIDs
-			Type: uint32Ty,
-		},
-		{ // address
-			Type: addressTy,
-		},
-	}
-
-	registratorArgumentsNew = abi.Arguments{
 		{ // chainID
 			Type: uint256Ty,
 		},
@@ -174,9 +97,7 @@ type registryContractClientImpl struct {
 	registryAddress    common.Address
 	preregistryAddress common.Address
 	registry           *registry.Registry
-	oldRegistry        *registry.Registry
 	preregistry        *preregistry.Preregistry
-	oldPreregistry     *preregistry.Preregistry
 	senderTxOpts       *bind.TransactOpts
 	gasCfg             *config.Gas
 	txVerifier         *chain.TxVerifier
@@ -195,73 +116,11 @@ func NewRegistryContractClient(
 ) (*registryContractClientImpl, error) {
 	registryBinding, err := registry.NewRegistry(registryAddress, ethClient)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("registry binding: %w", err)
 	}
 	preregistryBinding, err := preregistry.NewPreregistry(preregistryAddress, ethClient)
 	if err != nil {
-		return nil, err
-	}
-
-	var oldRegistryBinding *registry.Registry
-	switch registryAddress {
-	case NewRegistryCoston:
-		if chainID != chainIDCoston {
-			return nil, fmt.Errorf("new registry mismatch address from %s chainID: %d", "Coston", chainID)
-		}
-
-		oldRegistryBinding, err = registry.NewRegistry(OldRegistryCoston, ethClient)
-		if err != nil {
-			return nil, err
-		}
-	case NewRegistryFlare:
-		if chainID != chainIDFlare {
-			return nil, fmt.Errorf("new registry mismatch address from %s chainID: %d", "Flare", chainID)
-		}
-
-		oldRegistryBinding, err = registry.NewRegistry(OldRegistryFlare, ethClient)
-		if err != nil {
-			return nil, err
-		}
-	case NewRegistrySongbird:
-		if chainID != chainIDSongbird {
-			return nil, fmt.Errorf("new registry mismatch address from %s chainID: %d", "Songbird", chainID)
-		}
-
-		oldRegistryBinding, err = registry.NewRegistry(OldRegistrySongbird, ethClient)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var oldPreRegistryBinding *preregistry.Preregistry
-	switch preregistryAddress {
-	case NewPreRegistryCoston:
-		if chainID != chainIDCoston {
-			return nil, fmt.Errorf("new pre registry mismatch address from %s chainID: %d", "Coston", chainID)
-		}
-
-		oldPreRegistryBinding, err = preregistry.NewPreregistry(OldPreRegistryCoston, ethClient)
-		if err != nil {
-			return nil, err
-		}
-	case NewPreRegistryFlare:
-		if chainID != chainIDFlare {
-			return nil, fmt.Errorf("new pre registry mismatch address from %s chainID: %d", "Flare", chainID)
-		}
-
-		oldPreRegistryBinding, err = preregistry.NewPreregistry(OldPreRegistryFlare, ethClient)
-		if err != nil {
-			return nil, err
-		}
-	case NewPreRegistrySongbird:
-		if chainID != chainIDSongbird {
-			return nil, fmt.Errorf("new pre registry mismatch address from %s chainID: %d", "Songbird", chainID)
-		}
-
-		oldPreRegistryBinding, err = preregistry.NewPreregistry(OldPreRegistrySongbird, ethClient)
-		if err != nil {
-			return nil, err
-		}
+		return nil, fmt.Errorf("pre registry binding: %w", err)
 	}
 
 	return &registryContractClientImpl{
@@ -269,9 +128,7 @@ func NewRegistryContractClient(
 		registryAddress:    registryAddress,
 		preregistryAddress: preregistryAddress,
 		registry:           registryBinding,
-		oldRegistry:        oldRegistryBinding,
 		preregistry:        preregistryBinding,
-		oldPreregistry:     oldPreRegistryBinding,
 		senderTxOpts:       senderTxOpts,
 		gasCfg:             gasCfg,
 		txVerifier:         chain.NewTxVerifier(ethClient),
@@ -297,7 +154,7 @@ func (r *registryContractClientImpl) RegisterVoter(ctx context.Context, nextRewa
 
 func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, nextRewardEpochID *big.Int, address common.Address) error {
 	epochID := uint32(nextRewardEpochID.Uint64())
-	signature, err := r.signature(epochID, address)
+	signature, err := r.createSignature(epochID, address)
 	if err != nil {
 		return fmt.Errorf("signature: %w", err)
 	}
@@ -316,14 +173,12 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 		return fmt.Errorf("setting gas: %w", err)
 	}
 
-	useOldAddress, contractAddress := ShouldUseOldRegistry(epochID, r.registryAddress)
-
 	estimatedGasLimit, err := chain.DryRunTxAbi(
 		ctx,
 		r.ethClient,
 		chain.DefaultTxTimeout,
 		txOpts.From,
-		contractAddress,
+		r.registryAddress,
 		common.Big0,
 		registryAbi,
 		"registerVoter",
@@ -340,18 +195,9 @@ func (r *registryContractClientImpl) sendRegisterVoter(ctx context.Context, next
 		txOpts.GasLimit = estimatedGasLimit
 	}
 
-	var tx *types.Transaction
-
-	if useOldAddress {
-		tx, err = r.oldRegistry.RegisterVoter(txOpts, address, vrsSignature)
-		if err != nil {
-			return fmt.Errorf("sending registry old tx: %w", err)
-		}
-	} else {
-		tx, err = r.registry.RegisterVoter(txOpts, address, vrsSignature)
-		if err != nil {
-			return fmt.Errorf("sending registry tx: %w", err)
-		}
+	tx, err := r.registry.RegisterVoter(txOpts, address, vrsSignature)
+	if err != nil {
+		return fmt.Errorf("sending registry tx: %w", err)
 	}
 
 	err = r.txVerifier.WaitUntilMined(ctx, txOpts.From, tx, chain.DefaultTxTimeout)
@@ -379,7 +225,7 @@ func (r *registryContractClientImpl) PreregisterVoter(ctx context.Context, nextR
 
 func (r *registryContractClientImpl) sendPreRegisterVoter(ctx context.Context, nextRewardEpochID *big.Int, address common.Address) error {
 	epochID := uint32(nextRewardEpochID.Uint64())
-	signature, err := r.signature(epochID, address)
+	signature, err := r.createSignature(epochID, address)
 	if err != nil {
 		return fmt.Errorf("signature: %w", err)
 	}
@@ -398,14 +244,12 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(ctx context.Context, n
 		return fmt.Errorf("setting gas pre registry: %w", err)
 	}
 
-	useOldAddress, contractAddress := shouldUseOldPreRegistry(epochID, r.preregistryAddress)
-
 	estimatedGasLimit, err := chain.DryRunTxAbi(
 		ctx,
 		r.ethClient,
 		chain.DefaultTxTimeout,
 		txOpts.From,
-		contractAddress,
+		r.preregistryAddress,
 		common.Big0,
 		preregistryAbi,
 		"preRegisterVoter",
@@ -422,18 +266,9 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(ctx context.Context, n
 		txOpts.GasLimit = estimatedGasLimit
 	}
 
-	var tx *types.Transaction
-
-	if useOldAddress {
-		tx, err = r.oldPreregistry.PreRegisterVoter(txOpts, address, vrsSignature)
-		if err != nil {
-			return fmt.Errorf("sending preregistry tx: %w", err)
-		}
-	} else {
-		tx, err = r.preregistry.PreRegisterVoter(txOpts, address, vrsSignature)
-		if err != nil {
-			return fmt.Errorf("sending preregistry tx: %w", err)
-		}
+	tx, err := r.preregistry.PreRegisterVoter(txOpts, address, vrsSignature)
+	if err != nil {
+		return fmt.Errorf("sending preregistry tx: %w", err)
 	}
 
 	err = r.txVerifier.WaitUntilMined(ctx, txOpts.From, tx, chain.DefaultTxTimeout)
@@ -444,21 +279,11 @@ func (r *registryContractClientImpl) sendPreRegisterVoter(ctx context.Context, n
 	return nil
 }
 
-// createSignature creates ECDSA message signature keccak256(abi.encode(nextRewardEpochID, address)) with signerPrivateKey
+// createSignature creates ECDSA message signature keccak256(abi.encode(chainID, nextRewardEpochID, address)) with signerPrivateKey
 func (r *registryContractClientImpl) createSignature(nextRewardEpochID uint32, address common.Address) ([]byte, error) {
-	message, err := registratorArguments.Pack(nextRewardEpochID, address)
-	if err != nil {
-		return nil, err
-	}
-	messageHash := crypto.Keccak256(message)
-	return crypto.Sign(accounts.TextHash(messageHash), r.signerPrivateKey)
-}
+	chainIDB := big.NewInt(r.chainID)
 
-// createSignatureNew creates ECDSA message signature keccak256(abi.encode(chainID, nextRewardEpochID, address)) with signerPrivateKey
-func (r *registryContractClientImpl) createSignatureNew(chainID int64, nextRewardEpochID uint32, address common.Address) ([]byte, error) {
-	chainIDB := big.NewInt(chainID)
-
-	message, err := registratorArgumentsNew.Pack(chainIDB, nextRewardEpochID, address)
+	message, err := registratorArguments.Pack(chainIDB, nextRewardEpochID, address)
 	if err != nil {
 		return nil, err
 	}
@@ -511,56 +336,4 @@ func SetGas(ctx context.Context, txOptions *bind.TransactOpts, client *ethclient
 		// should never happen. txType is checked when config is read from toml file.
 		return fmt.Errorf("unsupported tx type: %d", gasConfig.TxType)
 	}
-}
-
-func ShouldUseOldRegistry(epochID uint32, address common.Address) (bool, common.Address) {
-	if address == NewRegistryCoston && epochID < breakingEpochCoston {
-		return true, OldRegistryCoston
-	}
-	if address == NewRegistryFlare && epochID < breakingEpochFlare {
-		return true, OldRegistryFlare
-	}
-	if address == NewRegistrySongbird && epochID < breakingEpochSongbird {
-		return true, OldRegistrySongbird
-	}
-
-	return false, address
-}
-
-func shouldUseOldPreRegistry(epochID uint32, address common.Address) (bool, common.Address) {
-	if address == NewPreRegistryCoston && epochID < breakingEpochCoston {
-		return true, OldPreRegistryCoston
-	}
-	if address == NewPreRegistryFlare && epochID < breakingEpochFlare {
-		return true, OldPreRegistryFlare
-	}
-	if address == NewPreRegistrySongbird && epochID < breakingEpochSongbird {
-		return true, OldPreRegistrySongbird
-	}
-
-	return false, address
-}
-
-func (r *registryContractClientImpl) signature(epochID uint32, address common.Address) ([]byte, error) {
-	var (
-		signature []byte
-		err       error
-	)
-	switch {
-	case r.chainID == chainIDCoston2,
-		r.chainID == chainIDCoston && epochID >= breakingEpochCoston,
-		r.chainID == chainIDFlare && epochID >= breakingEpochFlare,
-		r.chainID == chainIDSongbird && epochID >= breakingEpochSongbird:
-		signature, err = r.createSignatureNew(r.chainID, epochID, address)
-		if err != nil {
-			return nil, fmt.Errorf("creating new: %w", err)
-		}
-	default:
-		signature, err = r.createSignature(epochID, address)
-		if err != nil {
-			return nil, fmt.Errorf("creating old: %w", err)
-		}
-	}
-
-	return signature, nil
 }
