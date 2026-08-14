@@ -123,6 +123,17 @@ func NewRegistryContractClient(
 		return nil, fmt.Errorf("pre registry binding: %w", err)
 	}
 
+	verifyCtx, cancel := context.WithTimeout(context.Background(), chain.DefaultTxTimeout)
+	defer cancel()
+
+	// a zero address is legal when the matching client is disabled
+	if registryAddress != (common.Address{}) {
+		verifyContractPresent(verifyCtx, ethClient, "registry", registryAddress)
+	}
+	if preregistryAddress != (common.Address{}) {
+		verifyContractPresent(verifyCtx, ethClient, "pre registry", preregistryAddress)
+	}
+
 	return &registryContractClientImpl{
 		ethClient:          ethClient,
 		registryAddress:    registryAddress,
@@ -135,6 +146,20 @@ func NewRegistryContractClient(
 		signerPrivateKey:   signerPk,
 		chainID:            chainID,
 	}, nil
+}
+
+// verifyContractPresent warns about an address holding no code: eth_estimateGas succeeds against a
+// codeless address, so a wrong-network address makes every registration a silent no-op.
+// Warn, not reject: a configured address may legally predate its deployment.
+func verifyContractPresent(ctx context.Context, ethClient *ethclient.Client, name string, address common.Address) {
+	code, err := ethClient.CodeAt(ctx, address, nil)
+	if err != nil {
+		logger.Warnf("could not verify %s contract at %s: %v", name, address, err)
+		return
+	}
+	if len(code) == 0 {
+		logger.Warnf("no %s contract at %s", name, address)
+	}
 }
 
 // RegisterVoter tries to register voter on VoterRegistry smart contract.
