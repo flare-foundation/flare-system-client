@@ -1,9 +1,17 @@
 package chain
 
 import (
+	"context"
+	"errors"
+	"math/big"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,4 +75,122 @@ func TestUnpackError(t *testing.T) {
 			require.Equal(t, tc.want, got)
 		})
 	}
+}
+
+// pollStub scripts TransactionReceipt by call count, never wall time.
+type pollStub struct {
+	stubCaller
+	calls  int
+	script func(call int) (*types.Receipt, error)
+}
+
+func (s *pollStub) TransactionReceipt(context.Context, common.Hash) (*types.Receipt, error) {
+	s.calls++
+	return s.script(s.calls)
+}
+
+// newPollVerifier sets all three intervals explicitly — a zero interval busy-spins.
+func newPollVerifier(eth txBackend, fast, slow, backoffAfter time.Duration) TxVerifier {
+	return TxVerifier{eth: eth, pollInterval: fast, pollIntervalSlow: slow, pollBackoffAfter: backoffAfter}
+}
+
+func TestWaitUntilMined(t *testing.T) {
+	ctx := context.Background()
+	tx := types.NewTx(&types.LegacyTx{})
+	success := &types.Receipt{Status: types.ReceiptStatusSuccessful}
+
+	t.Run("immediate receipt", func(t *testing.T) {
+		stub := &pollStub{script: func(int) (*types.Receipt, error) { return success, nil }}
+		v := newPollVerifier(stub, time.Hour, time.Hour, time.Hour)
+
+		err := v.WaitUntilMined(ctx, common.Address{}, tx, time.Second)
+		require.NoError(t, err)
+		require.Equal(t, 1, stub.calls) // pins check-before-first-wait
+	})
+
+	t.Run("found after fast polling", func(t *testing.T) {
+		stub := &pollStub{script: func(call int) (*types.Receipt, error) {
+			if call < 5 {
+				return nil, ethereum.NotFound
+			}
+			return success, nil
+		}}
+		// slow branch would wait an hour — success within timeout pins the fast branch
+		v := newPollVerifier(stub, time.Millisecond, time.Hour, time.Hour)
+
+		err := v.WaitUntilMined(ctx, common.Address{}, tx, time.Second)
+		require.NoError(t, err)
+		require.Equal(t, 5, stub.calls)
+	})
+
+	t.Run("backoff selects slow interval", func(t *testing.T) {
+		stub := &pollStub{script: func(call int) (*types.Receipt, error) {
+			if call == 1 {
+				return nil, ethereum.NotFound
+			}
+			return success, nil
+		}}
+		// fast branch would wait an hour — success within timeout pins the slow branch
+		v := newPollVerifier(stub, time.Hour, time.Millisecond, 0)
+
+		err := v.WaitUntilMined(ctx, common.Address{}, tx, time.Second)
+		require.NoError(t, err)
+		require.Equal(t, 2, stub.calls)
+	})
+
+	t.Run("transient RPC error tolerated", func(t *testing.T) {
+		stub := &pollStub{script: func(call int) (*types.Receipt, error) {
+			switch call {
+			case 1:
+				return nil, errors.New("502")
+			case 2:
+				return nil, ethereum.NotFound
+			default:
+				return success, nil
+			}
+		}}
+		v := newPollVerifier(stub, time.Millisecond, time.Millisecond, time.Hour)
+
+		err := v.WaitUntilMined(ctx, common.Address{}, tx, time.Second)
+		require.NoError(t, err)
+		require.Equal(t, 3, stub.calls)
+	})
+
+	t.Run("timeout while pending", func(t *testing.T) {
+		stub := &pollStub{script: func(int) (*types.Receipt, error) { return nil, ethereum.NotFound }}
+		v := newPollVerifier(stub, time.Millisecond, time.Millisecond, time.Hour)
+
+		err := v.WaitUntilMined(ctx, common.Address{}, tx, 20*time.Millisecond)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.NotErrorIs(t, err, errReverted)
+	})
+
+	t.Run("ctx already cancelled", func(t *testing.T) {
+		stub := &pollStub{script: func(int) (*types.Receipt, error) { return nil, ethereum.NotFound }}
+		v := newPollVerifier(stub, time.Hour, time.Hour, time.Hour)
+
+		cancelled, cancel := context.WithCancel(ctx)
+		cancel()
+
+		err := v.WaitUntilMined(cancelled, common.Address{}, tx, time.Minute)
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, 1, stub.calls)
+	})
+
+	t.Run("mined but reverted", func(t *testing.T) {
+		stub := &pollStub{
+			stubCaller: stubCaller{err: stubDataError{
+				msg:  "execution reverted: some reason",
+				data: hexutil.Encode(encodeRevertReason(t, "some reason")),
+			}},
+			script: func(int) (*types.Receipt, error) {
+				return &types.Receipt{Status: types.ReceiptStatusFailed, BlockNumber: big.NewInt(1)}, nil
+			},
+		}
+		v := newPollVerifier(stub, time.Hour, time.Hour, time.Hour)
+
+		err := v.WaitUntilMined(ctx, common.Address{}, tx, time.Second)
+		require.ErrorIs(t, err, errReverted)
+		require.ErrorContains(t, err, "some reason")
+	})
 }

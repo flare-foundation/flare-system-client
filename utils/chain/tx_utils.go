@@ -37,6 +37,12 @@ const (
 
 	multiplierBumpTimes100 = 111
 	normalizer             = 100
+
+	// receipt polling: fast while a tx normally mines (~1-2s Flare blocks), backed
+	// off for long waits (LongTxTimeout) so a stuck tx is not polled at 2.5 Hz for 30min.
+	txPollInterval     = 400 * time.Millisecond
+	txPollIntervalSlow = time.Second
+	txPollBackoffAfter = 10 * time.Second
 )
 
 // CopyTxOpts returns a copy of opts that can be mutated per transaction
@@ -62,21 +68,64 @@ func CopyTxOpts(opts *bind.TransactOpts) *bind.TransactOpts {
 	return &cp
 }
 
+// txBackend is the ethclient subset TxVerifier uses: receipt polling and
+// eth_call replay for revert reasons.
+type txBackend interface {
+	ethereum.ContractCaller
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+}
+
 type TxVerifier struct {
-	eth *ethclient.Client
+	eth txBackend
+
+	pollInterval     time.Duration // receipt poll interval; tests shrink these
+	pollIntervalSlow time.Duration // interval after pollBackoffAfter of polling
+	pollBackoffAfter time.Duration
 }
 
 func NewTxVerifier(eth *ethclient.Client) *TxVerifier {
-	return &TxVerifier{eth: eth}
+	return &TxVerifier{eth: eth, pollInterval: txPollInterval,
+		pollIntervalSlow: txPollIntervalSlow, pollBackoffAfter: txPollBackoffAfter}
+}
+
+// waitMined polls for the tx receipt until found or ctx expires. Ported from
+// go-ethereum v1.17.3 accounts/abi/bind/v2/util.go WaitMined (what bind.WaitMined
+// delegates to) — apply upstream fixes there here too. Only the timing differs:
+// upstream's fixed 1s ticker adds ~0.5s mean latency on ~1-2s Flare blocks. Like
+// upstream it keeps polling on any error (transient RPC failures included) and
+// checks once before the first wait.
+func (t TxVerifier) waitMined(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	start := time.Now()
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+	for {
+		receipt, err := t.eth.TransactionReceipt(ctx, txHash)
+		if err == nil {
+			return receipt, nil
+		}
+		if !errors.Is(err, ethereum.NotFound) {
+			logger.Debugf("Receipt retrieval for tx %s failed: %v", txHash.Hex(), err)
+		}
+		interval := t.pollInterval
+		if time.Since(start) >= t.pollBackoffAfter {
+			interval = t.pollIntervalSlow
+		}
+		timer.Reset(interval)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 func (t TxVerifier) WaitUntilMined(ctx context.Context, from common.Address, tx *types.Transaction, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	receipt, err := bind.WaitMined(ctx, t.eth, tx)
+	receipt, err := t.waitMined(ctx, tx.Hash())
 	if err != nil {
-		return fmt.Errorf("bind.WaitMined: %w", err)
+		return fmt.Errorf("waitMined: %w", err)
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		// Wrap errReverted whether or not the reason decodes: the tx still mined.
