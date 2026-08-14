@@ -9,6 +9,7 @@
 - Startup verification of the configured `chain_id` against the node's `eth_chainId`: a mismatch (which would make every send fail with "invalid sender") aborts startup with a fatal log; an unreachable node only warns, so a node outage does not block a restart.
 - Startup validation for an enabled finalizer: `grace_period_end_offset` must be set (it has no default, and unset silently disabled grace gating, relaying every round immediately) and `voter_threshold_bips` must be positive (0 silently made the node never-selected for grace finalization).
 - Startup validation rejecting a negative `gas_price_fixed` or `base_fee_per_gas_cap`: both were silently ignored at send time, while the gas-override startup warning still described the pin as active.
+- Startup verification that the configured `voter_registry` and `voter_preregistry` addresses hold contract code, logging a warning when they do not. `eth_estimateGas` succeeds against an address with no code, so a registry address pasted from another network produces transactions that mine successfully and register nothing. The check warns rather than aborts, since a configured address may legally predate its deployment; either address is skipped when unset, which config validation already permits when the matching client is disabled.
 
 ### Changed
 
@@ -32,6 +33,12 @@
 - Restored the relay nonce fetch's retry budget so a transient RPC failure no longer drops a finalization after only a few hundred milliseconds.
 - Transaction send-retry helpers now abort promptly on context cancellation instead of sleeping through the remaining retries, unblocking graceful shutdown (previously up to ~50s for the finalizer, longer for epoch paths).
 - A transient indexer-DB error during the delayed queue's already-relayed check no longer drops the whole batch of pending finalizations (the items are consumed from the queue before processing and were never retried): the check is skipped instead, and the dry-run send catches already-relayed rounds pre-broadcast.
+
+### Removed
+
+- Support for the previous generation of the `voterRegistry` and `voterPreRegistry` contracts. Flare, Songbird and Coston are all past their breaking reward epochs (417, 417 and 5451), and the contract registry on each resolves both names to the new deployments, so the per-chain breaking-epoch switch and the old contract addresses no longer had a live case. Registration and pre-registration now always target the configured address.
+- The old registration message form. The signed message is now always `keccak256(abi.encode(chainID, nextRewardEpochID, address))`; the two-argument form without the chain ID is gone. This also changes behaviour for any chain outside Flare, Songbird, Coston and Coston2, which previously fell back to the old form regardless of epoch — `chain_id` is now load-bearing for signature validity everywhere.
+- The hardcoded per-chain registry address table, along with the check that the configured address matched the configured `chain_id`. That check only covered three addresses and went silently inert whenever the contracts were redeployed, which is what this release does. The code-presence check above covers every address on every chain instead, but only warns, so a wrong-network address no longer stops startup.
 
 ## [v1.1.1](https://github.com/flare-foundation/flare-system-client/tree/v1.1.1) - 2026-7-15
 
