@@ -8,7 +8,6 @@ import (
 	"time"
 
 	clientContext "github.com/flare-foundation/flare-system-client/client/context"
-	"github.com/flare-foundation/flare-system-client/client/epoch"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/utils"
 
@@ -39,9 +38,7 @@ type client struct {
 
 	rewardEpochTiming *utils.EpochTimingConfig
 
-	registryAddress common.Address
-	registry        voterRegistry
-	registryOld     voterRegistry
+	registry voterRegistry
 
 	identityAddress common.Address
 }
@@ -103,25 +100,6 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 		return nil, err
 	}
 
-	var oldRegistryClient *registry.Registry
-	switch cfg.ContractAddresses.VoterRegistry {
-	case epoch.NewRegistryCoston:
-		oldRegistryClient, err = registry.NewRegistry(epoch.OldRegistryCoston, cl)
-		if err != nil {
-			return nil, err
-		}
-	case epoch.NewRegistryFlare:
-		oldRegistryClient, err = registry.NewRegistry(epoch.OldRegistryFlare, cl)
-		if err != nil {
-			return nil, err
-		}
-	case epoch.NewRegistrySongbird:
-		oldRegistryClient, err = registry.NewRegistry(epoch.OldRegistrySongbird, cl)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	pc := &client{
 		eth:               cl,
 		protocolContext:   protocolContext,
@@ -129,9 +107,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 		votingRoundTiming: votingRoundTiming,
 		systemsManager:    systemsManager,
 		rewardEpochTiming: rewardEpochTiming,
-		registryAddress:   cfg.ContractAddresses.VoterRegistry,
 		registry:          voterRegistryImpl{registryClient},
-		registryOld:       voterRegistryImpl{oldRegistryClient},
 
 		identityAddress: cfg.Identity.Address,
 	}
@@ -305,11 +281,6 @@ func (c *client) isRegistered(ctx context.Context, rewardEpoch int64) (bool, err
 	bOff := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
 	var registered bool
 
-	registry := c.registry
-	if useOld, _ := epoch.ShouldUseOldRegistry(uint32(rewardEpoch), c.registryAddress); useOld {
-		registry = c.registryOld
-	}
-
 	// Use an exponential backoff retry in case of temporary errors
 	// in querying the registry contract.
 	err := backoff.RetryNotify(
@@ -317,7 +288,7 @@ func (c *client) isRegistered(ctx context.Context, rewardEpoch int64) (bool, err
 			ctx, cancel := context.WithTimeout(ctx, registerCheckTimeout)
 			defer cancel()
 
-			registered, err = registry.IsVoterRegistered(ctx, c.identityAddress, rewardEpoch)
+			registered, err = c.registry.IsVoterRegistered(ctx, c.identityAddress, rewardEpoch)
 
 			return err
 		},
