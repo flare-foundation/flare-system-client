@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [v1.1.2](https://github.com/flare-foundation/flare-system-client/tree/v1.1.2) - 2026-8-18
 
 ### Added
 
