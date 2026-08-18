@@ -71,7 +71,7 @@ func TestSignatureSubmitterDataVerifier_NonOkStatusSkipsLengthCheck(t *testing.T
 
 func makeSubProtocol(t *testing.T, srv *httptest.Server) *SubProtocol {
 	t.Helper()
-	return &SubProtocol{ID: 100, APIUrl: srv.URL, Type: 0}
+	return &SubProtocol{ID: 100, BaseURL: srv.URL, Type: 0}
 }
 
 func fetchURL(t *testing.T, srv *httptest.Server) *url.URL {

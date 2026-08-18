@@ -639,7 +639,7 @@ func (g *Gas) validate() error {
 }
 
 type RewardsConfig struct {
-	UrlPrefix string `toml:"url_prefix"`
+	URLPrefix string `toml:"url_prefix"`
 
 	MinRewardWei *big.Int `toml:"min_reward"`
 	MaxRewardWei *big.Int `toml:"max_reward"`

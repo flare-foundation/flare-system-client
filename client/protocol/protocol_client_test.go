@@ -54,7 +54,7 @@ func TestSubmitter(t *testing.T) {
 
 	chainClient := testChainClient{}
 
-	subProtocol := &SubProtocol{ID: 100, APIUrl: apiEndpointURL, Type: 0}
+	subProtocol := &SubProtocol{ID: 100, BaseURL: apiEndpointURL, Type: 0}
 
 	privKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestSubmitter(t *testing.T) {
 			maxCycles:      1,
 			cycleDuration:  time.Second,
 		}
-		subProtocolType1 := &SubProtocol{ID: 100, APIUrl: apiEndpointURL, Type: 1}
+		subProtocolType1 := &SubProtocol{ID: 100, BaseURL: apiEndpointURL, Type: 1}
 		submitter.subProtocols = []*SubProtocol{subProtocolType1}
 
 		epochID := int64(1)

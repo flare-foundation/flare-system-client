@@ -27,8 +27,8 @@ type DataVerifier func(*SubProtocolResponse) error
 
 type SubProtocol struct {
 	ID      uint8
-	APIUrl  string
-	XApiKey string
+	BaseURL string
+	XAPIKey string
 	Type    uint8 //type of submitSignature payload
 }
 
@@ -39,14 +39,14 @@ type SubProtocolResponse struct {
 }
 
 func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
-	apiUrl := config.APIUrl
-	if apiUrl == "" {
-		apiUrl = config.APIEndpoint
+	apiURL := config.APIURL
+	if apiURL == "" {
+		apiURL = config.APIEndpoint
 	}
 	return &SubProtocol{
 		ID:      config.ID,
-		APIUrl:  apiUrl,
-		XApiKey: config.XApiKey(),
+		BaseURL: apiURL,
+		XAPIKey: config.XAPIKey(),
 		Type:    config.Type,
 	}
 }
@@ -60,8 +60,8 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	if err != nil {
 		return nil, fmt.Errorf("creating protocol client API request: %w", err)
 	}
-	if len(sp.XApiKey) > 0 {
-		req.Header.Set("X-API-KEY", sp.XApiKey)
+	if len(sp.XAPIKey) > 0 {
+		req.Header.Set("X-API-KEY", sp.XAPIKey)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -133,7 +133,7 @@ func (sp *SubProtocol) fetchDataWithRetryChan(
 	timeout time.Duration,
 	dataVerifier DataVerifier,
 ) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
-	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
+	url, err := submitEndpointURL(votingRound, sp.BaseURL, endpoint, submitAddress)
 	if err != nil {
 		logger.Errorf("building url for protocol %v: %s", sp.ID, err)
 		out := make(chan shared.ExecuteStatus[*SubProtocolResponse])
@@ -162,7 +162,7 @@ func (sp *SubProtocol) fetchDataWithRetry(
 	dataVerifier DataVerifier,
 	minimalRetryDuration time.Duration,
 ) shared.ExecuteStatus[*SubProtocolResponse] {
-	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
+	url, err := submitEndpointURL(votingRound, sp.BaseURL, endpoint, submitAddress)
 	if err != nil {
 		logger.Errorf("building url for protocol %v: %v", sp.ID, err)
 		return shared.ExecuteStatus[*SubProtocolResponse]{Success: false, Message: fmt.Sprintf("initial error: %s", err)}
@@ -210,8 +210,8 @@ func StatusDataVerifier(data *SubProtocolResponse) error {
 	}
 }
 
-// submitEndpointUrl builds url to be queried for the data for subprotocol for a given votingRound and address.
-func submitEndpointUrl(votingRound int64, apiEndpoint string, endpoint string, address string) (*url.URL, error) {
+// submitEndpointURL builds url to be queried for the data for subprotocol for a given votingRound and address.
+func submitEndpointURL(votingRound int64, apiEndpoint string, endpoint string, address string) (*url.URL, error) {
 	baseURL, err := url.JoinPath(
 		apiEndpoint,
 		endpoint,

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- `APIUrl`, `XApiKey` and `ApiKey` identifiers follow Go's initialism convention (`APIURL`, `XAPIKey`, `APIKey`); TOML keys and environment variable names are unchanged. `SubProtocol.APIURL` is renamed `BaseURL`, which is what it holds — the provider's base, with the per-request path appended.
+
 ## [v1.1.2](https://github.com/flare-foundation/flare-system-client/tree/v1.1.2) - 2026-8-18
 
 ### Added
