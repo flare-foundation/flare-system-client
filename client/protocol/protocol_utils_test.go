@@ -212,3 +212,40 @@ func strString(n int) string {
 	}
 	return string(digits)
 }
+
+// finalizationData is what the provider serves for the finalizer alongside the message,
+// as a 0x hex string; it is optional and never part of the payload.
+func TestFetchData_FinalizationData(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want []byte
+		err  bool
+	}{
+		{"decoded from 0x hex", `{"status":"OK","data":"0x1234","finalizationData":"0xabcd"}`, []byte{0xab, 0xcd}, false},
+		{"absent is nil", `{"status":"OK","data":"0x1234"}`, nil, false},
+		{"empty is nil", `{"status":"OK","data":"0x1234","finalizationData":""}`, nil, false},
+		{"without the 0x prefix is rejected", `{"status":"OK","data":"0x1234","finalizationData":"abcd"}`, nil, true},
+		{"non-hex is rejected", `{"status":"OK","data":"0x1234","finalizationData":"0xzz"}`, nil, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(c.body))
+			}))
+			defer srv.Close()
+
+			resp, err := makeSubProtocol(t, srv).fetchData(fetchURL(t, srv), time.Second)
+			if c.err {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if c.want == nil {
+				require.Empty(t, resp.FinalizationData)
+				return
+			}
+			require.Equal(t, c.want, []byte(resp.FinalizationData))
+		})
+	}
+}

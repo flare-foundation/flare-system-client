@@ -22,23 +22,32 @@ type relayContractClient interface {
 }
 
 type relayContractClientImpl struct {
-	address    common.Address
-	relay      *relay.Relay
-	txVerifier *chain.TxVerifier
+	addresses    []common.Address // configured Relay and, across the cutover, the new one
+	relay        *relay.Relay
+	txVerifier   *chain.TxVerifier
+	relayCutover *shared.RelayCutover
 }
 
 func NewRelayContractClient(
 	ethClient *ethclient.Client,
 	address common.Address,
+	relayCutover *shared.RelayCutover,
 ) (*relayContractClientImpl, error) {
 	relay, err := relay.NewRelay(address, ethClient)
 	if err != nil {
 		return nil, err
 	}
+
+	addresses := []common.Address{address}
+	if relayCutover.Scheduled() {
+		addresses = append(addresses, relayCutover.NewAddress)
+	}
+
 	return &relayContractClientImpl{
-		address:    address,
-		relay:      relay,
-		txVerifier: chain.NewTxVerifier(ethClient),
+		addresses:    addresses,
+		relay:        relay,
+		txVerifier:   chain.NewTxVerifier(ethClient),
+		relayCutover: relayCutover,
 	}, nil
 }
 
@@ -61,24 +70,66 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(ctx context.C
 			case <-ticker.C:
 			}
 			now := time.Now().Unix()
-			logs, err := db.FetchLogsByAddressAndTopic0Timestamp(ctx, r.address, topic0, eventRangeStart, now)
-			if err != nil {
-				logger.Errorf("Error fetching logs %v", err)
+
+			var logs []database.Log
+			failed := false
+			for _, address := range r.addresses {
+				addressLogs, err := db.FetchLogsByAddressAndTopic0Timestamp(ctx, address, topic0, eventRangeStart, now)
+				if err != nil {
+					logger.Errorf("Error fetching logs %v", err)
+					failed = true
+					break
+				}
+				logs = append(logs, addressLogs...)
+			}
+			if failed {
 				continue
 			}
 
-			if len(logs) > 0 {
-				policyData, err := r.parseSigningPolicyInitializedEvent(logs[len(logs)-1])
-				if err != nil {
-					logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)
-					continue
-				}
+			// The epoch being waited on. Only its policy is worth signing, and across
+			// the Relay switch either contract may have emitted it, so it is selected
+			// by reward epoch rather than by position in the merged logs.
+			anticipated := rewardEpochTiming.EpochIndex(time.Now()) + 1
+
+			policyData := r.selectPolicy(logs, anticipated)
+			if policyData != nil {
 				out <- policyData
 				eventRangeStart = int64(policyData.Timestamp)
 			}
 		}
 	}()
 	return out
+}
+
+// selectPolicy returns the policy for the anticipated reward epoch, or the highest
+// one present when it has not been emitted yet (the epoch start can be delayed, so
+// the anticipated index runs ahead of the chain). Every policy seen is offered to
+// the Relay cutover, which is how the switch learns the voting round it starts on.
+func (r *relayContractClientImpl) selectPolicy(logs []database.Log, anticipated int64) *relay.RelaySigningPolicyInitialized {
+	var selected *relay.RelaySigningPolicyInitialized
+
+	for _, log := range logs {
+		policyData, err := r.parseSigningPolicyInitializedEvent(log)
+		if err != nil {
+			logger.Errorf("Error parsing SigningPolicyInitialized event %v", err)
+			continue
+		}
+		epoch := policyData.RewardEpochId.Int64()
+		r.relayCutover.ObserveSigningPolicy(epoch, policyData.StartVotingRoundId)
+
+		if epoch == anticipated {
+			return policyData
+		}
+		if selected == nil || epoch > selected.RewardEpochId.Int64() {
+			selected = policyData
+		}
+	}
+
+	if selected != nil && selected.RewardEpochId.Int64() != anticipated {
+		logger.Debugf("Expected signing policy for reward epoch %d, taking the highest available %v",
+			anticipated, selected.RewardEpochId)
+	}
+	return selected
 }
 
 func (r *relayContractClientImpl) parseSigningPolicyInitializedEvent(dbLog database.Log) (*relay.RelaySigningPolicyInitialized, error) {

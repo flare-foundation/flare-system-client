@@ -9,6 +9,8 @@ import (
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/flare-foundation/go-flare-common/pkg/policy"
 )
 
@@ -16,6 +18,10 @@ type FinalizationResult struct {
 	message       shared.Message
 	signatures    []IndexedSignature //signatures are ordered by voterIndex of their provider
 	signingPolicy *policy.SigningPolicy
+
+	// randomTrailer is randomNumber(32) ‖ proof(32×d), required by the new Relay for
+	// the random protocol and empty everywhere else.
+	randomTrailer []byte
 }
 
 type IndexedSignature struct {
@@ -82,6 +88,15 @@ func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 	}
 
 	buffer.Write(encodedSignatures)
+
+	// the Relay reads the random trailer from the calldata after the signatures, and
+	// rejects one that is not a whole number of 32-byte words
+	if len(fr.randomTrailer) > 0 {
+		if len(fr.randomTrailer)%common.HashLength != 0 {
+			return nil, fmt.Errorf("random trailer is %d bytes, not a multiple of %d", len(fr.randomTrailer), common.HashLength)
+		}
+		buffer.Write(fr.randomTrailer)
+	}
 
 	return buffer.Bytes(), nil
 }

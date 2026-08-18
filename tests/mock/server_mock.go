@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -12,15 +11,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/mux"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 type dataProviderResponse struct {
-	Status         string `json:"status"`
-	Data           string `json:"data"`
-	AdditionalData string `json:"additionalData"`
+	Status           string `json:"status"`
+	Data             string `json:"data"`
+	AdditionalData   string `json:"additionalData"`
+	FinalizationData string `json:"finalizationData,omitempty"`
 }
 
 func NewMockServer(port int, protocolID uint8) *http.Server {
@@ -69,9 +71,12 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		if err != nil {
 			http.Error(w, fmt.Sprintf("writing response: %s", err), http.StatusInternalServerError)
 		}
-		merkleRoot := bytes.Repeat([]byte{0xff}, 32)
+		// a single-leaf tree: the root is the random leaf itself, so the finalization
+		// data is the value alone and folds against the message it comes with
+		random := crypto.Keccak256Hash([]byte("random"), binary.BigEndian.AppendUint32(nil, uint32(votingRound)))
+		merkleRoot := randomLeaf(uint32(votingRound), random)
 		data := buildMessageForSigning(protocolID, uint32(votingRound), merkleRoot)
-		resp := dataProviderResponse{Status: "OK", Data: data}
+		resp := dataProviderResponse{Status: "OK", Data: data, FinalizationData: random.Hex()}
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(&resp)
 		if err != nil {
@@ -95,6 +100,16 @@ func buildMessage(protocolID uint8, votingRoundID uint32, payload []byte) string
 	message = append(message, payload...)
 
 	return "0x" + hex.EncodeToString(message)
+}
+
+// randomLeaf is the Relay's keccak256(abi.encode(uint256 votingRoundId, uint256 value,
+// uint256 isSecure)) for the secure random the message claims.
+func randomLeaf(votingRoundID uint32, value common.Hash) []byte {
+	var buf [96]byte
+	binary.BigEndian.PutUint32(buf[28:32], votingRoundID)
+	copy(buf[32:64], value[:])
+	buf[95] = 1
+	return crypto.Keccak256(buf[:])
 }
 
 func buildMessageForSigning(protocolID uint8, roundID uint32, merkleRoot []byte) string {

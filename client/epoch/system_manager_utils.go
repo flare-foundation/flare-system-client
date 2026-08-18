@@ -1,6 +1,7 @@
 package epoch
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
@@ -113,7 +115,11 @@ func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(ctx context.Cont
 }
 
 func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.Context, rewardEpochId *big.Int, signingPolicy []byte) error {
-	newSigningPolicyHash := SigningPolicyHash(signingPolicy)
+	newSigningPolicyHash, err := s.signingPolicyHash(rewardEpochId, signingPolicy)
+	if err != nil {
+		return err
+	}
+
 	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.signerPrivateKey)
 	if err != nil {
 		return err
@@ -172,9 +178,48 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 	return nil
 }
 
+// signingPolicyHash returns the hash of signingPolicy that FlareSystemsManager
+// will accept for rewardEpochId. It checks the candidates against the hash stored
+// by the Relay the manager currently points at, so the switch of hash schemes
+// needs no cutover constant and cannot race the manager's Relay swap. Only a hash
+// derived from the policy bytes we saw in the event is ever signed.
+func (s *systemsManagerContractClientImpl) signingPolicyHash(rewardEpochId *big.Int, signingPolicy []byte) ([]byte, error) {
+	relayAddress, err := s.flareSystemsManager.Relay(nil)
+	if err != nil {
+		return nil, fmt.Errorf("reading the manager's relay address: %w", err)
+	}
+	relayContract, err := relay.NewRelay(relayAddress, s.ethClient)
+	if err != nil {
+		return nil, fmt.Errorf("creating relay contract: %w", err)
+	}
+	stored, err := relayContract.ToSigningPolicyHash(nil, rewardEpochId)
+	if err != nil {
+		return nil, fmt.Errorf("reading the signing policy hash of epoch %v: %w", rewardEpochId, err)
+	}
+
+	for _, hash := range [][]byte{ChainBoundSigningPolicyHash(signingPolicy, s.chainID), SigningPolicyHash(signingPolicy)} {
+		if bytes.Equal(hash, stored[:]) {
+			return hash, nil
+		}
+	}
+	return nil, fmt.Errorf("no supported hash of the signing policy of epoch %v matches relay %s hash %s",
+		rewardEpochId, relayAddress, common.Hash(stored))
+}
+
+// ChainBoundSigningPolicyHash is the hash the new Relay stores: one keccak over
+// the 32-byte source chain id followed by the raw encoded policy, unpadded.
+func ChainBoundSigningPolicyHash(signingPolicy []byte, chainID int64) []byte {
+	return crypto.Keccak256(shared.ChainIDWord(chainID), signingPolicy)
+}
+
+// SigningPolicyHash is the hash the old Relay stores: the encoded policy is
+// zero-padded to a multiple of 32 bytes and its chunks are folded left to right.
 func SigningPolicyHash(signingPolicy []byte) []byte {
-	if len(signingPolicy)%32 != 0 {
-		signingPolicy = append(signingPolicy, make([]byte, 32-len(signingPolicy)%32)...)
+	if rest := len(signingPolicy) % 32; rest != 0 {
+		// copy — appending could write past the caller's slice into the same allocation
+		padded := make([]byte, len(signingPolicy)+32-rest)
+		copy(padded, signingPolicy)
+		signingPolicy = padded
 	}
 	hash := crypto.Keccak256(signingPolicy[:32], signingPolicy[32:64])
 	for i := 2; i < len(signingPolicy)/32; i++ {

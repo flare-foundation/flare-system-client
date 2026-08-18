@@ -35,7 +35,15 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 
 // Start sets up registrationClient, protocolClient, and finalizerClient, then asynchronously runs all of them and returns their workgroup.
 func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientContext.ClientContext) *sync.WaitGroup {
-	registrationClient, err := epoch.NewClient(clientCtx)
+	// one instance for all clients: whichever of them first sees the breaking epoch's
+	// signing policy dates the switch for the others
+	relayCutover := shared.NewRelayCutover(clientCtx.Config().Chain.ChainID)
+	if relayCutover.Scheduled() {
+		logger.Infof("Relay switches to %s from reward epoch %d; its start round is read from that epoch's signing policy",
+			relayCutover.NewAddress, relayCutover.BreakingRewardEpoch)
+	}
+
+	registrationClient, err := epoch.NewClient(clientCtx, relayCutover)
 	if err != nil {
 		logger.Fatalf("Error creating registration client: %v", err)
 	}
@@ -45,11 +53,11 @@ func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientConte
 		messageChannel = make(chan shared.ProtocolMessage, 2*len(clientCtx.Config().Protocol)) // twice just to be on the safe side
 	}
 
-	protocolClient, err := protocol.NewClient(clientCtx, messageChannel)
+	protocolClient, err := protocol.NewClient(clientCtx, messageChannel, relayCutover)
 	if err != nil {
 		logger.Fatalf("Error creating protocol client: %v", err)
 	}
-	finalizerClient, err := finalizer.NewClient(clientCtx, messageChannel)
+	finalizerClient, err := finalizer.NewClient(clientCtx, messageChannel, relayCutover)
 	if err != nil {
 		logger.Fatalf("Error creating finalizer client: %v", err)
 	}

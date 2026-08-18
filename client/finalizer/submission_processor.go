@@ -94,7 +94,8 @@ func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) erro
 
 			//clean old rounds
 			if finalizationReady.votingRoundID > minRoundsStored {
-				c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored) // remove that are at least minRoundStored + 1 older then the one that has been finalized
+				c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored)
+				c.queueProcessor.randomSource.RemoveBefore(finalizationReady.votingRoundID - minRoundsStored) // remove that are at least minRoundStored + 1 older then the one that has been finalized
 			}
 		}
 	}

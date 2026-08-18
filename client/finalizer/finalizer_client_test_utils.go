@@ -18,7 +18,6 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils"
 	"github.com/flare-foundation/flare-system-client/utils/chain"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -30,6 +29,7 @@ import (
 )
 
 const (
+	testChainID                  = int64(114)
 	testPrivateKeyHex            = "4f65bffe3c8ed6c0b812e84d35402e949feea042061cc1635fe6ae83ed84df4a"
 	relayContractAddressHex      = "0xb849b93B585eFfb7cE4B522Ff88d9b3B24955f24"
 	submissionContractAddressHex = "0x2F79Dce2375571207a7976148D4468195F89a73e"
@@ -39,7 +39,14 @@ const (
 var (
 	relayContractAddress      = common.HexToAddress(relayContractAddressHex)
 	submissionContractAddress = common.HexToAddress(submissionContractAddressHex)
+
+	// the fixture chain has no scheduled cutover, so fixtures sign the legacy digest
+	testCutover = shared.NewRelayCutover(testChainID)
 )
+
+func testDigest(message []byte) []byte {
+	return shared.MessageDigest(message, testChainID, false)
+}
 
 type testClients struct {
 	db        *testDB
@@ -89,7 +96,8 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		privateKey,
 		fromAddress,
 		&config.Gas{},
-		114,
+		testChainID,
+		testCutover,
 	)
 	if err != nil {
 		return nil, err
@@ -97,7 +105,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 
 	relayClient.chainClient = ethClient
 
-	finalizationStorage := newFinalizationStorage()
+	finalizationStorage := newFinalizationStorage(testCutover)
 
 	fCtx := &finalizerContext{
 		votingRoundTiming: &utils.EpochTimingConfig{
@@ -123,9 +131,10 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		finalizationStorage:  finalizationStorage,
 		submissionListener:   NewSubmissionListener(submissionContractAddress),
 		queueProcessor: newFinalizerQueueProcessor(
-			db, finalizationStorage, relayClient, fCtx,
+			db, finalizationStorage, relayClient, fCtx, unconfiguredRandomSource{},
 		),
 		finalizerContext: fCtx,
+		relayCutover:     testCutover,
 		messages:         messagesChannel,
 	}
 
@@ -349,7 +358,7 @@ func encodeForDB(item *submitSignaturesPayload) ([]byte, error) {
 }
 
 func signMessage(message []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
-	hash := accounts.TextHash(crypto.Keccak256(message))
+	hash := testDigest(message)
 	signature, err := crypto.Sign(hash, privateKey)
 	if err != nil {
 		return nil, err

@@ -1,9 +1,11 @@
 package finalizer
 
 import (
+	"cmp"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -13,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
@@ -29,26 +32,9 @@ var nonFatalRelayErrors = []string{
 	"Already relayed",
 }
 
-var (
-	RelayFlareOld          = common.HexToAddress("0x57a4c3676d08Aa5d15410b5A6A80fBcEF72f3F45")
-	RelayFlareNew          = common.HexToAddress("0xCcF30790A93F15e24EB909548a2C58a9b0a7FBd4")
-	RewardEpochChangeFlare = int64(374)
-
-	RelayCoston2Old          = common.HexToAddress("0x97702e350CaEda540935d92aAf213307e9069784")
-	RelayCoston2New          = common.HexToAddress("0xa10B672D1c62e5457b17af63d4302add6A99d7dE")
-	RewardEpochChangeCoston2 = int64(5236)
-
-	RelaySongbirdOld          = common.HexToAddress("0x67a916E175a2aF01369294739AA60dDdE1Fad189")
-	RelaySongbirdNew          = common.HexToAddress("0xCB86E8Be709001e01897Bf59847406853da8f14b")
-	RewardEpochChangeSongbird = int64(374)
-
-	RelayCostonOld          = common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7")
-	RelayCostonNew          = common.HexToAddress("0x051f214D346Cfd97B107BECb87E2B35D1b4287E9")
-	RewardEpochChangeCoston = int64(5236)
-)
-
 type relayContractClient struct {
-	address common.Address
+	address      common.Address       // configured Relay, holds the signing policies before the cutover
+	relayCutover *shared.RelayCutover // NewAddress serves the reward epochs from the cutover on
 
 	chainClient chain.Client
 	gasConfig   *config.Gas
@@ -76,6 +62,7 @@ func NewRelayContractClient(
 	senderAddress common.Address,
 	gasConfig *config.Gas,
 	chainID int64,
+	relayCutover *shared.RelayCutover,
 ) (*relayContractClient, error) {
 	relayContract, err := relay.NewRelay(address, ethClient)
 	if err != nil {
@@ -103,6 +90,7 @@ func NewRelayContractClient(
 	return &relayContractClient{
 		chainClient:   chain.NewClientImpl(ethClient, chainID),
 		address:       address,
+		relayCutover:  relayCutover,
 		relay:         relayContract,
 		privateKey:    privateKey,
 		senderAddress: senderAddress,
@@ -114,9 +102,52 @@ func NewRelayContractClient(
 	}, nil
 }
 
+// addressForRewardEpoch returns the Relay holding rewardEpochID's signing policy:
+// only that one can verify a finalization signed under it.
+func (r *relayContractClient) addressForRewardEpoch(rewardEpochID int64) common.Address {
+	if r.relayCutover.NewRelayFromRewardEpoch(rewardEpochID) {
+		return r.relayCutover.NewAddress
+	}
+	return r.address
+}
+
+// addresses lists the Relays to read events from: both across the cutover, since
+// policies before it are only emitted by the old one and after it by the new one.
+func (r *relayContractClient) addresses() []common.Address {
+	if !r.relayCutover.Scheduled() {
+		return []common.Address{r.address}
+	}
+	return []common.Address{r.address, r.relayCutover.NewAddress}
+}
+
+// fetchLogs fetches topic0 logs of every relevant Relay in (from,to], in chain order.
+func (r *relayContractClient) fetchLogs(ctx context.Context, db finalizerDB, topic0 common.Hash, from, to int64) ([]database.Log, error) {
+	var all []database.Log
+	for _, address := range r.addresses() {
+		logs, err := db.FetchLogsByAddressAndTopic0(ctx, address, topic0, from, to)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, logs...)
+	}
+	sortLogs(all)
+	return all, nil
+}
+
+// sortLogs restores chain order across a merge of per-address queries; callers
+// rely on it to take the latest policy and to advance their event range.
+func sortLogs(logs []database.Log) {
+	slices.SortFunc(logs, func(a, b database.Log) int {
+		if a.BlockNumber != b.BlockNumber {
+			return cmp.Compare(a.BlockNumber, b.BlockNumber)
+		}
+		return cmp.Compare(a.LogIndex, b.LogIndex)
+	})
+}
+
 // FetchSigningPolicies fetches signing policies emitted by in SigningPolicyInitialized events from Relay smart contract with timestamps in the interval (from,to].
 func (r *relayContractClient) FetchSigningPolicies(ctx context.Context, db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
-	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, from, to)
+	logs, err := r.fetchLogs(ctx, db, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +177,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Conte
 			}
 			now := time.Now().Unix()
 
-			logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, eventRangeStart, now)
+			logs, err := r.fetchLogs(ctx, db, r.topic0SPI, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -168,12 +199,16 @@ func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Conte
 	return out
 }
 
-// SubmitPayloads sends a transaction with input to the Relay contract, retrying
-// with the same pre-/post-broadcast and nonce-too-low reconciliation logic as
-// the protocol submitter (see SubmitterBase.submit).
-func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool, protocolID uint8, votingRoundID uint32) {
+// SubmitPayloads sends a transaction with input to the Relay contract at address,
+// retrying with the same pre-/post-broadcast and nonce-too-low reconciliation logic
+// as the protocol submitter (see SubmitterBase.submit).
+func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common.Address, input []byte, dryRun bool, protocolID uint8, votingRoundID uint32) {
 	if len(input) == 0 {
 		logger.Warnf("Relay protocol %d round %d: empty tx input, nothing to send", protocolID, votingRoundID)
+		return
+	}
+	if address == (common.Address{}) {
+		logger.Errorf("Relay protocol %d round %d: no Relay address for this round, nothing to send", protocolID, votingRoundID)
 		return
 	}
 
@@ -225,7 +260,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 
 		// one slice per attempt — SendRawTx spends timeout per phase, uncapped that's ~3 slices
 		attemptCtx, cancelAttempt := context.WithTimeout(ctx, perAttempt)
-		res := r.chainClient.SendRawTx(attemptCtx, r.privateKey, nonce, r.address, input, gasConfig, perAttempt, dryRun)
+		res := r.chainClient.SendRawTx(attemptCtx, r.privateKey, nonce, address, input, gasConfig, perAttempt, dryRun)
 		cancelAttempt()
 		if res.Broadcast {
 			broadcastHashes = append(broadcastHashes, res.Hash)
@@ -329,25 +364,37 @@ type relayedKey struct {
 	votingRoundID uint32
 }
 
-// ProtocolMessageRelayed returns a set of (protocolID, votingRoundID)
-// pairs that have already been finalized on chain in the given time
-// range.
-func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (map[relayedKey]bool, error) {
-	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0PMR, from.Unix(), to.Unix())
-	if err != nil {
-		return nil, err
-	}
+// relayedSet holds the finalizations seen on chain, per Relay. It is kept split by
+// address: a round relayed only on the old Relay is not relayed for consumers of
+// the new one, so it must still be sent there.
+type relayedSet map[common.Address]map[relayedKey]bool
 
-	result := make(map[relayedKey]bool)
-	for _, log := range logs {
-		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
+func (s relayedSet) has(address common.Address, key relayedKey) bool {
+	return s[address][key]
+}
+
+// ProtocolMessageRelayed returns, per Relay address, the set of (protocolID,
+// votingRoundID) pairs already finalized on chain in the given time range.
+func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (relayedSet, error) {
+	result := make(relayedSet)
+	for _, address := range r.addresses() {
+		logs, err := db.FetchLogsByAddressAndTopic0(ctx, address, r.topic0PMR, from.Unix(), to.Unix())
 		if err != nil {
 			return nil, err
 		}
-		result[relayedKey{
-			protocolID:    data.ProtocolId,
-			votingRoundID: data.VotingRoundId,
-		}] = true
+
+		relayed := make(map[relayedKey]bool)
+		for _, log := range logs {
+			data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
+			if err != nil {
+				return nil, err
+			}
+			relayed[relayedKey{
+				protocolID:    data.ProtocolId,
+				votingRoundID: data.VotingRoundId,
+			}] = true
+		}
+		result[address] = relayed
 	}
 	return result, nil
 }

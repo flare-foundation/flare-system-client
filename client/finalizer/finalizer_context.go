@@ -21,11 +21,14 @@ type finalizerContext struct {
 
 	votingRoundTiming *utils.EpochTimingConfig
 	rewardEpoch       *utils.RewardEpochConfig
+
+	// the protocol whose finalization the new Relay requires a random trailer for
+	randomNumberProtocolID uint8
 }
 
 // func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
 func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerContext, error) {
-	votingRoundTiming, rewardEpoch, err := shared.EpochsFromChain(relay)
+	votingRoundTiming, rewardEpoch, randomNumberProtocolID, err := shared.EpochsFromChain(relay)
 	if err != nil {
 		return nil, err
 	}
@@ -34,12 +37,13 @@ func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerCont
 		startingVotingRound = uint32(votingRoundTiming.EpochIndex(time.Now()))
 	}
 	return &finalizerContext{
-		startingRewardEpoch:  cfg.Finalizer.StartingRewardEpoch,
-		startingVotingRound:  startingVotingRound,
-		startTimeOffset:      cfg.Finalizer.StartOffset,
-		voterThresholdBIPS:   cfg.Finalizer.VoterThresholdBIPS,
-		gracePeriodEndOffset: cfg.Finalizer.GracePeriodEndOffset,
-		votingRoundTiming:    votingRoundTiming,
-		rewardEpoch:          rewardEpoch,
+		startingRewardEpoch:    cfg.Finalizer.StartingRewardEpoch,
+		startingVotingRound:    startingVotingRound,
+		startTimeOffset:        cfg.Finalizer.StartOffset,
+		voterThresholdBIPS:     cfg.Finalizer.VoterThresholdBIPS,
+		gracePeriodEndOffset:   cfg.Finalizer.GracePeriodEndOffset,
+		votingRoundTiming:      votingRoundTiming,
+		rewardEpoch:            rewardEpoch,
+		randomNumberProtocolID: randomNumberProtocolID,
 	}, nil
 }

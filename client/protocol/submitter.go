@@ -13,7 +13,6 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils"
 	"github.com/flare-foundation/flare-system-client/utils/chain"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -51,6 +50,8 @@ type Submitter struct {
 
 type SignatureSubmitter struct {
 	SubmitterBase
+
+	relayCutover *shared.RelayCutover
 
 	messageChannel chan<- shared.ProtocolMessage
 
@@ -280,6 +281,7 @@ func newSignatureSubmitter(
 	selector []byte,
 	subProtocols []*SubProtocol,
 	messageChannel chan<- shared.ProtocolMessage,
+	relayCutover *shared.RelayCutover,
 ) *SignatureSubmitter {
 	delay := submitCfg.CycleDuration
 	if delay <= 0 {
@@ -303,6 +305,7 @@ func newSignatureSubmitter(
 			dataFetchTimeout:  submitCfg.DataFetchTimeout,
 			dataFetchRetries:  submitCfg.DataFetchRetries,
 		},
+		relayCutover:   relayCutover,
 		maxCycles:      submitCfg.MaxCycles,
 		cycleDuration:  delay,
 		messageChannel: messageChannel,
@@ -314,17 +317,21 @@ func newSignatureSubmitter(
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 66).
 // If an error is returned, the buffer is unchanged.
 func (s *SignatureSubmitter) WritePayload(
-	buffer *bytes.Buffer, epoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
+	buffer *bytes.Buffer, votingRoundID int64, data *SubProtocolResponse, protocolID, protocolType uint8,
 ) error {
-	return EncodePayload(buffer, epoch, data, protocolID, protocolType, s.protocolContext.signerPrivateKey)
+	return EncodePayload(buffer, votingRoundID, s.relayCutover, data, protocolID, protocolType, s.protocolContext.signerPrivateKey)
 }
 
 // EncodePayload encodes a signed submitSignatures payload to buffer.
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 66).
 // If an error is returned, the buffer is unchanged.
 func EncodePayload(
-	buffer *bytes.Buffer, epoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
-	signerPrivateKey *ecdsa.PrivateKey,
+	buffer *bytes.Buffer,
+	votingRoundID int64,
+	cutover *shared.RelayCutover,
+	data *SubProtocolResponse,
+	protocolID, protocolType uint8,
+	privateKey *ecdsa.PrivateKey,
 ) error {
 	var dataLength int
 	switch protocolType {
@@ -336,13 +343,17 @@ func EncodePayload(
 		return errors.New("unrecognized protocol type")
 	}
 
-	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
-	signature, err := crypto.Sign(dataHash, signerPrivateKey)
+	signature, err := SignSignaturePayload(cutover, uint32(votingRoundID), data.Data, privateKey)
 	if err != nil {
 		return fmt.Errorf("signing submitSignatures data: %w", err)
 	}
 
-	epochBytes := shared.Uint32toBytes(uint32(epoch))
+	vrsSignature, err := utils.TransformSignatureRSVtoVRS(signature)
+	if err != nil {
+		return fmt.Errorf("signature sanity check, this should not happen: %w", err)
+	}
+
+	epochBytes := shared.Uint32toBytes(uint32(votingRoundID))
 	lengthBytes := shared.Uint16toBytes(uint16(dataLength + len(data.AdditionalData)))
 
 	tempBuffer := bytes.NewBuffer(nil)
@@ -359,10 +370,6 @@ func EncodePayload(
 		}
 	}
 
-	vrsSignature, err := utils.TransformSignatureRSVtoVRS(signature)
-	if err != nil {
-		return fmt.Errorf("signature sanity check, this should not happen: %w", err)
-	}
 	tempBuffer.Write(vrsSignature)
 	tempBuffer.Write(data.AdditionalData)
 
@@ -451,9 +458,10 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 					if s.messageChannel != nil {
 						select {
 						case s.messageChannel <- shared.ProtocolMessage{
-							ProtocolID:    s.subProtocols[i].ID,
-							VotingRoundID: uint32(round),
-							Message:       results[i].Data,
+							ProtocolID:       s.subProtocols[i].ID,
+							VotingRoundID:    uint32(round),
+							Message:          results[i].Data,
+							FinalizationData: results[i].FinalizationData,
 						}:
 						default:
 							logger.Warnf("message channel full. Dropping message round %d for protocol %d after deadline", round, s.subProtocols[i].ID)
@@ -547,9 +555,10 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round in
 						if s.messageChannel != nil {
 							select {
 							case s.messageChannel <- shared.ProtocolMessage{
-								ProtocolID:    s.subProtocols[i].ID,
-								VotingRoundID: uint32(round),
-								Message:       data.Value.Data,
+								ProtocolID:       s.subProtocols[i].ID,
+								VotingRoundID:    uint32(round),
+								Message:          data.Value.Data,
+								FinalizationData: data.Value.FinalizationData,
 							}:
 							default:
 								logger.Warnf("message channel full. Dropping message round %d for protocol %d after deadline", round, s.subProtocols[i].ID)

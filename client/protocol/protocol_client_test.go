@@ -20,6 +20,7 @@ import (
 
 	"github.com/bradleyjkemp/cupaloy"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -117,13 +118,14 @@ func TestSubmitter(t *testing.T) {
 	})
 
 	t.Run("SignatureSubmitterType0", func(t *testing.T) {
-		msgChan := make(chan<- shared.ProtocolMessage, 10)
+		msgChan := make(chan shared.ProtocolMessage, 10)
 		defer close(msgChan)
 
 		defer chainClient.reset()
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
+			relayCutover:   shared.NewRelayCutover(testChainID),
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -134,6 +136,12 @@ func TestSubmitter(t *testing.T) {
 
 		t.Logf("sentTxs: %v", chainClient.sentTxs)
 		require.Len(t, chainClient.sentTxs, 1)
+
+		// the finalization data reaches the finalizer with the message, and only there —
+		// the snapshot below pins that the submitted payload does not carry it
+		msg := <-msgChan
+		require.Equal(t, uint32(epochID), msg.VotingRoundID)
+		require.Equal(t, hexutil.MustDecode(testFinalizationData), msg.FinalizationData)
 
 		cupaloy.SnapshotT(t, chainClient.sentTxs[0])
 	})
@@ -146,6 +154,7 @@ func TestSubmitter(t *testing.T) {
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
+			relayCutover:   shared.NewRelayCutover(testChainID),
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -174,6 +183,7 @@ func TestSubmitter(t *testing.T) {
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
+			relayCutover:   shared.NewRelayCutover(testChainID),
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -290,10 +300,16 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rsp := payload.SubprotocolResponse{
-		Status:         payload.Ok,
-		Data:           "0x" + strings.Repeat("ff", 38),
-		AdditionalData: "0x1234",
+	rsp := struct {
+		payload.SubprotocolResponse
+		FinalizationData string `json:"finalizationData"`
+	}{
+		SubprotocolResponse: payload.SubprotocolResponse{
+			Status:         payload.Ok,
+			Data:           "0x" + strings.Repeat("ff", 38),
+			AdditionalData: "0x1234",
+		},
+		FinalizationData: testFinalizationData,
 	}
 
 	data, err := json.Marshal(rsp)
@@ -312,6 +328,10 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("test: response sent")
 }
+
+// the trailer bytes a random protocol's provider would serve: value(32) ‖ one proof node
+const testFinalizationData = "0x" + "00000000000000000000000000000000000000000000000000000000deadbeef" +
+	"1111111111111111111111111111111111111111111111111111111111111111"
 
 var identityAddress = common.HexToAddress("0x26B40970948D74d60f37911d1276fF940D8648a4")
 
@@ -370,6 +390,7 @@ func TestRunShutdown(t *testing.T) {
 		votingRoundTiming: timing,
 		rewardEpochTiming: utils.NewEpochConfig(time.Now().Add(-time.Hour), time.Hour),
 		registry:          &testRegistry{expectedAddress: identityAddress},
+		relayCutover:      shared.NewRelayCutover(testChainID),
 		identityAddress:   identityAddress,
 		submitter1: &Submitter{
 			SubmitterBase: SubmitterBase{name: "submit1", votingRoundTiming: timing},

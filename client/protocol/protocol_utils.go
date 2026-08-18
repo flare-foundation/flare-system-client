@@ -17,7 +17,9 @@ import (
 	"github.com/flare-foundation/flare-system-client/client/config"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
 )
 
@@ -36,6 +38,18 @@ type SubProtocolResponse struct {
 	Status         payload.ResponseStatus `json:"status"`
 	Data           []byte                 `json:"data"`
 	AdditionalData []byte                 `json:"additionalData"`
+	// What the finalizer must append to the round's relay() call, if this protocol
+	// needs anything: the random number and its Merkle proof for the random protocol
+	// on the new Relay. Forwarded to the finalizer, never part of the submitted payload.
+	FinalizationData hexutil.Bytes `json:"finalizationData"`
+}
+
+// subprotocolResponse is the provider's envelope plus the finalization data served
+// alongside the submitSignatures message; data and additionalData keep their lenient
+// string decoding below, finalizationData is a plain "0x…" string.
+type subprotocolResponse struct {
+	payload.SubprotocolResponse
+	FinalizationData hexutil.Bytes `json:"finalizationData"`
 }
 
 func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
@@ -78,7 +92,7 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	decoder := json.NewDecoder(respLimited)
 	decoder.DisallowUnknownFields()
 
-	var response payload.SubprotocolResponse
+	var response subprotocolResponse
 
 	err = decoder.Decode(&response)
 	if err != nil {
@@ -105,9 +119,10 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	}
 
 	return &SubProtocolResponse{
-		Status:         response.Status,
-		Data:           data,
-		AdditionalData: addData,
+		Status:           response.Status,
+		Data:             data,
+		AdditionalData:   addData,
+		FinalizationData: response.FinalizationData,
 	}, nil
 }
 

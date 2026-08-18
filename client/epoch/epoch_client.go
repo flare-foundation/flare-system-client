@@ -43,7 +43,7 @@ type client struct {
 }
 
 // NewClient creates a client that manages reward epoch tasks.
-func NewClient(ctx flarectx.ClientContext) (*client, error) {
+func NewClient(ctx flarectx.ClientContext, relayCutover *shared.RelayCutover) (*client, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EpochClientEnabled() {
 		return nil, nil
@@ -88,6 +88,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 	relayClient, err := NewRelayContractClient(
 		ethClient,
 		cfg.ContractAddresses.Relay,
+		relayCutover,
 	)
 	if err != nil {
 		return nil, err

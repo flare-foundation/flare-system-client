@@ -39,11 +39,12 @@ func VotingRoundTimingFromChain(fsm *system.FlareSystemsManager) (*utils.EpochTi
 	), nil
 }
 
-// Returns the voting round timing and reward epochs properties from the relay contract.
-func EpochsFromChain(relay *relay.Relay) (*utils.EpochTimingConfig, *utils.RewardEpochConfig, error) {
+// Returns the voting round timing, reward epoch properties and the id of the random
+// number protocol from the relay contract.
+func EpochsFromChain(relay *relay.Relay) (*utils.EpochTimingConfig, *utils.RewardEpochConfig, uint8, error) {
 	sd, err := relay.StateData(nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	return utils.NewEpochConfig(
 			time.Unix(int64(sd.FirstVotingRoundStartTs), 0),
@@ -51,5 +52,5 @@ func EpochsFromChain(relay *relay.Relay) (*utils.EpochTimingConfig, *utils.Rewar
 		), utils.NewRewardEpochConfig(
 			int64(sd.FirstRewardEpochStartVotingRoundId),
 			int64(sd.RewardEpochDurationInVotingEpochs),
-		), nil
+		), sd.RandomNumberProtocolId, nil
 }

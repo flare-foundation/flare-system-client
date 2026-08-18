@@ -176,7 +176,7 @@ func TestRoundTripWithEncodePayload(t *testing.T) {
 			Status: payload.Ok,
 			Data:   c.data,
 		}
-		err := protocol.EncodePayload(buf, votingRound, resp, c.protocolID, c.protocolType, privateKey)
+		err := protocol.EncodePayload(buf, votingRound, testCutover, resp, c.protocolID, c.protocolType, privateKey)
 		require.NoError(t, err)
 	}
 
