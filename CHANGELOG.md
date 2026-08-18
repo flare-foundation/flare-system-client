@@ -14,6 +14,10 @@
 - The signing-policy hash signed in `signNewSigningPolicy` is now picked by matching the candidates against the hash the FlareSystemsManager's current Relay stores for that epoch, instead of assuming the old Relay's chained keccak fold. The new Relay stores one keccak over the chain id and the raw policy bytes; matching removes the cutover-window race in which the manager's Relay pointer has already moved but the epoch gate has not, which would fail silently at the dry run and never sign the policy. Only a hash derived from the policy bytes carried by the `SigningPolicyInitialized` event is ever signed.
 - `APIUrl`, `XApiKey` and `ApiKey` identifiers follow Go's initialism convention (`APIURL`, `XAPIKey`, `APIKey`); TOML keys and environment variable names are unchanged. `SubProtocol.APIURL` is renamed `BaseURL`, which is what it holds — the provider's base, with the per-request path appended.
 
+### Fixed
+
+- Submitted signatures are canonicalized before they can count toward the finalization threshold. The new Relay rejects a non-canonical ECDSA record — `v` outside {27, 28}, or `s` above half the group order (EIP-2) — by reverting the *whole* `relay()` call, while the previously deployed Relay checked neither, so one peer submitting the equally valid high-`s` encoding of its own signature would have made every finalization of that round revert on every finalizer, unrecoverably. A high-`s` signature is normalized to `(r, n-s, v^1)`, which recovers the same signer, rather than dropped: dropping it would lose that voter's weight and could put the round below threshold, which is the same outcome. A signature that cannot be normalized is rejected before its weight is credited, so every signature reaching the finalization calldata satisfies the checks. Normalization logs at warning, naming the sender, since it signals a signer that does not normalize `s`.
+
 ## [v1.1.2](https://github.com/flare-foundation/flare-system-client/tree/v1.1.2) - 2026-8-18
 
 ### Added

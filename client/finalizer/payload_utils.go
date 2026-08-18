@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/utils"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/voters"
 )
 
@@ -118,8 +120,71 @@ func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) e
 	return nil
 }
 
+var (
+	// secp256k1N is the group order; secp256k1HalfN is the EIP-2 low-s bound, equal
+	// to the literal the Relay compares against (Relay.sol, ERR_BAD_S).
+	secp256k1N     = crypto.S256().Params().N
+	secp256k1HalfN = new(big.Int).Rsh(secp256k1N, 1)
+)
+
+// canonicalSignature returns the [V || R || S] signature in the low-s form the Relay
+// demands, and whether it had to be normalized.
+//
+// relay() reverts the whole call when any record has v outside {27,28} or s above half
+// the group order (ERR_BAD_V / ERR_BAD_S, EIP-2), while the previously deployed Relay
+// checked neither. One non-canonical signature counted toward the local threshold would
+// therefore make every finalization of that round revert, on every finalizer.
+//
+// (r, s, v) and (r, n-s, v^1) recover the same signer, so a high-s signature is
+// normalized rather than dropped: dropping it would lose that voter's weight and could
+// put the round below threshold, which is the outcome this guards against.
+func canonicalSignature(vrs []byte) ([]byte, bool, error) {
+	if len(vrs) != utils.SignatureLength {
+		return nil, false, fmt.Errorf("%w: signature is %d bytes, expected %d",
+			errBadPayload, len(vrs), utils.SignatureLength)
+	}
+
+	v := vrs[0]
+	if v != 27 && v != 28 {
+		return nil, false, fmt.Errorf("%w: signature v is %d, expected 27 or 28", errBadPayload, v)
+	}
+
+	r := new(big.Int).SetBytes(vrs[1:33])
+	s := new(big.Int).SetBytes(vrs[33:65])
+	if !crypto.ValidateSignatureValues(v-27, r, s, false) {
+		return nil, false, fmt.Errorf("%w: signature r or s is outside [1, n)", errBadPayload)
+	}
+	if s.Cmp(secp256k1HalfN) <= 0 {
+		return vrs, false, nil
+	}
+
+	normalized := make([]byte, utils.SignatureLength)
+	if v == 27 { // flip the recovery bit to match n-s
+		normalized[0] = 28
+	} else {
+		normalized[0] = 27
+	}
+	copy(normalized[1:33], vrs[1:33])
+	new(big.Int).Sub(secp256k1N, s).FillBytes(normalized[33:65])
+
+	return normalized, true, nil
+}
+
 // AddSigner calculates the public key of the signer from the signature and messageHash and adds its voterIndex and weight (if the signer is in the votingSet) to the submitSignaturesPayload.
+//
+// The signature is canonicalized first, so a signature that reaches the finalization
+// calldata can never be one the Relay rejects outright.
 func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.Set) error {
+	signature, normalized, err := canonicalSignature(pld.signature)
+	if err != nil {
+		return err
+	}
+	if normalized {
+		logger.Warnf("Normalized a high-s signature from %s for protocol %d round %d; the Relay rejects that form",
+			pld.sender, pld.protocolID, pld.votingRoundID)
+	}
+	pld.signature = signature
+
 	transformedSignature, err := utils.TransformSignatureVRStoRSV(pld.signature)
 	if err != nil {
 		return fmt.Errorf("transforming signature: %w", err)
