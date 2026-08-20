@@ -24,11 +24,15 @@ type finalizerContext struct {
 
 	// the protocol whose finalization the new Relay requires a random trailer for
 	randomNumberProtocolID uint8
+
+	// factor the Relay scales a prolonged reward epoch's threshold by; >= 10000 by
+	// contract (Relay.sol:327), so it can only raise it
+	thresholdIncreaseBIPS uint16
 }
 
 // func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
 func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerContext, error) {
-	votingRoundTiming, rewardEpoch, randomNumberProtocolID, err := shared.EpochsFromChain(relay)
+	votingRoundTiming, rewardEpoch, randomNumberProtocolID, thresholdIncreaseBIPS, err := shared.EpochsFromChain(relay)
 	if err != nil {
 		return nil, err
 	}
@@ -45,5 +49,6 @@ func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerCont
 		votingRoundTiming:      votingRoundTiming,
 		rewardEpoch:            rewardEpoch,
 		randomNumberProtocolID: randomNumberProtocolID,
+		thresholdIncreaseBIPS:  thresholdIncreaseBIPS,
 	}, nil
 }

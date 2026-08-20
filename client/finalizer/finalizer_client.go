@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	clientContext "github.com/flare-foundation/flare-system-client/client/context"
@@ -19,7 +20,12 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 )
 
-const minRoundsStored uint32 = 10
+const (
+	minRoundsStored uint32 = 10
+
+	// Relay.sol's THRESHOLD_BIPS, the divisor of thresholdIncreaseBIPS
+	relayThresholdBIPS = 10000
+)
 
 // client manages finalization tasks:
 //   - collects messages and signatures
@@ -193,7 +199,13 @@ func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startT
 
 // signingPolicyData returns signing policy and voting threshold for the given votingRoundID.
 //
-// If the signing policy was expected to end before votingRoundID but it was prolonged, the threshold is raised to 60% of total weight.
+// If the signing policy was expected to end before votingRoundID but it was prolonged, the threshold
+// is raised the way the Relay raises it: the policy's own threshold scaled by thresholdIncreaseBIPS.
+//
+// NOTE: this replaced a hardcoded 60% of total weight, which was one weight unit low for every odd
+// total weight and diverged further at any thresholdIncreaseBIPS other than 12000. Both Relays scale
+// the policy threshold identically (Relay.sol:1165-1180, RelayMainDeployed.sol:914-926), so the
+// correction is not gated on the cutover — the old formula was wrong against the deployed Relay too.
 func (c *client) signingPolicyData(votingRoundID uint32) (*policy.SigningPolicy, uint16) {
 	sp, last := c.signingPolicyStorage.ForVotingRound(votingRoundID)
 	if sp == nil {
@@ -206,9 +218,11 @@ func (c *client) signingPolicyData(votingRoundID uint32) (*policy.SigningPolicy,
 
 	if int64(votingRoundID) < expectedEnd {
 		return sp, sp.Threshold
-	} else {
-		return sp, uint16((uint32(sp.Voters.TotalWeight) * 60) / 100) // if the rewardEpoch extends beyond the expected end, the threshold is raised to 60%.
 	}
+	// mirrors Relay.sol:1168-1180; clamping matches the contract's uint256 threshold
+	// becoming unreachable rather than wrapping
+	raised := uint64(sp.Threshold) * uint64(c.finalizerContext.thresholdIncreaseBIPS) / relayThresholdBIPS
+	return sp, uint16(min(raised, math.MaxUint16))
 }
 
 // checkVotingRoundTime returns true if votingRoundID is not in the future, i.e., is <= the current voting round
