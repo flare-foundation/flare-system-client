@@ -99,7 +99,7 @@ func TestProcessDelayedQueueSurvivesDBError(t *testing.T) {
 	)
 
 	err = qp.processDelayedQueue(context.Background(), []*queueItem{
-		{votingRoundID: ready.votingRoundID, protocolID: ready.protocolID, msgHash: ready.msgHash},
+		{votingRoundID: ready.votingRoundID, protocolID: ready.protocolID, digest: ready.digest},
 	})
 	require.NoError(t, err)
 	require.Len(t, eth.sentTxs, 1, "item must be sent despite the failed dedup query")

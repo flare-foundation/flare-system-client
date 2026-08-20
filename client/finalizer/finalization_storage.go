@@ -26,7 +26,7 @@ type signaturesCollection struct {
 
 type protocolCollection struct {
 	messageAdded        bool
-	messageChosenHash   common.Hash
+	messageChosenDigest common.Hash
 	signatureCollection map[common.Hash]*signaturesCollection
 	unprocessedPayloads []*submitSignaturesPayload
 	bufferedSenders     map[common.Address]struct{} // senders already buffered pre-message (DOS-01 cap)
@@ -60,7 +60,7 @@ type FinalizationReady struct {
 	thresholdReached bool
 	protocolID       uint8
 	votingRoundID    uint32
-	msgHash          common.Hash
+	digest           common.Hash
 }
 
 func NewSignatureCollection(message shared.Message, signingPolicy *policy.SigningPolicy, threshold uint16) *signaturesCollection {
@@ -101,16 +101,16 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 		return false, common.Hash{}, errors.New("message added twice")
 	}
 
-	msgHsh := common.Hash(pc.messageDigest(message))
-	// An existing collection at msgHsh already holds an equal-bytes message
+	digest := common.Hash(pc.messageDigest(message))
+	// An existing collection at digest already holds an equal-bytes message
 	// (same hash). Do not reassign it: PrepareFinalizationResults reads message
 	// under sc.mu only, not the storage lock, so it must stay fixed.
-	_, exists := pc.signatureCollection[msgHsh]
+	_, exists := pc.signatureCollection[digest]
 	if !exists {
-		pc.signatureCollection[msgHsh] = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
+		pc.signatureCollection[digest] = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
 	}
 
-	pc.messageChosenHash = msgHsh
+	pc.messageChosenDigest = digest
 	pc.messageAdded = true
 
 	thresholdReached := false
@@ -121,13 +121,13 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	pc.bufferedSenders = nil
 
 	for _, up := range pc.unprocessedPayloads {
-		tr, msgHashCheck, err := pc.addPayload(up)
+		tr, digestCheck, err := pc.addPayload(up)
 		switch {
 		case errors.Is(err, errBadPayload):
 			logger.Debugf("Ignoring buffered signature for voting round %d, protocolID %d from sender %s: %v", up.votingRoundID, up.protocolID, up.sender, err)
 		case err != nil:
 			logger.Errorf("Failed to add buffered signature for voting round %d, protocolID %d from sender %s: %v", up.votingRoundID, up.protocolID, up.sender, err)
-		case msgHashCheck != msgHsh:
+		case digestCheck != digest:
 			logger.Debug("Unexpected behavior, hashes should match")
 		}
 		if tr {
@@ -138,7 +138,7 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	//clear unprocessedPayloads
 	pc.unprocessedPayloads = nil
 
-	return thresholdReached, msgHsh, nil
+	return thresholdReached, digest, nil
 }
 
 func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool, common.Hash, error) {
@@ -160,30 +160,30 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 		return false, common.Hash{}, nil
 	}
 
-	var msgHash []byte
+	var digest []byte
 	var sigCollection *signaturesCollection
 	if payload.typeID == 0 {
-		msgHash = pc.messageDigest(payload.message)
-		_, exists := pc.signatureCollection[common.Hash(msgHash)]
+		digest = pc.messageDigest(payload.message)
+		_, exists := pc.signatureCollection[common.Hash(digest)]
 		if !exists {
-			pc.signatureCollection[common.Hash(msgHash)] = NewSignatureCollection(payload.message, pc.signingPolicy, pc.threshold)
+			pc.signatureCollection[common.Hash(digest)] = NewSignatureCollection(payload.message, pc.signingPolicy, pc.threshold)
 		}
-		sigCollection = pc.signatureCollection[common.Hash(msgHash)]
+		sigCollection = pc.signatureCollection[common.Hash(digest)]
 	} else if pc.messageAdded {
-		sigCollection = pc.signatureCollection[pc.messageChosenHash]
-		msgHash = pc.messageDigest(sigCollection.message)
+		sigCollection = pc.signatureCollection[pc.messageChosenDigest]
+		digest = pc.messageDigest(sigCollection.message)
 	} else {
 		return false, common.Hash{}, errors.New("unexpected behavior, no message")
 	}
 
-	err := payload.AddSigner(msgHash, sigCollection.signingPolicy.Voters)
+	err := payload.AddSigner(digest, sigCollection.signingPolicy.Voters)
 	if err != nil {
 		return false, common.Hash{}, err
 	}
 
 	thresholdReached, err := sigCollection.addSignature(payload)
 
-	return thresholdReached, common.Hash(msgHash), err
+	return thresholdReached, common.Hash(digest), err
 }
 
 func newFinalizationStorage(relayCutover *shared.RelayCutover) *finalizationStorage {
@@ -217,12 +217,12 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 		rc.protocolCollections[p.protocolID] = pc
 	}
 
-	thresholdReached, msgHash, err := pc.addPayload(p)
+	thresholdReached, digest, err := pc.addPayload(p)
 	if err != nil {
 		return FinalizationReady{thresholdReached: false}, err
 	}
 	if thresholdReached {
-		return FinalizationReady{thresholdReached: true, protocolID: p.protocolID, votingRoundID: p.votingRoundID, msgHash: msgHash}, nil
+		return FinalizationReady{thresholdReached: true, protocolID: p.protocolID, votingRoundID: p.votingRoundID, digest: digest}, nil
 	}
 
 	return FinalizationReady{thresholdReached: false}, nil
@@ -250,12 +250,12 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 		rc.protocolCollections[p.ProtocolID] = pc
 	}
 
-	thresholdReached, msgHash, err := pc.addMessage(p.Message)
+	thresholdReached, digest, err := pc.addMessage(p.Message)
 	if err != nil {
 		return FinalizationReady{thresholdReached: false}, err
 	}
 	if thresholdReached {
-		return FinalizationReady{thresholdReached: true, protocolID: p.ProtocolID, votingRoundID: p.VotingRoundID, msgHash: msgHash}, nil
+		return FinalizationReady{thresholdReached: true, protocolID: p.ProtocolID, votingRoundID: p.VotingRoundID, digest: digest}, nil
 	}
 
 	return FinalizationReady{thresholdReached: false}, nil
@@ -265,7 +265,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 // A boolean inductor of existence is also returned.
 // Access or mutate signatures, weight, and thresholdReached under the mutex;
 // the other fields are fixed after creation.
-func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, msgHash common.Hash) (*signaturesCollection, bool) {
+func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, digest common.Hash) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
 	round, exists := fs.stg[votingRoundID]
@@ -278,7 +278,7 @@ func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, msgHa
 		return &signaturesCollection{}, false
 	}
 
-	sigCollection, exists := pc.signatureCollection[msgHash]
+	sigCollection, exists := pc.signatureCollection[digest]
 	if !exists {
 		return &signaturesCollection{}, false
 	}

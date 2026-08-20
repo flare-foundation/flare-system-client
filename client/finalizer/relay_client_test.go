@@ -21,7 +21,7 @@ import (
 // fix for the duplicate-suppression bug in processDelayedQueue: the
 // lookup key built from a ProtocolMessageRelayed event must match the
 // lookup performed against a queueItem regardless of that item's seed
-// (*big.Int, pointer-compared by maps) and msgHash.
+// (*big.Int, pointer-compared by maps) and digest.
 //
 // Pre-fix, ProtocolMessageRelayed used queueItem as the map key with
 // only protocolID + votingRoundID populated, so the lookup with a
@@ -38,20 +38,20 @@ func TestRelayedKey_LookupMatchesWithUnrelatedQueueItemFields(t *testing.T) {
 		seed:          big.NewInt(0xdeadbeef), // non-nil pointer — would have broken the old lookup
 		votingRoundID: 42,
 		protocolID:    100,
-		msgHash:       common.HexToHash("0xabc"), // non-zero — would have broken the old lookup
+		digest:        common.HexToHash("0xabc"), // non-zero — would have broken the old lookup
 	}
 
 	require.True(
 		t,
 		relayed[relayedKey{protocolID: item.protocolID, votingRoundID: item.votingRoundID}],
-		"already-relayed lookup must match by (protocolID, votingRoundID) regardless of seed/msgHash",
+		"already-relayed lookup must match by (protocolID, votingRoundID) regardless of seed/digest",
 	)
 
 	miss := &queueItem{
 		seed:          big.NewInt(1),
 		votingRoundID: 43, // different round
 		protocolID:    100,
-		msgHash:       common.HexToHash("0xabc"),
+		digest:        common.HexToHash("0xabc"),
 	}
 	require.False(
 		t,

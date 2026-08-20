@@ -170,11 +170,15 @@ func canonicalSignature(vrs []byte) ([]byte, bool, error) {
 	return normalized, true, nil
 }
 
-// AddSigner calculates the public key of the signer from the signature and messageHash and adds its voterIndex and weight (if the signer is in the votingSet) to the submitSignaturesPayload.
+// AddSigner recovers the signer from the signature over digest and adds its voterIndex
+// and weight to the submitSignaturesPayload, if the signer is in voterSet.
+//
+// digest is shared.MessageDigest, not keccak256(message): passing the latter recovers a
+// stranger and the payload is rejected as an unregistered voter.
 //
 // The signature is canonicalized first, so a signature that reaches the finalization
 // calldata can never be one the Relay rejects outright.
-func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *voters.Set) error {
+func (pld *submitSignaturesPayload) AddSigner(digest []byte, voterSet *voters.Set) error {
 	signature, normalized, err := canonicalSignature(pld.signature)
 	if err != nil {
 		return err
@@ -190,7 +194,7 @@ func (pld *submitSignaturesPayload) AddSigner(messageHash []byte, voterSet *vote
 		return fmt.Errorf("transforming signature: %w", err)
 	}
 
-	pk, err := crypto.SigToPub(messageHash, transformedSignature)
+	pk, err := crypto.SigToPub(digest, transformedSignature)
 	if err != nil {
 		return fmt.Errorf("%w: recovering signer: %w", errBadPayload, err)
 	}

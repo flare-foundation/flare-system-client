@@ -71,9 +71,9 @@ func storeCollection(t *testing.T, p *finalizerQueueProcessor, protocolID uint8,
 	require.NoError(t, err)
 
 	// the collection is keyed by the digest, which depends on the policy epoch
-	msgHash := common.Hash(p.finalizationStorage.relayCutover.DigestForRewardEpoch(message, rewardEpoch))
+	digest := common.Hash(p.finalizationStorage.relayCutover.DigestForRewardEpoch(message, rewardEpoch))
 
-	return &queueItem{protocolID: protocolID, votingRoundID: votingRoundID, msgHash: msgHash}
+	return &queueItem{protocolID: protocolID, votingRoundID: votingRoundID, digest: digest}
 }
 
 // The trailer exists only for the new Relay: it is what verifies and stores it. A

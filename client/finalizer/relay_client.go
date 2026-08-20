@@ -354,7 +354,7 @@ func (r *relayContractClient) refreshNonce(ctx context.Context, prefix string, c
 
 // relayedKey is the lookup key for ProtocolMessageRelayed events.
 //
-// It deliberately excludes the seed and msgHash fields of queueItem:
+// It deliberately excludes the seed and digest fields of queueItem:
 // ProtocolMessageRelayed events identify a finalization uniquely by
 // (protocolID, votingRoundID), and using queueItem directly as a map
 // key would compare *big.Int by pointer identity — guaranteeing the

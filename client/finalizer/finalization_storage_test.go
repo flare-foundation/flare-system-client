@@ -48,7 +48,7 @@ func TestProtocolCollectionBuffersPerSenderIndependently(t *testing.T) {
 }
 
 // TypeID-0 payloads carry the message inline, so an attacker controls the
-// messageHash key per payload. Without the cap, each payload allocates a fresh
+// digest key per payload. Without the cap, each payload allocates a fresh
 // signaturesCollection before any signer check, giving an unbounded memory
 // growth vector. The cap limits allocations to one per sender per (round, protocol).
 func TestProtocolCollectionCapsTypeZeroAllocations(t *testing.T) {
@@ -139,7 +139,7 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	message := make(shared.Message, 38)
 	_, err := rand.Read(message)
 	require.NoError(t, err)
-	msgHash := testDigest(message)
+	digest := testDigest(message)
 
 	s := newFinalizationStorage(testCutover)
 
@@ -153,7 +153,7 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 				votingRoundID: round,
 				protocolID:    protocolID,
 				message:       message,
-				signature:     signVRS(t, msgHash, privs[i]),
+				signature:     signVRS(t, digest, privs[i]),
 			}
 			_, err := s.addPayload(p, sp, threshold)
 			require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	for range 4 {
 		wg.Go(func() {
 			for range 200 {
-				if sc, exists := s.get(round, protocolID, common.Hash(msgHash)); exists {
+				if sc, exists := s.get(round, protocolID, common.Hash(digest)); exists {
 					_, _ = PrepareFinalizationResults(sc)
 				}
 			}
@@ -183,7 +183,7 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// all signatures landed and the final state is consistent
-	sc, exists := s.get(round, protocolID, common.Hash(msgHash))
+	sc, exists := s.get(round, protocolID, common.Hash(digest))
 	require.True(t, exists)
 	require.True(t, sc.thresholdReached)
 	require.Equal(t, uint16(voterCount), sc.weight)
@@ -203,8 +203,8 @@ func TestAddMessageDoesNotRaceWithPrepare(t *testing.T) {
 	message := make(shared.Message, 38)
 	_, err := rand.Read(message)
 	require.NoError(t, err)
-	msgHash := testDigest(message)
-	sig := signVRS(t, msgHash, priv)
+	digest := testDigest(message)
+	sig := signVRS(t, digest, priv)
 
 	for range 2000 {
 		s := newFinalizationStorage(testCutover)
@@ -228,7 +228,7 @@ func TestAddMessageDoesNotRaceWithPrepare(t *testing.T) {
 		})
 		wg.Go(func() {
 			for range 20 {
-				if sc, exists := s.get(round, protocolID, common.Hash(msgHash)); exists {
+				if sc, exists := s.get(round, protocolID, common.Hash(digest)); exists {
 					_, _ = PrepareFinalizationResults(sc)
 				}
 			}
