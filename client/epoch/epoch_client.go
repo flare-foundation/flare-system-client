@@ -80,6 +80,7 @@ func NewClient(ctx flarectx.ClientContext, relayCutover *shared.RelayCutover) (*
 		senderTxOpts,
 		signerPk,
 		chainCfg.ChainID,
+		relayCutover,
 	)
 	if err != nil {
 		return nil, err

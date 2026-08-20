@@ -78,6 +78,7 @@ type systemsManagerContractClientImpl struct {
 	signerPrivateKey    *ecdsa.PrivateKey
 	chainID             int64
 	ethClient           *ethclient.Client
+	relayCutover        *shared.RelayCutover
 }
 
 func NewSystemsManagerClient(
@@ -86,7 +87,8 @@ func NewSystemsManagerClient(
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPrivateKey *ecdsa.PrivateKey,
-	chainID int64) (*systemsManagerContractClientImpl, error) {
+	chainID int64,
+	relayCutover *shared.RelayCutover) (*systemsManagerContractClientImpl, error) {
 	flareSystemsManager, err := system.NewFlareSystemsManager(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -101,6 +103,7 @@ func NewSystemsManagerClient(
 		signerPrivateKey:    signerPrivateKey,
 		chainID:             chainID,
 		ethClient:           ethClient,
+		relayCutover:        relayCutover,
 	}, nil
 }
 
@@ -179,10 +182,13 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 }
 
 // signingPolicyHash returns the hash of signingPolicy that FlareSystemsManager
-// will accept for rewardEpochId. It checks the candidates against the hash stored
-// by the Relay the manager currently points at, so the switch of hash schemes
-// needs no cutover constant and cannot race the manager's Relay swap. Only a hash
-// derived from the policy bytes we saw in the event is ever signed.
+// will accept for rewardEpochId: the chain-bound scheme from the breaking epoch on,
+// the old fold before it. Which Relay the manager points at is part of the answer,
+// not a substitute for the epoch — the new Relay delegates epochs below the breaking
+// one to the old Relay, and until governance repoints, the old Relay answers for
+// every epoch including the breaking one. The other scheme stays a checked fallback,
+// so a table that disagrees with the chain costs a warning, not the signature. Only a
+// hash the Relay agrees with is signed, and only one derived from the event's bytes.
 func (s *systemsManagerContractClientImpl) signingPolicyHash(rewardEpochId *big.Int, signingPolicy []byte) ([]byte, error) {
 	relayAddress, err := s.flareSystemsManager.Relay(nil)
 	if err != nil {
@@ -197,10 +203,24 @@ func (s *systemsManagerContractClientImpl) signingPolicyHash(rewardEpochId *big.
 		return nil, fmt.Errorf("reading the signing policy hash of epoch %v: %w", rewardEpochId, err)
 	}
 
-	for _, hash := range [][]byte{ChainBoundSigningPolicyHash(signingPolicy, s.chainID), SigningPolicyHash(signingPolicy)} {
-		if bytes.Equal(hash, stored[:]) {
-			return hash, nil
-		}
+	chainBound := s.relayCutover.NewRelayFromRewardEpoch(rewardEpochId.Int64()) &&
+		relayAddress == s.relayCutover.NewAddress
+
+	expected, other := SigningPolicyHash(signingPolicy), ChainBoundSigningPolicyHash(signingPolicy, s.chainID)
+	expectedName, otherName := "legacy", "chain-bound"
+	if chainBound {
+		expected, other = other, expected
+		expectedName, otherName = otherName, expectedName
+	}
+
+	if bytes.Equal(expected, stored[:]) {
+		return expected, nil
+	}
+	if bytes.Equal(other, stored[:]) {
+		logger.Warnf(
+			"Signing policy of epoch %v is hashed %s by relay %s, not %s as the cutover table implies: the table disagrees with the chain",
+			rewardEpochId, otherName, relayAddress, expectedName)
+		return other, nil
 	}
 	return nil, fmt.Errorf("no supported hash of the signing policy of epoch %v matches relay %s hash %s",
 		rewardEpochId, relayAddress, common.Hash(stored))
