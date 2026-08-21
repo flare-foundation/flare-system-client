@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"testing"
 
@@ -144,6 +145,56 @@ func TestDigestGatesAgreeAcrossTheBoundary(t *testing.T) {
 	require.NotEqual(t,
 		MessageDigest(msg, c.ChainID, before),
 		MessageDigest(msg, c.ChainID, at))
+}
+
+func testMessage(round uint32) Message {
+	msg := make(Message, RelayMessageLength)
+	msg[0] = 1
+	binary.BigEndian.PutUint32(msg[1:5], round)
+	return msg
+}
+
+// The digest form follows the round embedded in the signed bytes — the contract's
+// own derivation — not any round label travelling beside them.
+func TestDigestFromMessage(t *testing.T) {
+	c := scheduledCutover()
+	c.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
+
+	for _, tc := range []struct {
+		round      uint32
+		chainBound bool
+	}{
+		{testBreakingRound - 1, false},
+		{testBreakingRound, true},
+	} {
+		msg := testMessage(tc.round)
+		digest, known, err := c.DigestFromMessage(msg)
+		require.NoError(t, err)
+		require.True(t, known)
+		require.Equal(t, MessageDigest(msg, testChainID, tc.chainBound), digest, "round %d", tc.round)
+	}
+}
+
+// Unknown boundary falls back to the pre-switch form and says so; an unscheduled
+// cutover is a decided legacy answer.
+func TestDigestFromMessageBeforeBoundaryIsKnown(t *testing.T) {
+	msg := testMessage(testBreakingRound + 10)
+
+	digest, known, err := scheduledCutover().DigestFromMessage(msg)
+	require.NoError(t, err)
+	require.False(t, known)
+	require.Equal(t, MessageDigest(msg, testChainID, false), digest)
+
+	digest, known, err = NewRelayCutover(testChainID, common.Address{}, 0).DigestFromMessage(msg)
+	require.NoError(t, err)
+	require.True(t, known)
+	require.Equal(t, MessageDigest(msg, testChainID, false), digest)
+}
+
+// Bytes that are not a protocol message carry no round to derive from.
+func TestDigestFromMessageRejectsMalformedBytes(t *testing.T) {
+	_, _, err := scheduledCutover().DigestFromMessage([]byte("too short"))
+	require.Error(t, err)
 }
 
 // The chain-bound preimage is the Relay's abi.encodePacked(uint256 sourceChainId,

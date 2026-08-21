@@ -158,8 +158,12 @@ func TestRoundTripWithEncodePayload(t *testing.T) {
 
 	const votingRound int64 = 1234
 
-	type0Message := bytes.Repeat([]byte{0x11}, 38)
-	type1Message := bytes.Repeat([]byte{0x22}, 16)
+	// signed data is a 38-byte protocol message for both types — the submitter's
+	// data verifier enforces that before anything is signed
+	type0Message, err := encodeMessage(1, uint32(votingRound), false, bytes.Repeat([]byte{0x11}, 32))
+	require.NoError(t, err)
+	type1Message, err := encodeMessage(5, uint32(votingRound), false, bytes.Repeat([]byte{0x22}, 32))
+	require.NoError(t, err)
 
 	cases := []struct {
 		protocolID   uint8

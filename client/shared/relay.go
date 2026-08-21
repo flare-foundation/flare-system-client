@@ -103,3 +103,17 @@ func (c *RelayCutover) NewRelayFromVotingRound(votingRoundID uint32) (useNew, kn
 func (c *RelayCutover) DigestForRewardEpoch(msg []byte, rewardEpochID int64) []byte {
 	return MessageDigest(msg, c.ChainID, c.NewRelayFromRewardEpoch(rewardEpochID))
 }
+
+// DigestFromMessage derives the digest the way the Relay itself does: the voting
+// round parsed out of the message bytes picks the form, so any two components
+// hashing the same bytes agree without sharing context. known is false while a
+// scheduled switch has no learned boundary; the digest is then the pre-switch form
+// and a caller holding the governing policy should prefer DigestForRewardEpoch.
+func (c *RelayCutover) DigestFromMessage(msg Message) (digest []byte, known bool, err error) {
+	m, err := msg.Parse()
+	if err != nil {
+		return nil, false, err
+	}
+	useNew, known := c.NewRelayFromVotingRound(m.VotingRoundID)
+	return MessageDigest(msg, c.ChainID, useNew), known, nil
+}

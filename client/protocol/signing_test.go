@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"crypto/ecdsa"
+	"encoding/binary"
 	"testing"
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
@@ -37,6 +38,13 @@ func scheduledCutover(t *testing.T, observed bool) *shared.RelayCutover {
 	return c
 }
 
+func testMessage(round uint32) []byte {
+	msg := make([]byte, shared.RelayMessageLength)
+	msg[0] = 1
+	binary.BigEndian.PutUint32(msg[1:5], round)
+	return msg
+}
+
 func requireSignedUnder(t *testing.T, signature, data []byte, chainBound bool, signer common.Address) {
 	t.Helper()
 
@@ -51,12 +59,12 @@ func requireSignedUnder(t *testing.T, signature, data []byte, chainBound bool, s
 }
 
 // A submitSignatures signature must recover to the signer under the digest of the
-// Relay that will finalize the round, and that Relay changes at the round the
-// breaking epoch's signing policy starts on.
+// Relay that will finalize the round — read out of the message bytes, as the
+// contract reads it — and that Relay changes at the round the breaking epoch's
+// signing policy starts on.
 func TestSignSignaturePayloadFollowsObservedBoundary(t *testing.T) {
 	key, signer := signingTestKey(t)
 	cutover := scheduledCutover(t, true)
-	data := make([]byte, 38)
 
 	cases := []struct {
 		name       string
@@ -70,7 +78,8 @@ func TestSignSignaturePayloadFollowsObservedBoundary(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			signature, err := SignSignaturePayload(cutover, c.round, data, key)
+			data := testMessage(c.round)
+			signature, err := SignSignaturePayload(cutover, data, key)
 			require.NoError(t, err)
 			requireSignedUnder(t, signature, data, c.chainBound, signer)
 		})
@@ -83,15 +92,15 @@ func TestSignSignaturePayloadFollowsObservedBoundary(t *testing.T) {
 func TestSignSignaturePayloadBeforeBoundaryIsKnown(t *testing.T) {
 	key, signer := signingTestKey(t)
 	cutover := scheduledCutover(t, false)
-	data := make([]byte, 38)
+	data := testMessage(testBreakingRound + 10)
 
-	signature, err := SignSignaturePayload(cutover, testBreakingRound+10, data, key)
+	signature, err := SignSignaturePayload(cutover, data, key)
 	require.NoError(t, err)
 	requireSignedUnder(t, signature, data, false, signer)
 
 	// once observed, the same round signs the new way
 	cutover.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
-	signature, err = SignSignaturePayload(cutover, testBreakingRound+10, data, key)
+	signature, err = SignSignaturePayload(cutover, data, key)
 	require.NoError(t, err)
 	requireSignedUnder(t, signature, data, true, signer)
 }
@@ -99,9 +108,17 @@ func TestSignSignaturePayloadBeforeBoundaryIsKnown(t *testing.T) {
 // With no cutover scheduled the payload keeps the legacy digest whatever the round.
 func TestSignSignaturePayloadWithoutCutover(t *testing.T) {
 	key, signer := signingTestKey(t)
-	data := make([]byte, 38)
+	data := testMessage(1 << 31)
 
-	signature, err := SignSignaturePayload(shared.NewRelayCutover(testChainID, common.Address{}, 0), 1<<31, data, key)
+	signature, err := SignSignaturePayload(shared.NewRelayCutover(testChainID, common.Address{}, 0), data, key)
 	require.NoError(t, err)
 	requireSignedUnder(t, signature, data, false, signer)
+}
+
+// Data that is not a protocol message names no round, so no Relay to sign for.
+func TestSignSignaturePayloadRejectsMalformedData(t *testing.T) {
+	key, _ := signingTestKey(t)
+
+	_, err := SignSignaturePayload(scheduledCutover(t, true), []byte("not a protocol message"), key)
+	require.Error(t, err)
 }

@@ -343,7 +343,7 @@ func EncodePayload(
 		return errors.New("unrecognized protocol type")
 	}
 
-	signature, err := SignSignaturePayload(cutover, uint32(votingRoundID), data.Data, privateKey)
+	signature, err := SignSignaturePayload(cutover, data.Data, privateKey)
 	if err != nil {
 		return fmt.Errorf("signing submitSignatures data: %w", err)
 	}

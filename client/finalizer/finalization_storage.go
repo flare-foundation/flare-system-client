@@ -35,10 +35,15 @@ type protocolCollection struct {
 	relayCutover        *shared.RelayCutover
 }
 
-// messageDigest returns the digest the collection's signatures cover. The Relay
-// holding this policy decides the form, so it is keyed on the policy's epoch —
-// the same instant the submitter derives from the voting round.
+// messageDigest returns the digest the collection's signatures cover, derived from
+// the round embedded in the message bytes — the contract's own derivation, and the
+// one every signer of these bytes used. Fallback: with the boundary unlearned (a
+// restart can fetch only post-breaking policies) or the bytes unparseable, the
+// governing policy's epoch decides, as it does for the target Relay.
 func (pc *protocolCollection) messageDigest(message shared.Message) []byte {
+	if digest, known, err := pc.relayCutover.DigestFromMessage(message); err == nil && known {
+		return digest
+	}
 	return pc.relayCutover.DigestForRewardEpoch(message, pc.signingPolicy.RewardEpochID)
 }
 
@@ -160,17 +165,25 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 		return false, common.Hash{}, nil
 	}
 
+	// key and digest can differ: messageDigest follows the round once the boundary is
+	// learned, which can happen after the message was filed under the fallback form.
+	// The signature must be recovered under the form its signer used, but the caller
+	// gets the key the collection is actually stored under.
 	var digest []byte
+	var key common.Hash
 	var sigCollection *signaturesCollection
 	if payload.typeID == 0 {
 		digest = pc.messageDigest(payload.message)
-		_, exists := pc.signatureCollection[common.Hash(digest)]
+		key = common.Hash(digest)
+		sc, exists := pc.signatureCollection[key]
 		if !exists {
-			pc.signatureCollection[common.Hash(digest)] = NewSignatureCollection(payload.message, pc.signingPolicy, pc.threshold)
+			sc = NewSignatureCollection(payload.message, pc.signingPolicy, pc.threshold)
+			pc.signatureCollection[key] = sc
 		}
-		sigCollection = pc.signatureCollection[common.Hash(digest)]
+		sigCollection = sc
 	} else if pc.messageAdded {
-		sigCollection = pc.signatureCollection[pc.messageChosenDigest]
+		key = pc.messageChosenDigest
+		sigCollection = pc.signatureCollection[key]
 		digest = pc.messageDigest(sigCollection.message)
 	} else {
 		return false, common.Hash{}, errors.New("unexpected behavior, no message")
@@ -183,7 +196,7 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 
 	thresholdReached, err := sigCollection.addSignature(payload)
 
-	return thresholdReached, common.Hash(digest), err
+	return thresholdReached, key, err
 }
 
 func newFinalizationStorage(relayCutover *shared.RelayCutover) *finalizationStorage {

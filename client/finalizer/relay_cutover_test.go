@@ -23,7 +23,10 @@ var (
 	newRelayAddress = common.HexToAddress("0x00000000000000000000000000000000000000bb")
 )
 
-const testBreakingEpoch = int64(5236)
+const (
+	testBreakingEpoch = int64(5236)
+	testBreakingRound = uint32(1_000_000)
+)
 
 func cutoverForTest() *shared.RelayCutover {
 	return &shared.RelayCutover{
@@ -119,9 +122,51 @@ func signDigest(t *testing.T, digest []byte, key *ecdsa.PrivateKey) []byte {
 	return vrs
 }
 
-// The finalizer recovers signers under the digest of the Relay holding the
-// collection's policy. Getting this gate wrong rejects every peer signature from
-// the breaking epoch on, so both sides of the boundary are pinned.
+// A payload counted after the boundary is learned recovers under the round-derived digest, but the
+// collection is still filed under the fallback one it was created with: the reported key must be the
+// one the storage answers to, or the round is dropped as missing.
+func TestThresholdKeyIsTheKeyTheCollectionIsStoredUnder(t *testing.T) {
+	cutover := cutoverForTest()
+
+	key, err := crypto.HexToECDSA(testPrivateKeyHex)
+	require.NoError(t, err)
+	signer := crypto.PubkeyToAddress(key.PublicKey)
+
+	message, err := encodeMessage(1, testBreakingRound, true, make([]byte, 32))
+	require.NoError(t, err)
+
+	// a policy below the breaking epoch files the collection under the legacy digest
+	sp := &policy.SigningPolicy{
+		RewardEpochID: testBreakingEpoch - 1,
+		Voters:        voters.NewSet([]common.Address{signer}, []uint16{2}, nil),
+	}
+
+	storage := newFinalizationStorage(cutover)
+	_, err = storage.AddMessage(&shared.ProtocolMessage{
+		ProtocolID: 1, VotingRoundID: testBreakingRound, Message: message,
+	}, sp, 1)
+	require.NoError(t, err)
+
+	cutover.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
+
+	ready, err := storage.addPayload(&submitSignaturesPayload{
+		typeID: 1, sender: signer, protocolID: 1, votingRoundID: testBreakingRound,
+		signature: signDigest(t, shared.MessageDigest(message, cutover.ChainID, true), key),
+	}, sp, 1)
+	require.NoError(t, err)
+	require.True(t, ready.thresholdReached, "the chain-bound signature its signer used recovers")
+
+	legacy := common.Hash(shared.MessageDigest(message, cutover.ChainID, false))
+	require.Equal(t, legacy, ready.digest)
+
+	_, exists := storage.get(testBreakingRound, 1, ready.digest)
+	require.True(t, exists, "the reported key resolves, so the finalization is not dropped")
+}
+
+// With the round boundary not yet learned (a restart may fetch only post-breaking
+// policies) the digest falls back to the Relay holding the collection's policy.
+// Getting this gate wrong rejects every peer signature from the breaking epoch on,
+// so both sides of the boundary are pinned.
 func TestFinalizerRecoversSignersUnderThePolicyEpochDigest(t *testing.T) {
 	cutover := cutoverForTest()
 
@@ -166,6 +211,67 @@ func TestFinalizerRecoversSignersUnderThePolicyEpochDigest(t *testing.T) {
 				typeID:        0,
 				sender:        signer,
 				votingRoundID: 7,
+				protocolID:    1,
+				message:       message,
+				signature:     signDigest(t, shared.MessageDigest(message, cutover.ChainID, !c.chainBound), key),
+			}
+			s = newFinalizationStorage(cutover)
+			_, err = s.addPayload(wrong, sp, 1)
+			require.ErrorIs(t, err, errBadPayload)
+		})
+	}
+}
+
+// With the boundary learned, signer recovery keys on the round embedded in the
+// message bytes — the contract's own derivation — so it agrees with every signer
+// of those bytes whatever round label the payload travelled under.
+func TestFinalizerRecoversSignersUnderTheEmbeddedRoundDigest(t *testing.T) {
+	cutover := cutoverForTest()
+	cutover.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
+
+	key, err := crypto.HexToECDSA(testPrivateKeyHex)
+	require.NoError(t, err)
+	signer := crypto.PubkeyToAddress(key.PublicKey)
+
+	cases := []struct {
+		name        string
+		round       uint32
+		rewardEpoch int64
+		chainBound  bool
+	}{
+		{"round before the boundary", testBreakingRound - 1, testBreakingEpoch - 1, false},
+		{"first round of the breaking epoch", testBreakingRound, testBreakingEpoch, true},
+		// the only case where the two criteria disagree: bytes must win over the epoch
+		{"embedded round past the boundary under a pre-cutover policy", testBreakingRound, testBreakingEpoch - 1, true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			message, err := encodeMessage(1, c.round, false, make([]byte, 32))
+			require.NoError(t, err)
+
+			sp := &policy.SigningPolicy{
+				RewardEpochID: c.rewardEpoch,
+				Voters:        voters.NewSet([]common.Address{signer}, []uint16{2}, nil),
+			}
+			pld := &submitSignaturesPayload{
+				typeID:        0,
+				sender:        signer,
+				votingRoundID: c.round,
+				protocolID:    1,
+				message:       message,
+				signature:     signDigest(t, shared.MessageDigest(message, cutover.ChainID, c.chainBound), key),
+			}
+			s := newFinalizationStorage(cutover)
+			ready, err := s.addPayload(pld, sp, 1)
+			require.NoError(t, err)
+			require.True(t, ready.thresholdReached)
+
+			// the other digest form recovers a stranger, which is not in the policy
+			wrong := &submitSignaturesPayload{
+				typeID:        0,
+				sender:        signer,
+				votingRoundID: c.round,
 				protocolID:    1,
 				message:       message,
 				signature:     signDigest(t, shared.MessageDigest(message, cutover.ChainID, !c.chainBound), key),
