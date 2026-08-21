@@ -48,7 +48,7 @@ func TestAddressForRewardEpoch(t *testing.T) {
 	require.Equal(t, []common.Address{oldRelayAddress, newRelayAddress}, r.addresses())
 
 	// with no switch scheduled nothing changes and only one Relay is read
-	plain := &relayContractClient{address: oldRelayAddress, relayCutover: shared.NewRelayCutover(testChainID)}
+	plain := &relayContractClient{address: oldRelayAddress, relayCutover: shared.NewRelayCutover(testChainID, common.Address{}, 0)}
 	require.Equal(t, oldRelayAddress, plain.addressForRewardEpoch(1<<40))
 	require.Equal(t, []common.Address{oldRelayAddress}, plain.addresses())
 }

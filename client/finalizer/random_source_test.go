@@ -103,7 +103,7 @@ func TestNeedsRandomTrailerOnlyFromTheBreakingEpoch(t *testing.T) {
 	}
 
 	// with no cutover scheduled at all, no round ever needs one
-	plain := queueProcessorForTest(t, &stubRandomSource{}, shared.NewRelayCutover(testChainID))
+	plain := queueProcessorForTest(t, &stubRandomSource{}, shared.NewRelayCutover(testChainID, common.Address{}, 0))
 	item := storeCollection(t, plain, randomProtocolID, 7, testBreakingEpoch+1, message)
 	require.False(t, plain.needsRandomTrailer(item))
 }
@@ -310,7 +310,7 @@ func TestStoreFinalizationData(t *testing.T) {
 	}
 
 	// with no cutover scheduled nothing is expected, and the stand-in source drops it
-	cl, _ := clientForFinalizationData(shared.NewRelayCutover(testChainID))
+	cl, _ := clientForFinalizationData(shared.NewRelayCutover(testChainID, common.Address{}, 0))
 	cl.queueProcessor.randomSource = unconfiguredRandomSource{}
 	cl.storeFinalizationData(&shared.ProtocolMessage{ProtocolID: randomProtocolID, VotingRoundID: 7, Message: message, FinalizationData: good.trailer()}, policyAt(testBreakingEpoch))
 }

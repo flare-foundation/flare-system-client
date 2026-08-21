@@ -41,7 +41,7 @@ var (
 	submissionContractAddress = common.HexToAddress(submissionContractAddressHex)
 
 	// the fixture chain has no scheduled cutover, so fixtures sign the legacy digest
-	testCutover = shared.NewRelayCutover(testChainID)
+	testCutover = shared.NewRelayCutover(testChainID, common.Address{}, 0)
 )
 
 func testDigest(message []byte) []byte {

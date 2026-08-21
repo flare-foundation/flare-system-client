@@ -55,7 +55,7 @@ func spiLog(t *testing.T, rewardEpochID int64, startVotingRoundID uint32) databa
 // The merged logs of two Relays have no meaningful order by emitter, so the
 // policy is chosen by reward epoch: the one being waited on.
 func TestSelectPolicyPrefersTheAnticipatedEpoch(t *testing.T) {
-	r := newRelayImplForTest(t, shared.NewRelayCutover(relayTestChainID))
+	r := newRelayImplForTest(t, shared.NewRelayCutover(relayTestChainID, common.Address{}, 0))
 
 	logs := []database.Log{spiLog(t, 12, 120), spiLog(t, 10, 100), spiLog(t, 11, 110)}
 
@@ -68,7 +68,7 @@ func TestSelectPolicyPrefersTheAnticipatedEpoch(t *testing.T) {
 // A delayed epoch leaves the time-derived anticipation running ahead of the
 // chain, so the highest policy present is taken instead of nothing.
 func TestSelectPolicyFallsBackToHighestEpoch(t *testing.T) {
-	r := newRelayImplForTest(t, shared.NewRelayCutover(relayTestChainID))
+	r := newRelayImplForTest(t, shared.NewRelayCutover(relayTestChainID, common.Address{}, 0))
 
 	logs := []database.Log{spiLog(t, 10, 100), spiLog(t, 11, 110)}
 

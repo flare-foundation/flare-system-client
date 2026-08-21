@@ -26,21 +26,25 @@ func scheduledCutover() *RelayCutover {
 	}
 }
 
-// A chain with no entry, and the shipped placeholder entries, must leave every
-// gate closed: a zero breaking epoch would otherwise read as "already switched".
+// An unconfigured cutover — and a half-configured one, which config validation
+// rejects before it can get here — must leave every gate closed: a zero breaking
+// epoch would otherwise read as "already switched".
 func TestUnscheduledCutoverNeverSwitches(t *testing.T) {
-	for _, chainID := range []int64{14, 114, 19, 16, 31337} {
-		c := NewRelayCutover(chainID)
-		require.Equal(t, chainID, c.ChainID)
-		require.False(t, c.Scheduled(), "chain %d", chainID)
-		require.False(t, c.NewRelayFromRewardEpoch(1<<40), "chain %d", chainID)
+	for name, c := range map[string]*RelayCutover{
+		"unconfigured": NewRelayCutover(testChainID, common.Address{}, 0),
+		"address only": NewRelayCutover(testChainID, testNewRelay, 0),
+		"epoch only":   NewRelayCutover(testChainID, common.Address{}, testBreakingEpoch),
+	} {
+		require.Equal(t, testChainID, c.ChainID, name)
+		require.False(t, c.Scheduled(), name)
+		require.False(t, c.NewRelayFromRewardEpoch(1<<40), name)
 
 		// unscheduled is a decided answer, not an unknown one
 		useNew, known := c.NewRelayFromVotingRound(1 << 31)
-		require.False(t, useNew)
-		require.True(t, known)
+		require.False(t, useNew, name)
+		require.True(t, known, name)
 
-		require.Equal(t, MessageDigest([]byte("m"), chainID, false), c.DigestForRewardEpoch([]byte("m"), 1<<40))
+		require.Equal(t, MessageDigest([]byte("m"), testChainID, false), c.DigestForRewardEpoch([]byte("m"), 1<<40), name)
 	}
 }
 
@@ -115,7 +119,7 @@ func TestObserveSigningPolicyKeepsTheFirstBoundary(t *testing.T) {
 
 // An unscheduled chain must ignore observations entirely.
 func TestObserveSigningPolicyIgnoredWithoutSchedule(t *testing.T) {
-	c := NewRelayCutover(testChainID)
+	c := NewRelayCutover(testChainID, common.Address{}, 0)
 	c.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
 
 	_, ok := c.BreakingVotingRound()
@@ -140,24 +144,6 @@ func TestDigestGatesAgreeAcrossTheBoundary(t *testing.T) {
 	require.NotEqual(t,
 		MessageDigest(msg, c.ChainID, before),
 		MessageDigest(msg, c.ChainID, at))
-}
-
-// ValidateRelayCutovers must reject an entry where the address was filled in but
-// the breaking epoch was forgotten — Scheduled() would silently keep the whole
-// chain on the old Relay.
-func TestValidateRelayCutoversRejectsHalfFilledEntry(t *testing.T) {
-	require.NoError(t, ValidateRelayCutovers())
-
-	t.Cleanup(func() { delete(relayCutovers, 999) })
-
-	relayCutovers[999] = relayCutover{NewAddress: testNewRelay}
-	require.ErrorContains(t, ValidateRelayCutovers(), "chain 999")
-
-	relayCutovers[999] = relayCutover{BreakingRewardEpoch: 1}
-	require.ErrorContains(t, ValidateRelayCutovers(), "chain 999")
-
-	relayCutovers[999] = relayCutover{NewAddress: testNewRelay, BreakingRewardEpoch: 1}
-	require.NoError(t, ValidateRelayCutovers())
 }
 
 // The chain-bound preimage is the Relay's abi.encodePacked(uint256 sourceChainId,

@@ -125,7 +125,7 @@ func TestSubmitter(t *testing.T) {
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
-			relayCutover:   shared.NewRelayCutover(testChainID),
+			relayCutover:   shared.NewRelayCutover(testChainID, common.Address{}, 0),
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -154,7 +154,7 @@ func TestSubmitter(t *testing.T) {
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
-			relayCutover:   shared.NewRelayCutover(testChainID),
+			relayCutover:   shared.NewRelayCutover(testChainID, common.Address{}, 0),
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -183,7 +183,7 @@ func TestSubmitter(t *testing.T) {
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
-			relayCutover:   shared.NewRelayCutover(testChainID),
+			relayCutover:   shared.NewRelayCutover(testChainID, common.Address{}, 0),
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -390,7 +390,7 @@ func TestRunShutdown(t *testing.T) {
 		votingRoundTiming: timing,
 		rewardEpochTiming: utils.NewEpochConfig(time.Now().Add(-time.Hour), time.Hour),
 		registry:          &testRegistry{expectedAddress: identityAddress},
-		relayCutover:      shared.NewRelayCutover(testChainID),
+		relayCutover:      shared.NewRelayCutover(testChainID, common.Address{}, 0),
 		identityAddress:   identityAddress,
 		submitter1: &Submitter{
 			SubmitterBase: SubmitterBase{name: "submit1", votingRoundTiming: timing},

@@ -36,6 +36,8 @@ type Client struct {
 
 	Finalizer Finalizer `toml:"finalizer"`
 
+	RelayCutover RelayCutover `toml:"relay_cutover"`
+
 	SubmitGas         Gas `toml:"gas_submit"`
 	RegisterGas       Gas `toml:"gas_register"`
 	RelayGas          Gas `toml:"gas_relay"`
@@ -160,6 +162,37 @@ func (c *Client) validate() error {
 		if err := c.Finalizer.validate(); err != nil {
 			return fmt.Errorf("validating finalizer: %w", err)
 		}
+	}
+	if err := c.RelayCutover.validate(); err != nil {
+		return fmt.Errorf("validating relay_cutover: %w", err)
+	}
+	return nil
+}
+
+// RelayCutover schedules the switch to the Relay contract that binds the source
+// chain id into the signed digests: the address of that Relay and the first reward
+// epoch whose signing policy it holds. Unset means no switch — the configured relay
+// and the legacy digests stay in use. The voting round the switch takes effect on is
+// not configured: a reward epoch's start can be delayed, so it is learned at runtime
+// from the starting epoch's own signing policy.
+type RelayCutover struct {
+	// The Relay being switched to.
+	Address common.Address `toml:"address" envconfig:"RELAY_CUTOVER_CONTRACT_ADDRESS"`
+
+	// First reward epoch signed for, and finalized on, that Relay.
+	StartingRewardEpoch int64 `toml:"starting_reward_epoch" envconfig:"RELAY_CUTOVER_STARTING_REWARD_EPOCH"`
+}
+
+// validate rejects a half-scheduled cutover, which would otherwise silently keep the
+// old Relay past the switch.
+func (c RelayCutover) validate() error {
+	switch {
+	case c.StartingRewardEpoch < 0:
+		return errors.New("starting_reward_epoch must not be negative")
+	case c.Address != (common.Address{}) && c.StartingRewardEpoch == 0:
+		return errors.New("address is set but starting_reward_epoch (> 0) is not")
+	case c.Address == (common.Address{}) && c.StartingRewardEpoch > 0:
+		return errors.New("starting_reward_epoch is set but address is not")
 	}
 	return nil
 }

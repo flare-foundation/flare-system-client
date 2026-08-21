@@ -101,7 +101,7 @@ func TestSignSignaturePayloadWithoutCutover(t *testing.T) {
 	key, signer := signingTestKey(t)
 	data := make([]byte, 38)
 
-	signature, err := SignSignaturePayload(shared.NewRelayCutover(testChainID), 1<<31, data, key)
+	signature, err := SignSignaturePayload(shared.NewRelayCutover(testChainID, common.Address{}, 0), 1<<31, data, key)
 	require.NoError(t, err)
 	requireSignedUnder(t, signature, data, false, signer)
 }

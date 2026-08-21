@@ -53,13 +53,9 @@ type subprotocolResponse struct {
 }
 
 func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
-	apiURL := config.APIURL
-	if apiURL == "" {
-		apiURL = config.APIEndpoint
-	}
 	return &SubProtocol{
 		ID:      config.ID,
-		BaseURL: apiURL,
+		BaseURL: config.BaseURL(),
 		XAPIKey: config.XAPIKey(),
 		Type:    config.Type,
 	}

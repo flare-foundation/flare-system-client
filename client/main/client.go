@@ -46,11 +46,6 @@ func main() {
 		logger.Warnf("chain config: could not verify chain_id against the node: %v", err)
 	}
 
-	// a half-filled cutover entry would silently keep the old Relay past the switch
-	if err := shared.ValidateRelayCutovers(); err != nil {
-		logger.Fatalf("relay config: %v", err)
-	}
-
 	// Prometheus metrics
 	shared.InitMetricsServer(&clientCtx.Config().Metrics)
 

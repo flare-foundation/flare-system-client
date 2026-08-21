@@ -43,6 +43,18 @@ voter_registry = "0x..."
 voter_preregistry = "0x..."
 relay = "0x..."
 
+# Scheduled switch to the Relay contract that binds the source chain id into the signed
+# digests. Set both values, or neither: unset means no switch, and everything is read
+# from and sent to the relay configured above exactly as before. The voting round the
+# switch takes effect on is not configured — it is learned at runtime from the starting
+# epoch's own signing policy. Finalizing the random protocol on the new Relay requires
+# its random number and Merkle proof, which that protocol's provider serves with its
+# submitSignatures data as the finalizationData field; the protocol must be configured.
+# [relay_cutover]
+# address = "0x..."          # envconfig:"RELAY_CUTOVER_CONTRACT_ADDRESS"
+# starting_reward_epoch = 0  # First reward epoch signed for, and finalized on, that
+#                            # Relay. envconfig:"RELAY_CUTOVER_STARTING_REWARD_EPOCH"
+
 # Identity configuration.
 [identity]
 address = "0x..." # The address of the data provider's identity.

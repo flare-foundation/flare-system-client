@@ -113,7 +113,7 @@ func clientForStoredHash(t *testing.T, pointsAt common.Address, stored []byte, c
 	}, node
 }
 
-// literal, not NewRelayCutover: these fixtures must not drift when the table is filled
+// literal, not NewRelayCutover: these fixtures must not follow the config surface
 func unscheduledCutover() *shared.RelayCutover {
 	return &shared.RelayCutover{ChainID: vectorChainID}
 }

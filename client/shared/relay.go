@@ -1,36 +1,12 @@
 package shared
 
 import (
-	"fmt"
-	"maps"
-	"slices"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
-
-// relayCutover is the configured part of a chain's switch to a new Relay: the
-// address and the first reward epoch it serves. The voting round the switch takes
-// effect on is deliberately absent — a reward epoch's start can be delayed, so it
-// is only fixed when that epoch's signing policy is initialized.
-type relayCutover struct {
-	NewAddress          common.Address
-	BreakingRewardEpoch int64
-}
-
-// relayCutovers holds the scheduled Relay switch per chain id. A zero entry — or a
-// chain absent from the map — means no switch: the configured Relay and the legacy
-// unbound signing stay in use.
-//
-// TODO: fill in the deployed addresses and breaking reward epochs.
-var relayCutovers = map[int64]relayCutover{
-	14:  {}, // Flare
-	114: {}, // Coston2
-	19:  {}, // Songbird
-	16:  {}, // Coston
-}
 
 // RelayCutover tracks a chain's switch to a new Relay contract.
 //
@@ -53,15 +29,17 @@ type RelayCutover struct {
 	breakingVotingRound atomic.Uint32
 }
 
-// NewRelayCutover returns the switch tracked for chainID. The result always carries
-// ChainID, so it is the single value a component needs to decide both the digest
-// form and the Relay to talk to; the rest is zero when no switch is scheduled.
-func NewRelayCutover(chainID int64) *RelayCutover {
-	c := relayCutovers[chainID]
+// NewRelayCutover tracks the switch to newAddress from startingRewardEpoch on, both
+// from the [relay_cutover] config. The result always carries ChainID, so it is the
+// single value a component needs to decide both the digest form and the Relay to
+// talk to; zero values mean no switch is scheduled. The voting round the switch
+// takes effect on is deliberately not configured — a reward epoch's start can be
+// delayed, so it is only fixed when that epoch's signing policy is initialized.
+func NewRelayCutover(chainID int64, newAddress common.Address, startingRewardEpoch int64) *RelayCutover {
 	return &RelayCutover{
 		ChainID:             chainID,
-		NewAddress:          c.NewAddress,
-		BreakingRewardEpoch: c.BreakingRewardEpoch,
+		NewAddress:          newAddress,
+		BreakingRewardEpoch: startingRewardEpoch,
 	}
 }
 
@@ -124,18 +102,4 @@ func (c *RelayCutover) NewRelayFromVotingRound(votingRoundID uint32) (useNew, kn
 // policy of rewardEpochID.
 func (c *RelayCutover) DigestForRewardEpoch(msg []byte, rewardEpochID int64) []byte {
 	return MessageDigest(msg, c.ChainID, c.NewRelayFromRewardEpoch(rewardEpochID))
-}
-
-// ValidateRelayCutovers rejects half-filled table entries, which would otherwise
-// silently disable the switch on that chain.
-func ValidateRelayCutovers() error {
-	for _, chainID := range slices.Sorted(maps.Keys(relayCutovers)) {
-		c := relayCutovers[chainID]
-		if c == (relayCutover{}) || (c.NewAddress != (common.Address{}) && c.BreakingRewardEpoch > 0) {
-			continue
-		}
-		return fmt.Errorf("incomplete relay cutover for chain %d: address %s, reward epoch %d",
-			chainID, c.NewAddress, c.BreakingRewardEpoch)
-	}
-	return nil
 }
