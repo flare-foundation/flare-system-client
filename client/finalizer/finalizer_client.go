@@ -2,7 +2,6 @@ package finalizer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -11,6 +10,8 @@ import (
 	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/config"
 	"github.com/flare-foundation/flare-system-client/utils/credentials"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"golang.org/x/sync/errgroup"
 
@@ -89,15 +90,10 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 	if err != nil {
 		return nil, err
 	}
-	// Only the new Relay demands the random trailer, so it is only expected once a
-	// switch to it is scheduled. Its data comes with the random protocol's own message,
-	// so that protocol must be one the submitter queries.
-	var randomSrc randomSource = unconfiguredRandomSource{}
-	if relayCutover.Scheduled() {
-		if !randomProtocolConfigured(cfg.Protocol, finalizerContext.randomNumberProtocolID) {
-			return nil, fmt.Errorf("a relay cutover is scheduled but protocol %d, whose provider serves the random number and Merkle proof the new Relay needs to finalize it, is not configured", finalizerContext.randomNumberProtocolID)
-		}
-		randomSrc = newRandomStore()
+	// only the new Relay demands the random number and Merkle proof, and they ride on the random
+	// protocol's own message, so that protocol must be one the submitter queries
+	if relayCutover.Scheduled() && !randomProtocolConfigured(cfg.Protocol, finalizerContext.randomNumberProtocolID) {
+		return nil, fmt.Errorf("a relay cutover is scheduled but protocol %d, whose provider serves the random number and Merkle proof the new Relay needs to finalize it, is not configured", finalizerContext.randomNumberProtocolID)
 	}
 
 	submissionListener := NewSubmissionListener(cfg.ContractAddresses.Submission)
@@ -112,7 +108,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 		messages:             messageChannel,
 		finalizationStorage:  finalizationStorage,
 		submissionListener:   submissionListener,
-		queueProcessor:       newFinalizerQueueProcessor(db, finalizationStorage, relayClient, finalizerContext, randomSrc),
+		queueProcessor:       newFinalizerQueueProcessor(db, finalizationStorage, relayClient, finalizerContext),
 		finalizerContext:     finalizerContext,
 		relayCutover:         relayCutover,
 	}, nil
@@ -199,13 +195,10 @@ func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startT
 
 // signingPolicyData returns signing policy and voting threshold for the given votingRoundID.
 //
-// If the signing policy was expected to end before votingRoundID but it was prolonged, the threshold
+// If the signing policy was expected to end before votingRoundID but was prolonged, the threshold
 // is raised the way the Relay raises it: the policy's own threshold scaled by thresholdIncreaseBIPS.
-//
-// NOTE: this replaced a hardcoded 60% of total weight, which was one weight unit low for every odd
-// total weight and diverged further at any thresholdIncreaseBIPS other than 12000. Both Relays scale
-// the policy threshold identically (Relay.sol:1165-1180, RelayMainDeployed.sol:914-926), so the
-// correction is not gated on the cutover — the old formula was wrong against the deployed Relay too.
+// Both Relays scale identically (Relay.sol:1165-1180, RelayMainDeployed.sol:914-926), so the raise
+// is not gated on the cutover.
 func (c *client) signingPolicyData(votingRoundID uint32) (*policy.SigningPolicy, uint16) {
 	sp, last := c.signingPolicyStorage.ForVotingRound(votingRoundID)
 	if sp == nil {
@@ -219,8 +212,7 @@ func (c *client) signingPolicyData(votingRoundID uint32) (*policy.SigningPolicy,
 	if int64(votingRoundID) < expectedEnd {
 		return sp, sp.Threshold
 	}
-	// mirrors Relay.sol:1168-1180; clamping matches the contract's uint256 threshold
-	// becoming unreachable rather than wrapping
+	// mirrors Relay.sol:1168-1180; clamp, not wrap — the contract's uint256 threshold is unreachable
 	raised := uint64(sp.Threshold) * uint64(c.finalizerContext.thresholdIncreaseBIPS) / relayThresholdBIPS
 	return sp, uint16(min(raised, math.MaxUint16))
 }
@@ -254,8 +246,7 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 			}
 			logger.Panicf("messagesChannelListener: no signing policy found for voting round %d. Storage is empty: %v", protocolMessage.VotingRoundID, c.signingPolicyStorage.OldestStored() == nil) // this stops the whole fsp client, it only happens if there is no signing policy in the storage.
 		}
-		// before the message can complete a threshold, so a send never waits on it
-		c.storeFinalizationData(&protocolMessage, sp)
+		protocolMessage.FinalizationData = c.finalizationDataToStore(&protocolMessage, sp)
 
 		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp, threshold)
 
@@ -271,43 +262,23 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 	}
 }
 
-// storeFinalizationData keeps the random number and Merkle proof served with the random
-// protocol's message for a round the new Relay finalizes. It is checked against the very
-// message it came with, so a provider that omits or breaks it is reported the moment its
-// message arrives, not when the send fails.
-func (c *client) storeFinalizationData(m *shared.ProtocolMessage, sp *policy.SigningPolicy) {
+// finalizationDataToStore returns what relay() needs appended: the random number and Merkle proof
+// for the random protocol on the new Relay, nothing elsewhere. Their meaning is the Relay's to
+// check; only word alignment is checked, on arrival, so a bad provider is flagged before a send.
+func (c *client) finalizationDataToStore(m *shared.ProtocolMessage, sp *policy.SigningPolicy) []byte {
 	expected := m.ProtocolID == c.finalizerContext.randomNumberProtocolID &&
 		c.relayCutover.NewRelayFromRewardEpoch(sp.RewardEpochID)
 	if !expected {
 		if len(m.FinalizationData) > 0 {
 			logger.Debugf("Ignoring finalization data for protocol %d in voting round %d, none is needed", m.ProtocolID, m.VotingRoundID)
 		}
-		return
+		return nil
 	}
 
-	data, err := c.randomDataFromMessage(m)
-	if err != nil {
-		logger.Errorf("Protocol %d served no usable random number and Merkle proof with its message for voting round %d, which cannot be finalized without them: %v",
-			m.ProtocolID, m.VotingRoundID, err)
-		return
+	if len(m.FinalizationData) == 0 || len(m.FinalizationData)%common.HashLength != 0 {
+		logger.Errorf("Protocol %d served %d bytes of finalization data with its message for voting round %d, which cannot be finalized without the random number and whole Merkle proof nodes",
+			m.ProtocolID, len(m.FinalizationData), m.VotingRoundID)
+		return nil
 	}
-	c.queueProcessor.randomSource.Put(m.VotingRoundID, data)
-}
-
-func (c *client) randomDataFromMessage(m *shared.ProtocolMessage) (randomData, error) {
-	if len(m.FinalizationData) == 0 {
-		return randomData{}, errors.New("the message carried no finalizationData")
-	}
-	data, err := parseRandomData(m.FinalizationData)
-	if err != nil {
-		return randomData{}, err
-	}
-	parsed, err := m.Message.Parse()
-	if err != nil {
-		return randomData{}, err
-	}
-	if err := data.verify(parsed); err != nil {
-		return randomData{}, err
-	}
-	return data, nil
+	return m.FinalizationData
 }

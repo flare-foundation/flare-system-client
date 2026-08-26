@@ -95,7 +95,6 @@ func TestProcessDelayedQueueSurvivesDBError(t *testing.T) {
 		storage,
 		relayClient,
 		&finalizerContext{votingRoundTiming: &utils.EpochTimingConfig{Start: time.Unix(0, 0), Period: time.Hour}},
-		unconfiguredRandomSource{},
 	)
 
 	err = qp.processDelayedQueue(context.Background(), []*queueItem{

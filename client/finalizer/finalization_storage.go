@@ -21,6 +21,10 @@ type signaturesCollection struct {
 	signingPolicy    *policy.SigningPolicy
 	threshold        uint16
 
+	// what relay() must have appended for this message, served with it by the provider.
+	// Per digest: equal digests are equal bytes, so it never rides the wrong merkle root.
+	finalizationData []byte
+
 	mu sync.RWMutex
 }
 
@@ -35,11 +39,10 @@ type protocolCollection struct {
 	relayCutover        *shared.RelayCutover
 }
 
-// messageDigest returns the digest the collection's signatures cover, derived from
-// the round embedded in the message bytes — the contract's own derivation, and the
-// one every signer of these bytes used. Fallback: with the boundary unlearned (a
-// restart can fetch only post-breaking policies) or the bytes unparseable, the
-// governing policy's epoch decides, as it does for the target Relay.
+// messageDigest returns the digest the signatures cover, derived from the round in the
+// message bytes — the contract's own derivation, and the one every signer used. Falls back to
+// the governing policy's epoch, as the target Relay does, when the boundary is unlearned (a
+// restart may fetch only post-breaking policies) or the bytes do not parse.
 func (pc *protocolCollection) messageDigest(message shared.Message) []byte {
 	if digest, known, err := pc.relayCutover.DigestFromMessage(message); err == nil && known {
 		return digest
@@ -101,7 +104,16 @@ func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, 
 	return false, nil
 }
 
-func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.Hash, error) {
+// setFinalizationData stores what relay() needs appended for the collection's message.
+// A collection created by a payload can already be read by a send, hence the lock.
+func (sc *signaturesCollection) setFinalizationData(data []byte) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
+	sc.finalizationData = data
+}
+
+func (pc *protocolCollection) addMessage(message shared.Message, finalizationData []byte) (bool, common.Hash, error) {
 	if pc.messageAdded {
 		return false, common.Hash{}, errors.New("message added twice")
 	}
@@ -110,10 +122,12 @@ func (pc *protocolCollection) addMessage(message shared.Message) (bool, common.H
 	// An existing collection at digest already holds an equal-bytes message
 	// (same hash). Do not reassign it: PrepareFinalizationResults reads message
 	// under sc.mu only, not the storage lock, so it must stay fixed.
-	_, exists := pc.signatureCollection[digest]
+	sc, exists := pc.signatureCollection[digest]
 	if !exists {
-		pc.signatureCollection[digest] = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
+		sc = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
+		pc.signatureCollection[digest] = sc
 	}
+	sc.setFinalizationData(finalizationData)
 
 	pc.messageChosenDigest = digest
 	pc.messageAdded = true
@@ -263,7 +277,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 		rc.protocolCollections[p.ProtocolID] = pc
 	}
 
-	thresholdReached, digest, err := pc.addMessage(p.Message)
+	thresholdReached, digest, err := pc.addMessage(p.Message, p.FinalizationData)
 	if err != nil {
 		return FinalizationReady{thresholdReached: false}, err
 	}
@@ -276,8 +290,8 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 
 // get returns the signatureCollection for votingRoundID and protocolID.
 // A boolean inductor of existence is also returned.
-// Access or mutate signatures, weight, and thresholdReached under the mutex;
-// the other fields are fixed after creation.
+// Access or mutate signatures, weight, thresholdReached, and finalizationData under
+// the mutex; the other fields are fixed after creation.
 func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, digest common.Hash) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()

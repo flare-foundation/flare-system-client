@@ -19,9 +19,9 @@ type FinalizationResult struct {
 	signatures    []IndexedSignature //signatures are ordered by voterIndex of their provider
 	signingPolicy *policy.SigningPolicy
 
-	// randomTrailer is randomNumber(32) ‖ proof(32×d), required by the new Relay for
-	// the random protocol and empty everywhere else.
-	randomTrailer []byte
+	// what relay() reads after the signatures: randomNumber(32) ‖ proof(32×d) for the
+	// random protocol on the new Relay, empty everywhere else.
+	finalizationData []byte
 }
 
 type IndexedSignature struct {
@@ -69,9 +69,10 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 	})
 
 	return FinalizationResult{
-		message:       sc.message,
-		signatures:    selectedSignatures,
-		signingPolicy: sc.signingPolicy,
+		message:          sc.message,
+		signatures:       selectedSignatures,
+		signingPolicy:    sc.signingPolicy,
+		finalizationData: sc.finalizationData,
 	}, nil
 }
 
@@ -89,13 +90,12 @@ func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 
 	buffer.Write(encodedSignatures)
 
-	// the Relay reads the random trailer from the calldata after the signatures, and
-	// rejects one that is not a whole number of 32-byte words
-	if len(fr.randomTrailer) > 0 {
-		if len(fr.randomTrailer)%common.HashLength != 0 {
-			return nil, fmt.Errorf("random trailer is %d bytes, not a multiple of %d", len(fr.randomTrailer), common.HashLength)
+	// the Relay rejects finalization data that is not a whole number of 32-byte words
+	if len(fr.finalizationData) > 0 {
+		if len(fr.finalizationData)%common.HashLength != 0 {
+			return nil, fmt.Errorf("finalization data is %d bytes, not a multiple of %d", len(fr.finalizationData), common.HashLength)
 		}
-		buffer.Write(fr.randomTrailer)
+		buffer.Write(fr.finalizationData)
 	}
 
 	return buffer.Bytes(), nil

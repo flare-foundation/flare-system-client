@@ -22,8 +22,7 @@ type RelayMessage struct {
 	MerkleRoot     common.Hash
 }
 
-// Parse decodes the protocol message:
-// protocolID(1) ‖ votingRoundID(4) ‖ isSecureRandom(1) ‖ merkleRoot(32).
+// Parse decodes protocolID(1) ‖ votingRoundID(4) ‖ isSecureRandom(1) ‖ merkleRoot(32).
 func (msg Message) Parse() (RelayMessage, error) {
 	if len(msg) != RelayMessageLength {
 		return RelayMessage{}, fmt.Errorf("protocol message is %d bytes, expected %d", len(msg), RelayMessageLength)
@@ -31,18 +30,17 @@ func (msg Message) Parse() (RelayMessage, error) {
 	return RelayMessage{
 		ProtocolID:    msg[0],
 		VotingRoundID: binary.BigEndian.Uint32(msg[1:5]),
-		// the Relay normalizes any nonzero byte to 1, and the random Merkle leaf
-		// commits to the normalized value — matching it is not optional
+		// the Relay normalizes any nonzero byte to 1 and the random Merkle leaf commits to
+		// the normalized value — must match
 		IsSecureRandom: msg[5] != 0,
 		MerkleRoot:     common.Hash(msg[6:RelayMessageLength]),
 	}, nil
 }
 
-// MessageDigest returns the digest a protocol-message signature covers, as the
-// Relay computes it before ecrecover. The new Relay binds the digest to its
-// source chain — keccak256(chainID ‖ msg) — so a signature minted for another
-// network is rejected even under an overlapping voter set; the old one hashes
-// the message alone. Signing and signer recovery must pick the same form.
+// MessageDigest returns the digest the Relay computes before ecrecover. The new Relay binds
+// the source chain — keccak256(chainID ‖ msg) — so a signature minted for another network with
+// an overlapping voter set is rejected; the old one hashes msg alone. Signing and signer recovery
+// must pick the same form.
 func MessageDigest(msg []byte, chainID int64, chainBound bool) []byte {
 	if chainBound {
 		return accounts.TextHash(crypto.Keccak256(ChainIDWord(chainID), msg))
@@ -50,8 +48,7 @@ func MessageDigest(msg []byte, chainID int64, chainBound bool) []byte {
 	return accounts.TextHash(crypto.Keccak256(msg))
 }
 
-// ChainIDWord left-pads chainID into the 32-byte word the Relay prepends to
-// chain-bound hash preimages.
+// ChainIDWord is the 32-byte left-padded chainID the Relay prepends to chain-bound preimages.
 func ChainIDWord(chainID int64) []byte {
 	var w [32]byte
 	binary.BigEndian.PutUint64(w[24:], uint64(chainID))
@@ -62,8 +59,7 @@ type ProtocolMessage struct {
 	ProtocolID    uint8
 	VotingRoundID uint32
 	Message       Message
-	// Served by the provider with the message: what relay() needs appended for this
-	// protocol, if anything — the random number and its Merkle proof for the random
-	// protocol on the new Relay.
+	// served by the provider with the message: what relay() needs appended, if anything — the
+	// random number and its Merkle proof for the random protocol on the new Relay
 	FinalizationData []byte
 }

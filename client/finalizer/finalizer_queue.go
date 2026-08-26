@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flare-foundation/flare-system-client/client/shared"
 	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -76,7 +75,6 @@ type finalizerQueueProcessor struct {
 	finalizationStorage *finalizationStorage
 	relayClient         *relayContractClient
 	finalizerContext    *finalizerContext
-	randomSource        randomSource
 }
 
 func newFinalizerQueueProcessor(
@@ -84,14 +82,12 @@ func newFinalizerQueueProcessor(
 	finalizationStorage *finalizationStorage,
 	relayClient *relayContractClient,
 	finalizerContext *finalizerContext,
-	randomSource randomSource,
 ) *finalizerQueueProcessor {
 	qp := &finalizerQueueProcessor{
 		db:                  db,
 		finalizationStorage: finalizationStorage,
 		relayClient:         relayClient,
 		queue:               newFinalizerQueue(),
-		randomSource:        randomSource,
 
 		finalizerContext: finalizerContext,
 	}
@@ -138,18 +134,11 @@ func (p *finalizerQueueProcessor) Add(item *FinalizationReady, seed *big.Int) {
 	p.queue.Add(queued)
 }
 
-// needsRandomTrailer reports whether item's finalization must carry the random
-// number and its Merkle proof: only the random protocol, and only from the breaking
-// reward epoch on, since only the new Relay verifies and stores them.
-func (p *finalizerQueueProcessor) needsRandomTrailer(item *queueItem) bool {
-	if item.protocolID != p.finalizerContext.randomNumberProtocolID {
-		return false
-	}
-	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest)
-	if !exists {
-		return false
-	}
-	return p.relayClient.relayCutover.NewRelayFromRewardEpoch(data.signingPolicy.RewardEpochID)
+// needsFinalizationData reports whether a finalization must carry the random number and Merkle
+// proof: the random protocol from the breaking reward epoch on, the only Relay that uses them.
+func (p *finalizerQueueProcessor) needsFinalizationData(protocolID uint8, rewardEpochID int64) bool {
+	return protocolID == p.finalizerContext.randomNumberProtocolID &&
+		p.relayClient.relayCutover.NewRelayFromRewardEpoch(rewardEpochID)
 }
 
 // Run runs the infinite loops that handles finalization queue.
@@ -248,26 +237,25 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		return
 	}
 
-	finalizationData, err := PrepareFinalizationResults(data)
+	result, err := PrepareFinalizationResults(data)
 	if err != nil {
 		logger.Warnf("finalization data preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return
 	}
 
-	if p.needsRandomTrailer(item) {
-		// Without a proof the Relay reverts, so there is nothing to send: log the
-		// missed duty and leave the retry to the delayed queue, by which time the
-		// message may have arrived or another finalizer may have relayed the round.
-		trailer, err := p.randomTrailer(ctx, finalizationData.message, item.votingRoundID)
-		if err != nil {
-			logger.Errorf("no random proof to finalize protocol %d for round %d, not sending: %v",
-				item.protocolID, item.votingRoundID, err)
+	if p.needsFinalizationData(item.protocolID, data.signingPolicy.RewardEpochID) {
+		if len(result.finalizationData) == 0 {
+			// without the random number and proof the Relay reverts; the delayed queue retries
+			logger.Errorf("the random protocol served no random number and Merkle proof for round %d, not finalizing protocol %d",
+				item.votingRoundID, item.protocolID)
 			return
 		}
-		finalizationData.randomTrailer = trailer
+	} else {
+		// arrival judged a possibly newer policy than the collection's; only the target Relay reads them
+		result.finalizationData = nil
 	}
 
-	txInput, err := finalizationData.PrepareFinalizationTxInput()
+	txInput, err := result.PrepareFinalizationTxInput()
 	if err != nil {
 		logger.Warnf("finalization tx input preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return
@@ -278,30 +266,6 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 
 	logger.Infof("Relaying for round %d for protocol %d to %s (delayed=%t)", item.votingRoundID, item.protocolID, address, isDelayed)
 	p.relayClient.SubmitPayloads(ctx, address, txInput, isDelayed, item.protocolID, item.votingRoundID)
-}
-
-// randomTrailer takes the round's random number and Merkle proof and checks them
-// against the signed message before they can reach the chain.
-func (p *finalizerQueueProcessor) randomTrailer(ctx context.Context, message shared.Message, votingRoundID uint32) ([]byte, error) {
-	parsed, err := message.Parse()
-	if err != nil {
-		return nil, err
-	}
-	if parsed.VotingRoundID != votingRoundID {
-		return nil, fmt.Errorf("message is for round %d, not %d", parsed.VotingRoundID, votingRoundID)
-	}
-
-	data, err := p.randomSource.Get(ctx, votingRoundID)
-	if err != nil {
-		return nil, err
-	}
-	// checked again against the finalized message: the local provider's message,
-	// which the data was checked against on arrival, need not be the one that won
-	if err := data.verify(parsed); err != nil {
-		return nil, err
-	}
-
-	return data.trailer(), nil
 }
 
 func (p *finalizerQueueProcessor) processDelayedQueue(ctx context.Context, items []*queueItem) error {

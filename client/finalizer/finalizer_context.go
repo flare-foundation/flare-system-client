@@ -52,3 +52,14 @@ func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerCont
 		thresholdIncreaseBIPS:  thresholdIncreaseBIPS,
 	}, nil
 }
+
+// randomProtocolConfigured reports whether the submitter queries the protocol serving the
+// random number and Merkle proof — without it the finalizer never sees them.
+func randomProtocolConfigured(protocols map[string]config.ProtocolConfig, protocolID uint8) bool {
+	for _, protocol := range protocols {
+		if protocol.ID == protocolID {
+			return true
+		}
+	}
+	return false
+}

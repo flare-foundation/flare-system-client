@@ -130,12 +130,10 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		signingPolicyStorage: policy.NewStorage(),
 		finalizationStorage:  finalizationStorage,
 		submissionListener:   NewSubmissionListener(submissionContractAddress),
-		queueProcessor: newFinalizerQueueProcessor(
-			db, finalizationStorage, relayClient, fCtx, unconfiguredRandomSource{},
-		),
-		finalizerContext: fCtx,
-		relayCutover:     testCutover,
-		messages:         messagesChannel,
+		queueProcessor:       newFinalizerQueueProcessor(db, finalizationStorage, relayClient, fCtx),
+		finalizerContext:     fCtx,
+		relayCutover:         testCutover,
+		messages:             messagesChannel,
 	}
 
 	return &testClients{

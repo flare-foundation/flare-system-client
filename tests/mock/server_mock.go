@@ -71,8 +71,7 @@ func NewMockServer(port int, protocolID uint8) *http.Server {
 		if err != nil {
 			http.Error(w, fmt.Sprintf("writing response: %s", err), http.StatusInternalServerError)
 		}
-		// a single-leaf tree: the root is the random leaf itself, so the finalization
-		// data is the value alone and folds against the message it comes with
+		// single-leaf tree: the root is the leaf itself, so finalizationData is the value alone
 		random := crypto.Keccak256Hash([]byte("random"), binary.BigEndian.AppendUint32(nil, uint32(votingRound)))
 		merkleRoot := randomLeaf(uint32(votingRound), random)
 		data := buildMessageForSigning(protocolID, uint32(votingRound), merkleRoot)
