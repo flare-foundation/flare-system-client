@@ -23,8 +23,8 @@ func newRelayImplForTest(t *testing.T, cutover *shared.RelayCutover) *relayContr
 	return &relayContractClientImpl{relay: relayContract, relayCutover: cutover}
 }
 
-// spiLog builds a SigningPolicyInitialized log for one reward epoch, as the
-// indexer stores it: the epoch id indexed into topic1, the rest ABI-packed.
+// spiLog builds a SigningPolicyInitialized log as the indexer stores it: epoch id in
+// topic1, the rest ABI-packed.
 func spiLog(t *testing.T, rewardEpochID int64, startVotingRoundID uint32) database.Log {
 	t.Helper()
 
@@ -52,8 +52,7 @@ func spiLog(t *testing.T, rewardEpochID int64, startVotingRoundID uint32) databa
 	}
 }
 
-// The merged logs of two Relays have no meaningful order by emitter, so the
-// policy is chosen by reward epoch: the one being waited on.
+// logs of two Relays merge with no order by emitter, so the policy is picked by reward epoch
 func TestSelectPolicyPrefersTheAnticipatedEpoch(t *testing.T) {
 	r := newRelayImplForTest(t, shared.NewRelayCutover(relayTestChainID, common.Address{}, 0))
 
@@ -65,8 +64,7 @@ func TestSelectPolicyPrefersTheAnticipatedEpoch(t *testing.T) {
 	require.Equal(t, uint32(110), selected.StartVotingRoundId)
 }
 
-// A delayed epoch leaves the time-derived anticipation running ahead of the
-// chain, so the highest policy present is taken instead of nothing.
+// a delayed epoch leaves the time-derived anticipation ahead of the chain, so take the highest
 func TestSelectPolicyFallsBackToHighestEpoch(t *testing.T) {
 	r := newRelayImplForTest(t, shared.NewRelayCutover(relayTestChainID, common.Address{}, 0))
 
@@ -79,8 +77,7 @@ func TestSelectPolicyFallsBackToHighestEpoch(t *testing.T) {
 	require.Nil(t, r.selectPolicy(nil, 12))
 }
 
-// The listener is where a node learns when the Relay switch takes effect: the
-// breaking epoch's policy carries the voting round it starts on.
+// the listener is where nodes learn the cutover round: the breaking epoch's policy carries it
 func TestSelectPolicyDatesTheRelayCutover(t *testing.T) {
 	cutover := &shared.RelayCutover{
 		ChainID:             relayTestChainID,

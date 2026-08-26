@@ -58,10 +58,9 @@ func requireSignedUnder(t *testing.T, signature, data []byte, chainBound bool, s
 	require.NotEqual(t, signer, crypto.PubkeyToAddress(*pub))
 }
 
-// A submitSignatures signature must recover to the signer under the digest of the
-// Relay that will finalize the round — read out of the message bytes, as the
-// contract reads it — and that Relay changes at the round the breaking epoch's
-// signing policy starts on.
+// A submitSignatures signature must recover under the digest of the Relay finalizing the
+// round, read from the message bytes as the contract reads it; that Relay changes at the
+// breaking epoch's first round.
 func TestSignSignaturePayloadFollowsObservedBoundary(t *testing.T) {
 	key, signer := signingTestKey(t)
 	cutover := scheduledCutover(t, true)
@@ -86,9 +85,8 @@ func TestSignSignaturePayloadFollowsObservedBoundary(t *testing.T) {
 	}
 }
 
-// Before the breaking epoch's policy is seen the boundary is unknown. The round
-// cannot be past it yet, so the old digest is the correct answer — and the only
-// one peers would accept.
+// Until the breaking epoch's policy is seen the boundary is unknown, so the round cannot be
+// past it — the old digest is correct, and the only one peers accept.
 func TestSignSignaturePayloadBeforeBoundaryIsKnown(t *testing.T) {
 	key, signer := signingTestKey(t)
 	cutover := scheduledCutover(t, false)

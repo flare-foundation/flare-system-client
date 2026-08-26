@@ -36,9 +36,8 @@ func cutoverForTest() *shared.RelayCutover {
 	}
 }
 
-// A finalization carries the policy bytes, so it only verifies on the Relay that
-// stores that policy's hash: pre-cutover epochs stay on the old Relay even after
-// the switch, or a late finalization would revert on a hash mismatch.
+// A finalization carries the policy bytes, so it verifies only on the Relay holding that hash:
+// pre-cutover epochs stay on the old Relay after the switch, or a late one reverts on mismatch.
 func TestAddressForRewardEpoch(t *testing.T) {
 	cutover := cutoverForTest()
 	r := &relayContractClient{address: oldRelayAddress, relayCutover: cutover}
@@ -85,9 +84,8 @@ func spiLogAt(block, index uint64) database.Log {
 	return database.Log{BlockNumber: block, LogIndex: index, Timestamp: block}
 }
 
-// Policies before the cutover are only emitted by the old Relay and after it only
-// by the new one, so both are read — and the merge must come back in chain order:
-// the listener advances its event range from the last log it sees.
+// Pre-cutover policies come only from the old Relay, later ones only from the new, so both are
+// read; the merge must be in chain order — the listener advances its range from the last log.
 func TestFetchSigningPoliciesMergesBothRelaysInChainOrder(t *testing.T) {
 	db := logsDB{logs: map[common.Address][]database.Log{
 		oldRelayAddress: {spiLogAt(10, 0), spiLogAt(30, 1)},
@@ -163,10 +161,9 @@ func TestThresholdKeyIsTheKeyTheCollectionIsStoredUnder(t *testing.T) {
 	require.True(t, exists, "the reported key resolves, so the finalization is not dropped")
 }
 
-// With the round boundary not yet learned (a restart may fetch only post-breaking
-// policies) the digest falls back to the Relay holding the collection's policy.
-// Getting this gate wrong rejects every peer signature from the breaking epoch on,
-// so both sides of the boundary are pinned.
+// With the round boundary not yet learned (a restart may fetch only post-breaking policies) the
+// digest falls back to the Relay holding the collection's policy; a wrong gate rejects every
+// peer signature from the breaking epoch on.
 func TestFinalizerRecoversSignersUnderThePolicyEpochDigest(t *testing.T) {
 	cutover := cutoverForTest()
 
@@ -222,9 +219,8 @@ func TestFinalizerRecoversSignersUnderThePolicyEpochDigest(t *testing.T) {
 	}
 }
 
-// With the boundary learned, signer recovery keys on the round embedded in the
-// message bytes — the contract's own derivation — so it agrees with every signer
-// of those bytes whatever round label the payload travelled under.
+// With the boundary learned, signer recovery keys on the round embedded in the message bytes —
+// the contract's own derivation — not the round label the payload travelled under.
 func TestFinalizerRecoversSignersUnderTheEmbeddedRoundDigest(t *testing.T) {
 	cutover := cutoverForTest()
 	cutover.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)

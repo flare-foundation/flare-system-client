@@ -171,8 +171,7 @@ func TestFinalizerValidate(t *testing.T) {
 	require.ErrorContains(t, Finalizer{GracePeriodEndOffset: 65 * time.Second}.validate(), "voter_threshold_bips")
 }
 
-// A half-scheduled cutover would leave Scheduled() false and silently keep the old
-// Relay past the switch, so it must be rejected here.
+// A half-scheduled cutover leaves Scheduled() false, silently keeping the old Relay past the switch.
 func TestRelayCutoverValidate(t *testing.T) {
 	address := common.HexToAddress("0x00000000000000000000000000000000000000ff")
 
@@ -184,8 +183,7 @@ func TestRelayCutoverValidate(t *testing.T) {
 	require.ErrorContains(t, RelayCutover{Address: address, StartingRewardEpoch: -1}.validate(), "negative")
 }
 
-// A field without an envconfig tag binds only the key envconfig derives from the field
-// path, not the documented spelling. The tags pin the documented ones.
+// Without an envconfig tag a field binds the field-path key, not the documented spelling.
 func TestRelayCutoverBindsTheDocumentedEnvKeys(t *testing.T) {
 	t.Setenv("RELAY_CUTOVER_CONTRACT_ADDRESS", "0x00000000000000000000000000000000000000ff")
 	t.Setenv("RELAY_CUTOVER_STARTING_REWARD_EPOCH", "5236")

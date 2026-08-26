@@ -181,14 +181,12 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 	return nil
 }
 
-// signingPolicyHash returns the hash of signingPolicy that FlareSystemsManager
-// will accept for rewardEpochId: the chain-bound scheme from the breaking epoch on,
-// the old fold before it. Which Relay the manager points at is part of the answer,
-// not a substitute for the epoch — the new Relay delegates epochs below the breaking
-// one to the old Relay, and until governance repoints, the old Relay answers for
-// every epoch including the breaking one. The other scheme stays a checked fallback,
-// so a table that disagrees with the chain costs a warning, not the signature. Only a
-// hash the Relay agrees with is signed, and only one derived from the event's bytes.
+// signingPolicyHash returns the signingPolicy hash FlareSystemsManager accepts for
+// rewardEpochId: chain-bound from the breaking epoch on, the old fold before. Epoch and
+// relay address both gate it — the new Relay delegates pre-breaking epochs to the old one,
+// and until governance repoints, the old Relay answers for every epoch, breaking one
+// included. A table disagreeing with the chain costs a warning, not the signature; the
+// signed hash derives from the event bytes, never from a stored copy.
 func (s *systemsManagerContractClientImpl) signingPolicyHash(rewardEpochId *big.Int, signingPolicy []byte) ([]byte, error) {
 	relayAddress, err := s.flareSystemsManager.Relay(nil)
 	if err != nil {

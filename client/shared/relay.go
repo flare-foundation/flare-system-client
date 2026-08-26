@@ -8,33 +8,22 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
-// RelayCutover tracks a chain's switch to a new Relay contract.
-//
-// From BreakingRewardEpoch on, signing policies live in NewAddress, finalizations
-// go there, and both the protocol-message digest and the signing-policy hash bind
-// the chain id (the new Relay hashes keccak256(sourceChainId ‖ content)).
-//
-// Consumers gate on whichever quantity they hold: the finalizer knows the signing
-// policy, so it asks by reward epoch; the submitter only knows the voting round, so
-// it asks by round. Both name the same instant, because the round boundary is the
-// breaking epoch's own startVotingRoundId — learned at runtime via
-// ObserveSigningPolicy, not configured. One instance is shared by all clients.
+// RelayCutover tracks a chain's switch to a new Relay contract; one shared instance.
+// From BreakingRewardEpoch on, policies and finalizations live at NewAddress, and the
+// message digest and policy hash bind the chain id — keccak256(chainID ‖ content).
+// The round boundary is that epoch's startVotingRoundId, learned by ObserveSigningPolicy.
 type RelayCutover struct {
 	ChainID             int64
 	NewAddress          common.Address
 	BreakingRewardEpoch int64
 
-	// breakingVotingRound is startVotingRoundId of BreakingRewardEpoch, +1 so that
-	// zero means "not learned yet" (round 0 is a legal value).
+	// startVotingRoundId of BreakingRewardEpoch, +1 — zero means "not learned" (round 0 is legal)
 	breakingVotingRound atomic.Uint32
 }
 
-// NewRelayCutover tracks the switch to newAddress from startingRewardEpoch on, both
-// from the [relay_cutover] config. The result always carries ChainID, so it is the
-// single value a component needs to decide both the digest form and the Relay to
-// talk to; zero values mean no switch is scheduled. The voting round the switch
-// takes effect on is deliberately not configured — a reward epoch's start can be
-// delayed, so it is only fixed when that epoch's signing policy is initialized.
+// NewRelayCutover schedules the switch to newAddress from startingRewardEpoch on, both
+// [relay_cutover] config values; zero means no switch. The round it takes effect on is learned
+// later because a reward epoch's start can be delayed — see ObserveSigningPolicy.
 func NewRelayCutover(chainID int64, newAddress common.Address, startingRewardEpoch int64) *RelayCutover {
 	return &RelayCutover{
 		ChainID:             chainID,
@@ -48,10 +37,9 @@ func (c *RelayCutover) Scheduled() bool {
 	return c.NewAddress != (common.Address{}) && c.BreakingRewardEpoch > 0
 }
 
-// ObserveSigningPolicy records the round boundary once the breaking epoch's signing
-// policy is seen, from its SigningPolicyInitialized event or an equivalent chain
-// read. Ignores every other epoch; a later disagreeing value is refused and logged,
-// since it would silently re-date the switch.
+// ObserveSigningPolicy records the round boundary from BreakingRewardEpoch's
+// SigningPolicyInitialized event or an equivalent chain read. First value wins: a later
+// disagreeing one would silently re-date the switch, so it is refused and logged.
 func (c *RelayCutover) ObserveSigningPolicy(rewardEpochID int64, startVotingRoundID uint32) {
 	if !c.Scheduled() || rewardEpochID != c.BreakingRewardEpoch {
 		return
@@ -67,8 +55,7 @@ func (c *RelayCutover) ObserveSigningPolicy(rewardEpochID int64, startVotingRoun
 	}
 }
 
-// BreakingVotingRound returns the first voting round served by the new Relay and
-// whether it has been learned yet.
+// BreakingVotingRound returns the first round the new Relay serves and whether it is known.
 func (c *RelayCutover) BreakingVotingRound() (uint32, bool) {
 	v := c.breakingVotingRound.Load()
 	if v == 0 {
@@ -77,16 +64,14 @@ func (c *RelayCutover) BreakingVotingRound() (uint32, bool) {
 	return v - 1, true
 }
 
-// NewRelayFromRewardEpoch reports whether rewardEpochID's signing policy lives in
-// the new Relay.
+// NewRelayFromRewardEpoch reports whether the new Relay holds rewardEpochID's signing policy.
 func (c *RelayCutover) NewRelayFromRewardEpoch(rewardEpochID int64) bool {
 	return c.Scheduled() && rewardEpochID >= c.BreakingRewardEpoch
 }
 
-// NewRelayFromVotingRound reports whether votingRoundID falls in a reward epoch
-// served by the new Relay, and whether that could be decided at all: with a switch
-// scheduled but its round boundary not yet learned, the answer is unknown and the
-// caller must fall back to the pre-switch behaviour.
+// NewRelayFromVotingRound reports whether votingRoundID falls in a reward epoch served by
+// the new Relay. known is false while a scheduled switch has no learned boundary; the caller
+// must then fall back to the pre-switch behaviour.
 func (c *RelayCutover) NewRelayFromVotingRound(votingRoundID uint32) (useNew, known bool) {
 	if !c.Scheduled() {
 		return false, true
@@ -98,17 +83,15 @@ func (c *RelayCutover) NewRelayFromVotingRound(votingRoundID uint32) (useNew, kn
 	return votingRoundID >= breaking, true
 }
 
-// DigestForRewardEpoch returns the digest of a message signed under the signing
-// policy of rewardEpochID.
+// DigestForRewardEpoch returns the digest of msg signed under rewardEpochID's signing policy.
 func (c *RelayCutover) DigestForRewardEpoch(msg []byte, rewardEpochID int64) []byte {
 	return MessageDigest(msg, c.ChainID, c.NewRelayFromRewardEpoch(rewardEpochID))
 }
 
-// DigestFromMessage derives the digest the way the Relay itself does: the voting
-// round parsed out of the message bytes picks the form, so any two components
-// hashing the same bytes agree without sharing context. known is false while a
-// scheduled switch has no learned boundary; the digest is then the pre-switch form
-// and a caller holding the governing policy should prefer DigestForRewardEpoch.
+// DigestFromMessage derives the digest as the Relay does, from the voting round in msg, so
+// components hashing the same bytes agree without sharing context. known is false while a
+// scheduled switch has no learned boundary: the digest is then the pre-switch form, and a
+// caller that knows the governing policy should prefer DigestForRewardEpoch.
 func (c *RelayCutover) DigestFromMessage(msg Message) (digest []byte, known bool, err error) {
 	m, err := msg.Parse()
 	if err != nil {

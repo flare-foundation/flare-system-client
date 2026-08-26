@@ -213,8 +213,7 @@ func strString(n int) string {
 	return string(digits)
 }
 
-// finalizationData is what the provider serves for the finalizer alongside the message,
-// as a 0x hex string; it is optional and never part of the payload.
+// finalizationData is served alongside the message for the finalizer, never in the payload.
 func TestFetchData_FinalizationData(t *testing.T) {
 	cases := []struct {
 		name string

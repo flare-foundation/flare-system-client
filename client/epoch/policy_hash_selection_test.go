@@ -30,7 +30,7 @@ const (
 )
 
 // policyHashNode answers manager.relay() with relayAddr and relay.toSigningPolicyHash(epoch)
-// with stored, recording the epoch argument of every hash read. No production seam needed.
+// with stored, recording the epoch argument of every hash read.
 type policyHashNode struct {
 	eth *ethclient.Client
 
@@ -169,11 +169,9 @@ func TestSigningPolicyHashOutcomes(t *testing.T) {
 	})
 }
 
-// The exact truth table of what each Relay stores: the old one folds every epoch, the
-// new one folds below the breaking epoch (it delegates) and binds the chain from it on.
-// Epoch B itself is signed before governance can repoint — the deploy cannot precede B's
-// policy, and the repoint waits out a timelock on top — so B under the old pointer is the
-// sanctioned case, not an anomaly.
+// Truth table of what each Relay stores: the old one folds every epoch, the new one folds
+// below the breaking epoch (it delegates) and binds the chain from it on. Epoch B under the
+// old pointer is sanctioned — the repoint cannot precede B's policy (deploy, then a timelock).
 func TestSigningPolicyHashFollowsTheBreakingEpochAndThePointer(t *testing.T) {
 	policy := testPolicy(t)
 	chainBound := ChainBoundSigningPolicyHash(policy, vectorChainID)
@@ -208,7 +206,7 @@ func TestSigningPolicyHashFollowsTheBreakingEpochAndThePointer(t *testing.T) {
 	}
 }
 
-// The fallback keeps the signature when the table disagrees with the chain, and says so.
+// The fallback keeps the signature when the table disagrees with the chain.
 func TestSigningPolicyHashFallsBackLoudly(t *testing.T) {
 	policy := testPolicy(t)
 	chainBound := ChainBoundSigningPolicyHash(policy, vectorChainID)

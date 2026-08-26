@@ -39,8 +39,8 @@ func VotingRoundTimingFromChain(fsm *system.FlareSystemsManager) (*utils.EpochTi
 	), nil
 }
 
-// Returns the voting round timing, reward epoch properties, the id of the random
-// number protocol and the prolonged-epoch threshold factor from the relay contract.
+// EpochsFromChain returns the voting round timing, reward epoch config, random number
+// protocol id and prolonged-epoch threshold factor from the relay contract.
 func EpochsFromChain(relay *relay.Relay) (*utils.EpochTimingConfig, *utils.RewardEpochConfig, uint8, uint16, error) {
 	sd, err := relay.StateData(nil)
 	if err != nil {

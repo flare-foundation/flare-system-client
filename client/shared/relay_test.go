@@ -27,9 +27,8 @@ func scheduledCutover() *RelayCutover {
 	}
 }
 
-// An unconfigured cutover — and a half-configured one, which config validation
-// rejects before it can get here — must leave every gate closed: a zero breaking
-// epoch would otherwise read as "already switched".
+// Unconfigured, or half-configured (config validation rejects that earlier), must leave
+// every gate closed: a zero breaking epoch would otherwise read as "already switched".
 func TestUnscheduledCutoverNeverSwitches(t *testing.T) {
 	for name, c := range map[string]*RelayCutover{
 		"unconfigured": NewRelayCutover(testChainID, common.Address{}, 0),
@@ -57,8 +56,7 @@ func TestRewardEpochBoundary(t *testing.T) {
 	require.True(t, c.NewRelayFromRewardEpoch(testBreakingEpoch+1))
 }
 
-// Until the breaking epoch's policy is seen the round boundary is unknown, and the
-// submitter must be told so rather than being handed a false "not yet switched".
+// The submitter must be told the boundary is unknown, not handed a false "not yet switched".
 func TestVotingRoundBoundaryIsUnknownUntilObserved(t *testing.T) {
 	c := scheduledCutover()
 
@@ -107,8 +105,7 @@ func TestObserveSigningPolicyAcceptsRoundZero(t *testing.T) {
 	require.True(t, useNew)
 }
 
-// The boundary is fixed on chain once the policy exists; a later disagreeing
-// report must not silently re-date the switch.
+// The boundary is fixed on chain, so a later disagreeing report must not re-date the switch.
 func TestObserveSigningPolicyKeepsTheFirstBoundary(t *testing.T) {
 	c := scheduledCutover()
 	c.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
@@ -127,8 +124,7 @@ func TestObserveSigningPolicyIgnoredWithoutSchedule(t *testing.T) {
 	require.False(t, ok)
 }
 
-// The two gates must name the same instant: the submitter signs by voting round,
-// the finalizer verifies by the policy's reward epoch.
+// Both gates must name the same instant: submitter signs by round, finalizer by reward epoch.
 func TestDigestGatesAgreeAcrossTheBoundary(t *testing.T) {
 	c := scheduledCutover()
 	c.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
@@ -154,8 +150,7 @@ func testMessage(round uint32) Message {
 	return msg
 }
 
-// The digest form follows the round embedded in the signed bytes — the contract's
-// own derivation — not any round label travelling beside them.
+// Digest form follows the round in the signed bytes, as the contract does — not a side label.
 func TestDigestFromMessage(t *testing.T) {
 	c := scheduledCutover()
 	c.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
@@ -175,8 +170,7 @@ func TestDigestFromMessage(t *testing.T) {
 	}
 }
 
-// Unknown boundary falls back to the pre-switch form and says so; an unscheduled
-// cutover is a decided legacy answer.
+// Unknown boundary gives the pre-switch form and says so; unscheduled gives it as decided.
 func TestDigestFromMessageBeforeBoundaryIsKnown(t *testing.T) {
 	msg := testMessage(testBreakingRound + 10)
 

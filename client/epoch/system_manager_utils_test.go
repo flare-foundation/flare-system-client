@@ -19,7 +19,7 @@ func TestChainBoundSigningPolicyHash(t *testing.T) {
 		crypto.Keccak256(shared.ChainIDWord(114), policy),
 		ChainBoundSigningPolicyHash(policy, 114))
 
-	// the chain binding is the point: another source must not produce the same hash
+	// another source chain must not produce the same hash
 	require.NotEqual(t,
 		ChainBoundSigningPolicyHash(policy, 14),
 		ChainBoundSigningPolicyHash(policy, 114))
@@ -28,9 +28,8 @@ func TestChainBoundSigningPolicyHash(t *testing.T) {
 	require.NotEqual(t, SigningPolicyHash(policy), ChainBoundSigningPolicyHash(policy, 114))
 }
 
-// The old Relay's hash folds 32-byte chunks of the zero-padded policy. Hashing must
-// not touch the caller's slice: it is the event's policy bytes, hashed twice while
-// the two schemes are matched against the Relay.
+// The old Relay's hash folds 32-byte chunks of the zero-padded policy; it must not touch
+// the caller's slice — the event's policy bytes get hashed under both schemes.
 func TestSigningPolicyHashDoesNotMutateInput(t *testing.T) {
 	policy := make([]byte, 70, 128) // spare capacity — an append would write into it
 	for i := range policy {

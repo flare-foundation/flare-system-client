@@ -121,23 +121,19 @@ func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) e
 }
 
 var (
-	// secp256k1N is the group order; secp256k1HalfN is the EIP-2 low-s bound, equal
-	// to the literal the Relay compares against (Relay.sol, ERR_BAD_S).
+	// secp256k1N is the group order; secp256k1HalfN is the EIP-2 low-s bound, matching the
+	// Relay's hardcoded literal (Relay.sol, ERR_BAD_S).
 	secp256k1N     = crypto.S256().Params().N
 	secp256k1HalfN = new(big.Int).Rsh(secp256k1N, 1)
 )
 
 // canonicalSignature returns the [V || R || S] signature in the low-s form the Relay
-// demands, and whether it had to be normalized.
-//
-// relay() reverts the whole call when any record has v outside {27,28} or s above half
-// the group order (ERR_BAD_V / ERR_BAD_S, EIP-2), while the previously deployed Relay
-// checked neither. One non-canonical signature counted toward the local threshold would
-// therefore make every finalization of that round revert, on every finalizer.
-//
-// (r, s, v) and (r, n-s, v^1) recover the same signer, so a high-s signature is
-// normalized rather than dropped: dropping it would lose that voter's weight and could
-// put the round below threshold, which is the outcome this guards against.
+// demands, and whether it had to be normalized. relay() reverts the whole call on v outside
+// {27,28} or s above n/2 (ERR_BAD_V / ERR_BAD_S, EIP-2); the previously deployed Relay checked
+// neither, so one such signature counted toward the local threshold reverts that round on
+// every finalizer. (r, s, v) and (r, n-s, v^1) recover the same signer, so high-s is
+// normalized, not dropped — dropping would cost that voter's weight and could put the round
+// below threshold.
 func canonicalSignature(vrs []byte) ([]byte, bool, error) {
 	if len(vrs) != utils.SignatureLength {
 		return nil, false, fmt.Errorf("%w: signature is %d bytes, expected %d",
@@ -170,14 +166,10 @@ func canonicalSignature(vrs []byte) ([]byte, bool, error) {
 	return normalized, true, nil
 }
 
-// AddSigner recovers the signer from the signature over digest and adds its voterIndex
-// and weight to the submitSignaturesPayload, if the signer is in voterSet.
-//
-// digest is shared.MessageDigest, not keccak256(message): passing the latter recovers a
-// stranger and the payload is rejected as an unregistered voter.
-//
-// The signature is canonicalized first, so a signature that reaches the finalization
-// calldata can never be one the Relay rejects outright.
+// AddSigner recovers the signer from the signature over digest and adds its voterIndex and
+// weight, if the signer is in voterSet. digest must be shared.MessageDigest, not
+// keccak256(message): the latter recovers a stranger, rejected as an unregistered voter.
+// Canonicalizing first keeps Relay-rejected signature forms out of the finalization calldata.
 func (pld *submitSignaturesPayload) AddSigner(digest []byte, voterSet *voters.Set) error {
 	signature, normalized, err := canonicalSignature(pld.signature)
 	if err != nil {

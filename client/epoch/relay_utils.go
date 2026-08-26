@@ -86,9 +86,8 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(ctx context.C
 				continue
 			}
 
-			// The epoch being waited on. Only its policy is worth signing, and across
-			// the Relay switch either contract may have emitted it, so it is selected
-			// by reward epoch rather than by position in the merged logs.
+			// Only the anticipated epoch's policy is worth signing; across the switch either
+			// contract may have emitted it, so it is picked by reward epoch, not log position.
 			anticipated := rewardEpochTiming.EpochIndex(time.Now()) + 1
 
 			policyData := r.selectPolicy(logs, anticipated)
@@ -101,10 +100,9 @@ func (r *relayContractClientImpl) SigningPolicyInitializedListener(ctx context.C
 	return out
 }
 
-// selectPolicy returns the policy for the anticipated reward epoch, or the highest
-// one present when it has not been emitted yet (the epoch start can be delayed, so
-// the anticipated index runs ahead of the chain). Every policy seen is offered to
-// the Relay cutover, which is how the switch learns the voting round it starts on.
+// selectPolicy returns the anticipated epoch's policy, else the highest present — a delayed
+// epoch start leaves the anticipated index running ahead of the chain. Every policy seen is
+// offered to the Relay cutover, which is how it learns the voting round the switch starts on.
 func (r *relayContractClientImpl) selectPolicy(logs []database.Log, anticipated int64) *relay.RelaySigningPolicyInitialized {
 	var selected *relay.RelaySigningPolicyInitialized
 

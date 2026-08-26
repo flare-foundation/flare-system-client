@@ -38,15 +38,13 @@ type SubProtocolResponse struct {
 	Status         payload.ResponseStatus `json:"status"`
 	Data           []byte                 `json:"data"`
 	AdditionalData []byte                 `json:"additionalData"`
-	// What the finalizer must append to the round's relay() call, if this protocol
-	// needs anything: the random number and its Merkle proof for the random protocol
-	// on the new Relay. Forwarded to the finalizer, never part of the submitted payload.
+	// FinalizationData is what the finalizer must append to the round's relay() call — the
+	// random number and Merkle proof for the new Relay's random protocol; never in the payload.
 	FinalizationData hexutil.Bytes `json:"finalizationData"`
 }
 
-// subprotocolResponse is the provider's envelope plus the finalization data served
-// alongside the submitSignatures message; data and additionalData keep their lenient
-// string decoding below, finalizationData is a plain "0x…" string.
+// subprotocolResponse is the provider envelope plus finalizationData (strict "0x…"), served
+// with the submitSignatures message; data and additionalData keep their lenient decoding below.
 type subprotocolResponse struct {
 	payload.SubprotocolResponse
 	FinalizationData hexutil.Bytes `json:"finalizationData"`

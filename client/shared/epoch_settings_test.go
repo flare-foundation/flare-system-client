@@ -60,8 +60,7 @@ func relayStateData(t *testing.T, randomNumberProtocolID uint8, thresholdIncreas
 	return r
 }
 
-// Both scalars come off the wire, so a hardcoded value cannot pass for them: the
-// trailer gate and the prolonged-epoch threshold are the Relay's to set.
+// the trailer gate and prolonged-epoch threshold must come from the Relay, not hardcoded
 func TestEpochsFromChainReadsTheRelaysScalars(t *testing.T) {
 	timing, rewardEpoch, protocolID, bips, err := EpochsFromChain(relayStateData(t, 100, 12000))
 	require.NoError(t, err)

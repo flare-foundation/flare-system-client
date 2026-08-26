@@ -35,9 +35,8 @@ func RunAsync(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 
 // Start sets up registrationClient, protocolClient, and finalizerClient, then asynchronously runs all of them and returns their workgroup.
 func Start(ctx context.Context, cancel context.CancelFunc, clientCtx clientContext.ClientContext) *sync.WaitGroup {
-	// one instance for all clients: whichever of them first sees the breaking epoch's
-	// signing policy dates the switch for the others
 	cfg := clientCtx.Config()
+	// shared: whichever client first sees the breaking epoch's policy dates the switch for the rest
 	relayCutover := shared.NewRelayCutover(cfg.Chain.ChainID, cfg.RelayCutover.Address, cfg.RelayCutover.StartingRewardEpoch)
 	if relayCutover.Scheduled() {
 		logger.Infof("Relay switches to %s from reward epoch %d; its start round is read from that epoch's signing policy",

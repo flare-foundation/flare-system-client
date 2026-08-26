@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// clientForThreshold stores one policy for rewardEpochID, so ForVotingRound returns it
-// as the last known one and signingPolicyData takes the prolonged-epoch branch.
+// clientForThreshold stores one policy, so ForVotingRound marks it last and signingPolicyData
+// takes the prolonged-epoch branch.
 func clientForThreshold(t *testing.T, threshold, totalWeight, thresholdIncreaseBIPS uint16) *client {
 	t.Helper()
 
@@ -48,9 +48,8 @@ func TestSigningPolicyDataUsesThePolicyThresholdBeforeTheExpectedEnd(t *testing.
 	require.Equal(t, uint16(32767), threshold)
 }
 
-// Past it, the Relay's own formula: floor(policyThreshold * thresholdIncreaseBIPS / 10000).
-// The replaced 60%-of-total-weight rule is one unit low for every odd total weight, which
-// the contract rejects with NotEnoughWeight because both gates are strict.
+// Past it, the Relay's formula: floor(policyThreshold * thresholdIncreaseBIPS / 10000). The old
+// 60%-of-total-weight rule is one unit low on odd totals — NotEnoughWeight, both gates strict.
 func TestSigningPolicyDataRaisesTheThresholdLikeTheRelay(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -58,7 +57,7 @@ func TestSigningPolicyDataRaisesTheThresholdLikeTheRelay(t *testing.T) {
 		totalWeight uint16
 		bips        uint16
 		want        uint16
-		oldFormula  uint16 // floor(W * 60 / 100), for the record
+		oldFormula  uint16 // floor(W * 60 / 100)
 	}{
 		{"odd total weight, Coston today", 32767, 65533, 12000, 39320, 39319},
 		{"odd total weight, Coston2 today", 32766, 65531, 12000, 39319, 39318},
@@ -82,8 +81,7 @@ func TestSigningPolicyDataRaisesTheThresholdLikeTheRelay(t *testing.T) {
 	}
 }
 
-// The threshold is scaled, never derived from total weight: two policies with the same
-// total weight and different thresholds must not come out equal.
+// The threshold is scaled, never derived from total weight.
 func TestSigningPolicyDataScalesTheThresholdNotTheTotalWeight(t *testing.T) {
 	_, low := clientForThreshold(t, 30000, 65533, 12000).signingPolicyData(250)
 	_, high := clientForThreshold(t, 32767, 65533, 12000).signingPolicyData(250)

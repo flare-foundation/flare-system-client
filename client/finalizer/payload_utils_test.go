@@ -158,8 +158,7 @@ func TestRoundTripWithEncodePayload(t *testing.T) {
 
 	const votingRound int64 = 1234
 
-	// signed data is a 38-byte protocol message for both types — the submitter's
-	// data verifier enforces that before anything is signed
+	// both types sign a 38-byte protocol message — the submitter's data verifier enforces that
 	type0Message, err := encodeMessage(1, uint32(votingRound), false, bytes.Repeat([]byte{0x11}, 32))
 	require.NoError(t, err)
 	type1Message, err := encodeMessage(5, uint32(votingRound), false, bytes.Repeat([]byte{0x22}, 32))
@@ -355,8 +354,7 @@ func TestAddSigner_WrongMessageHashRecoversWrongAddress(t *testing.T) {
 }
 
 func TestAddSigner_RejectsSignatureWithInvalidVByte(t *testing.T) {
-	// V outside {27, 28} is what the Relay rejects with BadV, and canonicalSignature
-	// refuses it before recovery is attempted.
+	// V outside {27, 28} is the Relay's BadV revert; canonicalSignature refuses it pre-recovery.
 	priv, _ := newKeyAndAddress(t)
 	hash := crypto.Keccak256([]byte("msg"))
 	sig := signVRS(t, hash, priv)
@@ -373,13 +371,10 @@ func TestAddSigner_RejectsSignatureWithInvalidVByte(t *testing.T) {
 
 // --- signature canonicality (EIP-2 low-s) -----------------------------------
 //
-// The new Relay reverts the whole relay() call on v outside {27,28} or s above
-// half the group order; the deployed Relay checked neither. A high-s signature
-// counted toward the local threshold would make every finalization of the round
-// revert, so it is normalized at ingestion instead.
+// One non-canonical signature counted toward the threshold reverts every finalization of the
+// round, so canonicalSignature normalizes at ingestion.
 
-// relayHalfOrderHex is the literal the Relay's assembly compares s against
-// (contracts/protocol/implementation/Relay.sol, ERR_BAD_S branch).
+// relayHalfOrderHex is the s literal in contracts/protocol/implementation/Relay.sol, ERR_BAD_S
 const relayHalfOrderHex = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0"
 
 func TestHalfOrderMatchesRelayConstant(t *testing.T) {
@@ -387,8 +382,8 @@ func TestHalfOrderMatchesRelayConstant(t *testing.T) {
 		"the low-s bound must equal the constant the Relay reverts above")
 }
 
-// malleateVRS returns the other valid encoding of the same signature, (r, n-s, v^1).
-// It recovers the same signer and is what a signer that does not normalize s emits.
+// malleateVRS returns the other valid encoding (r, n-s, v^1): same recovered signer, and what
+// a signer that does not normalize s emits.
 func malleateVRS(t *testing.T, vrs []byte) []byte {
 	t.Helper()
 	require.Len(t, vrs, 65)
@@ -467,9 +462,8 @@ func TestCanonicalSignature_RejectsWrongLength(t *testing.T) {
 	}
 }
 
-// A malleated signature must still credit the voter's weight — dropping it would
-// lose that weight and could put the round below threshold — and the signature the
-// payload carries onward must be the canonical one that reaches the calldata.
+// Dropping a malleated signature would lose the voter's weight and could put the round below
+// threshold; the payload must carry the canonical form onward into the calldata.
 func TestAddSigner_NormalizesHighSAndKeepsTheVoter(t *testing.T) {
 	priv, addr := newKeyAndAddress(t)
 	hash := crypto.Keccak256([]byte("any-message"))
@@ -488,8 +482,8 @@ func TestAddSigner_NormalizesHighSAndKeepsTheVoter(t *testing.T) {
 	require.Equal(t, low, pld.signature, "the stored signature must be the low-s form")
 }
 
-// Every signature that reaches the finalization calldata is canonical, so the
-// Relay's BadV/BadS branches are unreachable for a transaction we build.
+// Only canonical signatures reach the finalization calldata, so the Relay's BadV/BadS
+// branches are unreachable for a tx we build.
 func TestPreparedTxInputCarriesOnlyCanonicalSignatures(t *testing.T) {
 	priv, addr := newKeyAndAddress(t)
 	hash := crypto.Keccak256([]byte("msg"))

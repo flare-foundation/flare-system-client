@@ -137,8 +137,7 @@ func TestSubmitter(t *testing.T) {
 		t.Logf("sentTxs: %v", chainClient.sentTxs)
 		require.Len(t, chainClient.sentTxs, 1)
 
-		// the finalization data reaches the finalizer with the message, and only there —
-		// the snapshot below pins that the submitted payload does not carry it
+		// finalizationData reaches the finalizer only via the message; the snapshot pins that
 		msg := <-msgChan
 		require.Equal(t, uint32(epochID), msg.VotingRoundID)
 		require.Equal(t, hexutil.MustDecode(testFinalizationData), msg.FinalizationData)

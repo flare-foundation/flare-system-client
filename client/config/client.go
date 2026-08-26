@@ -169,22 +169,19 @@ func (c *Client) validate() error {
 	return nil
 }
 
-// RelayCutover schedules the switch to the Relay contract that binds the source
-// chain id into the signed digests: the address of that Relay and the first reward
-// epoch whose signing policy it holds. Unset means no switch — the configured relay
-// and the legacy digests stay in use. The voting round the switch takes effect on is
-// not configured: a reward epoch's start can be delayed, so it is learned at runtime
-// from the starting epoch's own signing policy.
+// RelayCutover schedules the switch to the Relay contract that binds the source chain id
+// into the signed digests. Unset means no switch — the configured relay and the legacy
+// digests stay in use. The voting round the switch takes effect on is learned at runtime
+// from the starting epoch's signing policy: a reward epoch's start can be delayed.
 type RelayCutover struct {
 	// The Relay being switched to.
 	Address common.Address `toml:"address" envconfig:"RELAY_CUTOVER_CONTRACT_ADDRESS"`
 
-	// First reward epoch signed for, and finalized on, that Relay.
+	// First reward epoch whose policy the new Relay holds; signed for and finalized there.
 	StartingRewardEpoch int64 `toml:"starting_reward_epoch" envconfig:"RELAY_CUTOVER_STARTING_REWARD_EPOCH"`
 }
 
-// validate rejects a half-scheduled cutover, which would otherwise silently keep the
-// old Relay past the switch.
+// validate rejects a half-scheduled cutover, which silently keeps the old Relay past the switch.
 func (c RelayCutover) validate() error {
 	switch {
 	case c.StartingRewardEpoch < 0:

@@ -111,8 +111,8 @@ func (r *relayContractClient) addressForRewardEpoch(rewardEpochID int64) common.
 	return r.address
 }
 
-// addresses lists the Relays to read events from: both across the cutover, since
-// policies before it are only emitted by the old one and after it by the new one.
+// addresses lists the Relays to read events from — both across the cutover, since the old
+// one emits only the events before it and the new one only those after.
 func (r *relayContractClient) addresses() []common.Address {
 	if !r.relayCutover.Scheduled() {
 		return []common.Address{r.address}
@@ -134,8 +134,8 @@ func (r *relayContractClient) fetchLogs(ctx context.Context, db finalizerDB, top
 	return all, nil
 }
 
-// sortLogs restores chain order across a merge of per-address queries; callers
-// rely on it to take the latest policy and to advance their event range.
+// sortLogs restores chain order across merged per-address queries; callers rely on it to
+// take the latest policy and to advance their event range.
 func sortLogs(logs []database.Log) {
 	slices.SortFunc(logs, func(a, b database.Log) int {
 		if a.BlockNumber != b.BlockNumber {
@@ -199,9 +199,8 @@ func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Conte
 	return out
 }
 
-// SubmitPayloads sends a transaction with input to the Relay contract at address,
-// retrying with the same pre-/post-broadcast and nonce-too-low reconciliation logic
-// as the protocol submitter (see SubmitterBase.submit).
+// SubmitPayloads sends a transaction with input to the Relay at address, with the same
+// pre-/post-broadcast and nonce-too-low reconciliation logic as SubmitterBase.submit.
 func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common.Address, input []byte, dryRun bool, protocolID uint8, votingRoundID uint32) {
 	if len(input) == 0 {
 		logger.Warnf("Relay protocol %d round %d: empty tx input, nothing to send", protocolID, votingRoundID)
@@ -364,17 +363,16 @@ type relayedKey struct {
 	votingRoundID uint32
 }
 
-// relayedSet holds the finalizations seen on chain, per Relay. It is kept split by
-// address: a round relayed only on the old Relay is not relayed for consumers of
-// the new one, so it must still be sent there.
+// relayedSet holds the finalizations seen on chain, per Relay: a round relayed only on
+// the old Relay still has to be sent to the new one.
 type relayedSet map[common.Address]map[relayedKey]bool
 
 func (s relayedSet) has(address common.Address, key relayedKey) bool {
 	return s[address][key]
 }
 
-// ProtocolMessageRelayed returns, per Relay address, the set of (protocolID,
-// votingRoundID) pairs already finalized on chain in the given time range.
+// ProtocolMessageRelayed returns, per Relay, the (protocolID, votingRoundID) pairs
+// already finalized on chain in the given time range.
 func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (relayedSet, error) {
 	result := make(relayedSet)
 	for _, address := range r.addresses() {

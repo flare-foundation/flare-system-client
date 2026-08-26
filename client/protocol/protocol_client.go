@@ -170,13 +170,10 @@ func (c *client) Run(ctx context.Context) error {
 	}
 }
 
-// resolveRelayCutover learns the voting round the Relay switch takes effect on.
-//
-// It is the breaking epoch's startVotingRoundId, which the manager stores in the
-// same transaction that emits that epoch's SigningPolicyInitialized — so this reads
-// back exactly what the event carries, and works on a node that started long after
-// it fired. The call reverts while the epoch is uninitialized, which simply means
-// the switch has not been dated yet. Nothing to do once it is known.
+// resolveRelayCutover learns the voting round the Relay switch takes effect on: the
+// breaking epoch's startVotingRoundId. The manager stores it in the transaction that emits
+// that epoch's SigningPolicyInitialized, so the call returns what the event carries even on
+// a node that started long after it fired. A revert means the epoch is not initialized yet.
 func (c *client) resolveRelayCutover(ctx context.Context) {
 	if !c.relayCutover.Scheduled() {
 		return
@@ -191,8 +188,7 @@ func (c *client) resolveRelayCutover(ctx context.Context) {
 	round, err := c.systemsManager.GetStartVotingRoundId(
 		&bind.CallOpts{Context: callCtx}, big.NewInt(c.relayCutover.BreakingRewardEpoch))
 	if err != nil {
-		// Past the breaking epoch the call should succeed, so a failure now means
-		// signing the old way for rounds that may already need the new Relay.
+		// past the breaking epoch this means signing the old way when the new Relay applies
 		if c.rewardEpochTiming.EpochIndex(time.Now()) >= c.relayCutover.BreakingRewardEpoch {
 			logger.Warnf("Relay cutover: cannot read the start round of reward epoch %d, still signing the old way: %v",
 				c.relayCutover.BreakingRewardEpoch, err)
