@@ -16,9 +16,9 @@ var unknownBoundaryOnce sync.Once
 
 // SignSignaturePayload signs the protocol message for a submitSignatures payload.
 // The digest form follows the voting round in the message bytes — the same bytes the
-// Relay parses — so the signature covers what the contract verifies, whatever round
-// label the payload travels under. An unknown boundary signs the pre-switch way; the
-// round tick re-resolves it before any submitter of that round runs.
+// Relay parses — so the signature covers what the contract verifies; the fetch-time
+// verifier pins that round to the one being submitted. The governing policy is not in scope
+// here, so an unlearned boundary signs the pre-switch way; resolveRelayCutover warns each tick.
 func SignSignaturePayload(cutover *shared.RelayCutover, data []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	digest, known, err := cutover.DigestFromMessage(data)
 	if err != nil {

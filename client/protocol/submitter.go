@@ -426,7 +426,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 				"submitSignatures",
 				s.protocolContext.submitSignaturesAddress.Hex(),
 				s.dataFetchTimeout,
-				SignatureSubmitterDataVerifier,
+				SignatureSubmitterDataVerifier(uint32(round), protocol.ID),
 				time.Second, // TODO make it configurable
 			)
 
@@ -523,7 +523,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round in
 				s.protocolContext.submitSignaturesAddress.Hex(),
 				s.dataFetchRetries,
 				s.dataFetchTimeout,
-				SignatureSubmitterDataVerifier,
+				SignatureSubmitterDataVerifier(uint32(round), protocol.ID),
 			)
 		}
 

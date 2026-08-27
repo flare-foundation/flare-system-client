@@ -85,8 +85,8 @@ func TestSignSignaturePayloadFollowsObservedBoundary(t *testing.T) {
 	}
 }
 
-// Until the breaking epoch's policy is seen the boundary is unknown, so the round cannot be
-// past it — the old digest is correct, and the only one peers accept.
+// An unlearned boundary signs the pre-switch way — the only form derivable here, not
+// necessarily the right one; see TestFinalizerRecoversSignersUnderThePolicyEpochDigest.
 func TestSignSignaturePayloadBeforeBoundaryIsKnown(t *testing.T) {
 	key, signer := signingTestKey(t)
 	cutover := scheduledCutover(t, false)

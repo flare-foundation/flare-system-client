@@ -184,26 +184,39 @@ func (sp *SubProtocol) fetchDataWithRetry(
 		minimalRetryDuration)
 }
 
-func SignatureSubmitterDataVerifier(data *SubProtocolResponse) error {
-	switch data.Status {
-	case payload.Ok:
-	case payload.Retry:
-		return errors.New("retry")
-	case payload.Empty:
-		return nil
-	default:
-		return fmt.Errorf("unknown status: %v", data.Status)
-	}
+// SignatureSubmitterDataVerifier builds a verifier bound to the round and protocol the
+// response was fetched for. The message must name both: the digest form is derived from
+// the round in these bytes, so a message for another round would pick the wrong one, and
+// the payload header would label it with a round the message does not carry.
+func SignatureSubmitterDataVerifier(votingRoundID uint32, protocolID uint8) DataVerifier {
+	return func(data *SubProtocolResponse) error {
+		switch data.Status {
+		case payload.Ok:
+		case payload.Retry:
+			return errors.New("retry")
+		case payload.Empty:
+			return nil
+		default:
+			return fmt.Errorf("unknown status: %v", data.Status)
+		}
 
-	if len(data.Data) != 38 {
-		return fmt.Errorf("data length %d is not 38", len(data.Data))
+		message, err := shared.Message(data.Data).Parse()
+		if err != nil {
+			return err
+		}
+		if message.VotingRoundID != votingRoundID {
+			return fmt.Errorf("message is for voting round %d, fetched for %d", message.VotingRoundID, votingRoundID)
+		}
+		if message.ProtocolID != protocolID {
+			return fmt.Errorf("message is for protocol %d, fetched from %d", message.ProtocolID, protocolID)
+		}
+		// Check if additional data is too long
+		// Length of data without additional data is 104 bytes: 1 (type) + 38 (message) + 65 (signature)
+		if len(data.AdditionalData) > math.MaxUint16-104 {
+			return errors.New("additional data too long")
+		}
+		return nil
 	}
-	// Check if additional data is too long
-	// Length of data without additional data is 104 bytes: 1 (type) + 38 (message) + 65 (signature)
-	if len(data.AdditionalData) > math.MaxUint16-104 {
-		return errors.New("additional data too long")
-	}
-	return nil
 }
 
 func StatusDataVerifier(data *SubProtocolResponse) error {

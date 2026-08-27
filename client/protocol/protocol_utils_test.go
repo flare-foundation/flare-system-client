@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"encoding/binary"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -13,19 +14,63 @@ import (
 )
 
 // SignatureSubmitterDataVerifier carries a real off-by-one boundary
-// (MaxUint16-104) and a hard length-must-be-38 invariant. Both worth pinning.
+// (MaxUint16-104), a hard length-must-be-38 invariant, and the round/protocol
+// binding that pins which digest form the payload is signed under. All worth pinning.
+
+const (
+	testRound    = uint32(1234)
+	testProtocol = uint8(100)
+)
+
+// message builds the 38 bytes: protocolID(1) ‖ votingRoundID(4) ‖ isSecureRandom(1) ‖ merkleRoot(32).
+func message(protocolID uint8, votingRoundID uint32) []byte {
+	msg := make([]byte, 38)
+	msg[0] = protocolID
+	binary.BigEndian.PutUint32(msg[1:5], votingRoundID)
+	return msg
+}
 
 func TestSignatureSubmitterDataVerifier_OkRequiresLength38(t *testing.T) {
 	for _, length := range []int{0, 1, 37, 39, 100} {
 		t.Run("len="+strString(length), func(t *testing.T) {
-			err := SignatureSubmitterDataVerifier(&SubProtocolResponse{
+			err := SignatureSubmitterDataVerifier(testRound, testProtocol)(&SubProtocolResponse{
 				Status: payload.Ok,
 				Data:   make([]byte, length),
 			})
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "is not 38")
+			require.Contains(t, err.Error(), "expected 38")
 		})
 	}
+}
+
+func TestSignatureSubmitterDataVerifier_BindsRoundAndProtocol(t *testing.T) {
+	// The digest form follows the round in these bytes, so a message for another
+	// round must never reach the signer.
+	t.Run("accepts the fetched round and protocol", func(t *testing.T) {
+		err := SignatureSubmitterDataVerifier(testRound, testProtocol)(&SubProtocolResponse{
+			Status: payload.Ok,
+			Data:   message(testProtocol, testRound),
+		})
+		require.NoError(t, err)
+	})
+	for _, round := range []uint32{testRound - 1, testRound + 1, 0} {
+		t.Run("rejects round "+strString(int(round)), func(t *testing.T) {
+			err := SignatureSubmitterDataVerifier(testRound, testProtocol)(&SubProtocolResponse{
+				Status: payload.Ok,
+				Data:   message(testProtocol, round),
+			})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "voting round")
+		})
+	}
+	t.Run("rejects another protocol", func(t *testing.T) {
+		err := SignatureSubmitterDataVerifier(testRound, testProtocol)(&SubProtocolResponse{
+			Status: payload.Ok,
+			Data:   message(testProtocol+1, testRound),
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "protocol")
+	})
 }
 
 func TestSignatureSubmitterDataVerifier_AdditionalDataBoundary(t *testing.T) {
@@ -34,17 +79,17 @@ func TestSignatureSubmitterDataVerifier_AdditionalDataBoundary(t *testing.T) {
 	maxAllowed := math.MaxUint16 - 104
 
 	t.Run("accepts exactly MaxUint16-104", func(t *testing.T) {
-		err := SignatureSubmitterDataVerifier(&SubProtocolResponse{
+		err := SignatureSubmitterDataVerifier(testRound, testProtocol)(&SubProtocolResponse{
 			Status:         payload.Ok,
-			Data:           make([]byte, 38),
+			Data:           message(testProtocol, testRound),
 			AdditionalData: make([]byte, maxAllowed),
 		})
 		require.NoError(t, err)
 	})
 	t.Run("rejects one byte over", func(t *testing.T) {
-		err := SignatureSubmitterDataVerifier(&SubProtocolResponse{
+		err := SignatureSubmitterDataVerifier(testRound, testProtocol)(&SubProtocolResponse{
 			Status:         payload.Ok,
-			Data:           make([]byte, 38),
+			Data:           message(testProtocol, testRound),
 			AdditionalData: make([]byte, maxAllowed+1),
 		})
 		require.Error(t, err)
@@ -55,7 +100,7 @@ func TestSignatureSubmitterDataVerifier_AdditionalDataBoundary(t *testing.T) {
 func TestSignatureSubmitterDataVerifier_NonOkStatusSkipsLengthCheck(t *testing.T) {
 	// Empty status must NOT inspect Data — pins the early-return contract.
 	// (Wrong-length Data with Empty must be a no-op.)
-	err := SignatureSubmitterDataVerifier(&SubProtocolResponse{
+	err := SignatureSubmitterDataVerifier(testRound, testProtocol)(&SubProtocolResponse{
 		Status: payload.Empty,
 		Data:   []byte{0x01},
 	})

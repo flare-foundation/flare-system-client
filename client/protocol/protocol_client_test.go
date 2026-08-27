@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ func TestSubmitter(t *testing.T) {
 
 	chainClient := testChainClient{}
 
-	subProtocol := &SubProtocol{ID: 100, BaseURL: apiEndpointURL, Type: 0}
+	subProtocol := &SubProtocol{ID: testProtocol, BaseURL: apiEndpointURL, Type: 0}
 
 	privKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)
@@ -158,7 +159,7 @@ func TestSubmitter(t *testing.T) {
 			maxCycles:      1,
 			cycleDuration:  time.Second,
 		}
-		subProtocolType1 := &SubProtocol{ID: 100, BaseURL: apiEndpointURL, Type: 1}
+		subProtocolType1 := &SubProtocol{ID: testProtocol, BaseURL: apiEndpointURL, Type: 1}
 		submitter.subProtocols = []*SubProtocol{subProtocolType1}
 
 		epochID := int64(1)
@@ -299,13 +300,24 @@ func (ep *testAPIEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	messageHex := "0x" + strings.Repeat("ff", 38)
+	// a submitSignatures message must name the round and protocol it was fetched for
+	if parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/"); parts[0] == "submitSignatures" {
+		round, err := strconv.ParseUint(parts[1], 10, 32)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		messageHex = hexutil.Encode(message(testProtocol, uint32(round)))
+	}
+
 	rsp := struct {
 		payload.SubprotocolResponse
 		FinalizationData string `json:"finalizationData"`
 	}{
 		SubprotocolResponse: payload.SubprotocolResponse{
 			Status:         payload.Ok,
-			Data:           "0x" + strings.Repeat("ff", 38),
+			Data:           messageHex,
 			AdditionalData: "0x1234",
 		},
 		FinalizationData: testFinalizationData,
