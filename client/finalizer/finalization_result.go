@@ -95,6 +95,9 @@ func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 		if len(fr.finalizationData)%common.HashLength != 0 {
 			return nil, fmt.Errorf("finalization data is %d bytes, not a multiple of %d", len(fr.finalizationData), common.HashLength)
 		}
+		if len(fr.finalizationData) > maxFinalizationDataLength {
+			return nil, fmt.Errorf("finalization data is %d bytes, over the %d cap", len(fr.finalizationData), maxFinalizationDataLength)
+		}
 		buffer.Write(fr.finalizationData)
 	}
 

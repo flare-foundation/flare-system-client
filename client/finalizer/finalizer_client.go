@@ -26,6 +26,9 @@ const (
 
 	// Relay.sol's THRESHOLD_BIPS, the divisor of thresholdIncreaseBIPS
 	relayThresholdBIPS = 10000
+
+	// randomNumber ‖ proof, capped at depth 32 (2³² leaves) — the Relay sets no bound
+	maxFinalizationDataLength = 33 * common.HashLength
 )
 
 // client manages finalization tasks:
@@ -278,6 +281,11 @@ func (c *client) finalizationDataToStore(m *shared.ProtocolMessage, sp *policy.S
 	if len(m.FinalizationData) == 0 || len(m.FinalizationData)%common.HashLength != 0 {
 		logger.Errorf("Protocol %d served %d bytes of finalization data with its message for voting round %d, which cannot be finalized without the random number and whole Merkle proof nodes",
 			m.ProtocolID, len(m.FinalizationData), m.VotingRoundID)
+		return nil
+	}
+	if len(m.FinalizationData) > maxFinalizationDataLength {
+		logger.Errorf("Protocol %d served %d bytes of finalization data with its message for voting round %d, more than the %d a random number and Merkle proof take",
+			m.ProtocolID, len(m.FinalizationData), m.VotingRoundID, maxFinalizationDataLength)
 		return nil
 	}
 	return m.FinalizationData

@@ -62,6 +62,8 @@ func TestRandomProtocolConfigured(t *testing.T) {
 // and only in the shape relay() reads it: whole 32-byte words.
 func TestFinalizationDataToStore(t *testing.T) {
 	full := words(randomValue, proofNodeA)
+	atCap := make([]byte, maxFinalizationDataLength)
+	overCap := make([]byte, maxFinalizationDataLength+common.HashLength)
 	policyAt := func(epoch int64) *policy.SigningPolicy { return &policy.SigningPolicy{RewardEpochID: epoch} }
 
 	cases := []struct {
@@ -75,6 +77,8 @@ func TestFinalizationDataToStore(t *testing.T) {
 		{"a single word is a single-leaf tree", randomProtocolID, testBreakingEpoch, randomValue.Bytes(), randomValue.Bytes()},
 		{"missing data is reported, not stored", randomProtocolID, testBreakingEpoch, nil, nil},
 		{"a truncated word is not stored", randomProtocolID, testBreakingEpoch, full[:len(full)-1], nil},
+		{"exactly the cap is kept", randomProtocolID, testBreakingEpoch, atCap, atCap},
+		{"one word over the cap is not stored", randomProtocolID, testBreakingEpoch, overCap, nil},
 		{"ignored before the breaking epoch", randomProtocolID, testBreakingEpoch - 1, full, nil},
 		{"ignored for another protocol", 200, testBreakingEpoch, full, nil},
 	}
@@ -285,4 +289,14 @@ func TestPrepareFinalizationTxInputAppendsTheData(t *testing.T) {
 	broken.finalizationData = data[:len(data)-1]
 	_, err = broken.PrepareFinalizationTxInput()
 	require.ErrorContains(t, err, "not a multiple of")
+
+	atCap := withData
+	atCap.finalizationData = make([]byte, maxFinalizationDataLength)
+	_, err = atCap.PrepareFinalizationTxInput()
+	require.NoError(t, err)
+
+	oversized := withData
+	oversized.finalizationData = make([]byte, maxFinalizationDataLength+common.HashLength)
+	_, err = oversized.PrepareFinalizationTxInput()
+	require.ErrorContains(t, err, "over the")
 }
