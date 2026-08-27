@@ -26,10 +26,13 @@ const (
 )
 
 // nonFatalRelayErrors are relay revert reasons that mean the finalization is
-// already done on chain, so our tx failing that way is a success. "nonce too
-// low" is handled separately (chain.IsNonceTooLow) via hash reconciliation.
+// already done on chain, so our tx failing that way is a success. Both relays
+// are matched: only the old one can emit the string, only the new one the custom
+// error, so the round's contract picks itself. "nonce too low" is handled
+// separately (chain.IsNonceTooLow) via hash reconciliation.
 var nonFatalRelayErrors = []string{
-	"Already relayed",
+	"Already relayed",  // old Relay
+	"AlreadyRelayed()", // new Relay
 }
 
 type relayContractClient struct {

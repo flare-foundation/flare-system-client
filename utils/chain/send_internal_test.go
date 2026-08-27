@@ -90,6 +90,14 @@ func TestErrorReasonRecoversRevert(t *testing.T) {
 		require.Equal(t, reason, got)
 	})
 
+	t.Run("known custom-error revert decodes to its signature", func(t *testing.T) {
+		got, err := errorReason(ctx, stubCaller{
+			err: stubDataError{msg: "execution reverted", data: "0xd0ebeb4b"},
+		}, from, tx, nil)
+		require.NoError(t, err)
+		require.Equal(t, "AlreadyRelayed()", got)
+	})
+
 	t.Run("undecodable custom-error revert is deterministic", func(t *testing.T) {
 		custom := []byte{0xde, 0xad, 0xbe, 0xef}
 		_, err := errorReason(ctx, stubCaller{

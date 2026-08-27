@@ -153,6 +153,35 @@ func TestRelayAlreadyRelayedIsNonFatal(t *testing.T) {
 	require.Len(t, cc.sentNonces, 1) // no retry, treated as success
 }
 
+// The new Relay reverts with a bare custom-error selector, which chain decodes to
+// its signature. Both relays' reasons must stay non-fatal: the old one still serves
+// every reward epoch before the cutover.
+func TestRelayAlreadyRelayedReasons(t *testing.T) {
+	for _, reason := range []string{"Already relayed", "AlreadyRelayed()"} {
+		t.Run(reason+" on the current attempt", func(t *testing.T) {
+			cc := &scriptedRelayClient{
+				nonces:  []uint64{10},
+				results: []chain.SendResult{{Err: errors.New("preparing tx: dry run: execution reverted: " + reason)}},
+			}
+			r := testRelayClient(t, cc)
+
+			r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
+			require.Len(t, cc.sentNonces, 1) // no retry, treated as success
+		})
+
+		t.Run(reason+" reconciles as accepted", func(t *testing.T) {
+			cc := &scriptedRelayClient{
+				receipts: map[common.Hash]*types.Receipt{relayHash0: {Status: types.ReceiptStatusFailed}},
+				reverts:  map[common.Hash]string{relayHash0: reason},
+			}
+
+			_, acc := chain.AnyAccepted(context.Background(), cc, common.Address{},
+				[]common.Hash{relayHash0}, nonFatalRelayErrors, time.Second)
+			require.Equal(t, chain.Accepted, acc)
+		})
+	}
+}
+
 // pins the per-attempt ctx cap — without it one slow attempt eats later attempts' slices
 func TestRelaySendAttemptsAreDeadlineScoped(t *testing.T) {
 	failing := func() *scriptedRelayClient {
