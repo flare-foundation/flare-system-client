@@ -41,6 +41,8 @@ type client struct {
 	registry voterRegistry
 
 	relayCutover *shared.RelayCutover
+	// the wait for the breaking epoch's policy is logged once, not once per round
+	cutoverPendingLogged bool
 
 	identityAddress common.Address
 }
@@ -174,11 +176,17 @@ func (c *client) Run(ctx context.Context) error {
 // breaking epoch's startVotingRoundId. The manager stores it in the transaction that emits
 // that epoch's SigningPolicyInitialized, so the call returns what the event carries even on
 // a node that started long after it fired. A revert means the epoch is not initialized yet.
+// The policy is initialized during the epoch before the breaking one, so asking earlier only
+// reverts — a delayed reward epoch moves the nominal index ahead of the chain, never behind.
 func (c *client) resolveRelayCutover(ctx context.Context) {
 	if !c.relayCutover.Scheduled() {
 		return
 	}
 	if _, known := c.relayCutover.BreakingVotingRound(); known {
+		return
+	}
+	currentRewardEpoch := c.rewardEpochTiming.EpochIndex(time.Now())
+	if currentRewardEpoch < c.relayCutover.BreakingRewardEpoch-1 {
 		return
 	}
 
@@ -189,10 +197,11 @@ func (c *client) resolveRelayCutover(ctx context.Context) {
 		&bind.CallOpts{Context: callCtx}, big.NewInt(c.relayCutover.BreakingRewardEpoch))
 	if err != nil {
 		// past the breaking epoch this means signing the old way when the new Relay applies
-		if c.rewardEpochTiming.EpochIndex(time.Now()) >= c.relayCutover.BreakingRewardEpoch {
+		if currentRewardEpoch >= c.relayCutover.BreakingRewardEpoch {
 			logger.Warnf("Relay cutover: cannot read the start round of reward epoch %d, still signing the old way: %v",
 				c.relayCutover.BreakingRewardEpoch, err)
-		} else {
+		} else if !c.cutoverPendingLogged {
+			c.cutoverPendingLogged = true
 			logger.Debugf("Relay cutover: reward epoch %d not initialized yet: %v", c.relayCutover.BreakingRewardEpoch, err)
 		}
 		return

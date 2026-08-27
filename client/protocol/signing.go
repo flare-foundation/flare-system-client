@@ -3,6 +3,7 @@ package protocol
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"sync"
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
 
@@ -10,6 +11,8 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
+
+var unknownBoundaryOnce sync.Once
 
 // SignSignaturePayload signs the protocol message for a submitSignatures payload.
 // The digest form follows the voting round in the message bytes — the same bytes the
@@ -22,8 +25,11 @@ func SignSignaturePayload(cutover *shared.RelayCutover, data []byte, privateKey 
 		return nil, fmt.Errorf("deriving the message digest: %w", err)
 	}
 	if !known {
-		logger.Debugf("Relay cutover: reward epoch %d has no known start round yet, signing the old way",
-			cutover.BreakingRewardEpoch)
+		// every payload signs the old way until the boundary is learned — say it once
+		unknownBoundaryOnce.Do(func() {
+			logger.Debugf("Relay cutover: reward epoch %d has no known start round yet, signing the old way",
+				cutover.BreakingRewardEpoch)
+		})
 	}
 
 	signature, err := crypto.Sign(digest, privateKey)
