@@ -140,19 +140,6 @@ var (
 	relayHash1 = common.HexToHash("0x12")
 )
 
-// A relay tx reverting with "Already relayed" on the current attempt is a
-// non-fatal success (someone else finalized the round).
-func TestRelayAlreadyRelayedIsNonFatal(t *testing.T) {
-	cc := &scriptedRelayClient{
-		nonces:  []uint64{10},
-		results: []chain.SendResult{{Broadcast: false, Err: errors.New("execution reverted: Already relayed")}},
-	}
-	r := testRelayClient(t, cc)
-
-	r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
-	require.Len(t, cc.sentNonces, 1) // no retry, treated as success
-}
-
 // The new Relay reverts with a bare custom-error selector, which chain decodes to
 // its signature. Both relays' reasons must stay non-fatal: the old one still serves
 // every reward epoch before the cutover.
@@ -167,17 +154,6 @@ func TestRelayAlreadyRelayedReasons(t *testing.T) {
 
 			r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
 			require.Len(t, cc.sentNonces, 1) // no retry, treated as success
-		})
-
-		t.Run(reason+" reconciles as accepted", func(t *testing.T) {
-			cc := &scriptedRelayClient{
-				receipts: map[common.Hash]*types.Receipt{relayHash0: {Status: types.ReceiptStatusFailed}},
-				reverts:  map[common.Hash]string{relayHash0: reason},
-			}
-
-			_, acc := chain.AnyAccepted(context.Background(), cc, common.Address{},
-				[]common.Hash{relayHash0}, nonFatalRelayErrors, time.Second)
-			require.Equal(t, chain.Accepted, acc)
 		})
 	}
 }
@@ -221,22 +197,26 @@ func TestRelaySendAttemptsAreDeadlineScoped(t *testing.T) {
 	})
 }
 
-// A prior broadcast mined but reverted with the allowed "Already relayed" reason
-// must reconcile a subsequent "nonce too low" as success (no duplicate).
+// A prior broadcast mined but reverted with an allowed reason — either relay's
+// spelling — must reconcile a subsequent "nonce too low" as success (no duplicate).
 func TestRelayReconcilesMinedRevertedAllowed(t *testing.T) {
-	cc := &scriptedRelayClient{
-		nonces: []uint64{10},
-		results: []chain.SendResult{
-			{Hash: relayHash0, Broadcast: true, Err: context.DeadlineExceeded}, // post-broadcast timeout
-			{Hash: relayHash1, Broadcast: false, Err: errors.New("nonce too low")},
-		},
-		receipts: map[common.Hash]*types.Receipt{relayHash0: {Status: types.ReceiptStatusFailed}},
-		reverts:  map[common.Hash]string{relayHash0: "Already relayed"},
-	}
-	r := testRelayClient(t, cc)
+	for _, reason := range []string{"Already relayed", "AlreadyRelayed()"} {
+		t.Run(reason, func(t *testing.T) {
+			cc := &scriptedRelayClient{
+				nonces: []uint64{10},
+				results: []chain.SendResult{
+					{Hash: relayHash0, Broadcast: true, Err: context.DeadlineExceeded}, // post-broadcast timeout
+					{Hash: relayHash1, Broadcast: false, Err: errors.New("nonce too low")},
+				},
+				receipts: map[common.Hash]*types.Receipt{relayHash0: {Status: types.ReceiptStatusFailed}},
+				reverts:  map[common.Hash]string{relayHash0: reason},
+			}
+			r := testRelayClient(t, cc)
 
-	r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
-	require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled, nonce not bumped
+			r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
+			require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled, nonce not bumped
+		})
+	}
 }
 
 // A mined-but-reverted relay tx with a fatal (non-"Already relayed") reason is

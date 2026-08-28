@@ -90,7 +90,7 @@ func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 
 	buffer.Write(encodedSignatures)
 
-	// the Relay rejects finalization data that is not a whole number of 32-byte words
+	// relay() rejects partial words; the cap is ours
 	if len(fr.finalizationData) > 0 {
 		if len(fr.finalizationData)%common.HashLength != 0 {
 			return nil, fmt.Errorf("finalization data is %d bytes, not a multiple of %d", len(fr.finalizationData), common.HashLength)

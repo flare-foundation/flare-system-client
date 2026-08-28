@@ -267,7 +267,7 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 
 // finalizationDataToStore returns what relay() needs appended: the random number and Merkle proof
 // for the random protocol on the new Relay, nothing elsewhere. Their meaning is the Relay's to
-// check; only word alignment is checked, on arrival, so a bad provider is flagged before a send.
+// check; only the shape is — non-empty, word-aligned, capped — so a bad provider is flagged before a send.
 func (c *client) finalizationDataToStore(m *shared.ProtocolMessage, sp *policy.SigningPolicy) []byte {
 	expected := m.ProtocolID == c.finalizerContext.randomNumberProtocolID &&
 		c.relayCutover.NewRelayFromRewardEpoch(sp.RewardEpochID)

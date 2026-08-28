@@ -461,12 +461,7 @@ func getGasLimit(ctx context.Context, gasConfig *config.Gas, client *ethclient.C
 	var gasLimit uint64
 	if gasConfig.GasLimit == 0 {
 		estCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-		estimatedGas, err := client.EstimateGas(estCtx, ethereum.CallMsg{
-			From:  fromAddress,
-			To:    &toAddress,
-			Value: value,
-			Data:  data,
-		})
+		estimatedGas, err := estimateGas(estCtx, client, fromAddress, toAddress, value, data)
 		cancelFunc()
 		if err != nil {
 			// estimation usually fails because the call would revert: the tx still sends and burns the nonce
