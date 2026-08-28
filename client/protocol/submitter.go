@@ -101,7 +101,7 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 
 		switch {
 		case res.Err == nil:
-			return res.Hash.Hex(), nil // mined successfully
+			return "confirmed " + res.Hash.Hex(), nil
 		case chain.IsNonceTooLow(res.Err):
 			// Nonce is consumed by some mined tx. If it was one of ours the payload
 			// is submitted; if we cannot tell, do NOT resend (would duplicate);
@@ -111,22 +111,18 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 			h, acc := chain.AnyAccepted(ctx, s.chainClient, from, broadcastHashes, nil, time.Second)
 			switch acc {
 			case chain.Accepted:
-				logger.Infof("%s: reconciled, earlier broadcast %s mined successfully; nonce too low is non-fatal", p, h.Hex())
-				return h.Hex(), nil
+				return fmt.Sprintf("reconciled, earlier broadcast %s mined successfully (nonce too low is non-fatal)", h.Hex()), nil
 			case chain.Reverted:
 				// the protocol obliges us to keep submitting, so a revert retries like a consumed nonce
-				logger.Warnf("%s: own tx %s mined but reverted; resending at a refreshed nonce", p, h.Hex())
-				nonce = s.refreshNonce(ctx, p, nonce)
+				nonce = s.refreshNonce(ctx, p, fmt.Sprintf("own tx %s mined but reverted", h.Hex()), nonce)
 				return "", res.Err
 			case chain.Undetermined:
 				// Outcome unknown: refresh the nonce and resend (duplicate submits are idempotent).
-				logger.Warnf("%s: rejected as nonce too low, fate of own broadcast(s) %s unresolved; resending at a refreshed nonce",
-					p, chain.HashList(broadcastHashes))
-				nonce = s.refreshNonce(ctx, p, nonce)
+				nonce = s.refreshNonce(ctx, p,
+					fmt.Sprintf("rejected as nonce too low, fate of own broadcast(s) %s unresolved", chain.HashList(broadcastHashes)), nonce)
 				return "", res.Err
 			default: // NonceConsumed
-				logger.Warnf("%s: nonce consumed by another tx; resending at a refreshed nonce", p)
-				nonce = s.refreshNonce(ctx, p, nonce)
+				nonce = s.refreshNonce(ctx, p, "nonce consumed by another tx", nonce)
 				return "", res.Err
 			}
 		case res.Broadcast && chain.IsTimeout(res.Err):
@@ -136,13 +132,13 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 				p, res.Hash.Hex(), s.submitTimeout)
 			return "", res.Err
 		default:
+			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			// Not confirmed. If we have already broadcast a tx it is outstanding at
 			// this nonce, so keep it (a retry replaces it); only refresh the nonce
 			// when nothing has been broadcast yet.
 			if len(broadcastHashes) == 0 {
-				nonce = s.refreshNonce(ctx, p, nonce)
+				nonce = s.refreshNonce(ctx, p, "nothing broadcast at this nonce", nonce)
 			}
-			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			return "", res.Err
 		}
 	}, s.submitRetries, s.retryDelay)
@@ -150,7 +146,9 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 	elapsed := time.Since(start).Round(time.Millisecond)
 	switch {
 	case sendResult.Success:
-		logger.Infof("Submitter %s round %d: submitted tx %s in %d attempt(s), %s", s.name, round, sendResult.Value, attempts, elapsed)
+		// nonce is the terminal attempt's — no terminal branch refreshes it
+		logger.Infof("Submitter %s round %d: finished in %d attempt(s), %s, nonce %d, outcome: %s",
+			s.name, round, attempts, elapsed, nonce, sendResult.Value)
 	case len(broadcastHashes) > 0:
 		// an outstanding broadcast can still mine: not a confirmed failure
 		logger.Warnf("Submitter %s round %d: outcome unknown after %d attempt(s), %s; broadcast tx(s) %s may be on chain: %s",
@@ -166,20 +164,22 @@ func (s *SubmitterBase) sendPrefix(round int64, attempt int, nonce uint64) strin
 }
 
 // refreshNonce best-effort re-fetches the account nonce, keeping current on error.
-// Nonce reads the latest mined nonce, so an accepted-but-unmined tx (or a lagging
-// backend) reads back the rejected nonce — hence the log on an unchanged value.
-func (s *SubmitterBase) refreshNonce(ctx context.Context, prefix string, current uint64) uint64 {
+// It logs reason (why the resend happens) together with the outcome, so a refresh
+// costs one line. Nonce reads the latest mined nonce, so an accepted-but-unmined tx
+// (or a lagging backend) reads back the rejected nonce — hence the unchanged case.
+func (s *SubmitterBase) refreshNonce(ctx context.Context, prefix, reason string, current uint64) uint64 {
 	nonce, err := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
-	if err != nil {
-		logger.Warnf("%s: nonce refresh failed, keeping %d: %v", prefix, current, err)
+	switch {
+	case err != nil:
+		logger.Warnf("%s: %s; nonce refresh failed, resending at %d: %v", prefix, reason, current, err)
 		return current
+	case nonce == current:
+		logger.Warnf("%s: %s; nonce refresh returned %d unchanged, resending at it", prefix, reason, current)
+		return current
+	default:
+		logger.Warnf("%s: %s; resending at refreshed nonce %d -> %d", prefix, reason, current, nonce)
+		return nonce
 	}
-	if nonce == current {
-		logger.Warnf("%s: nonce refresh returned %d unchanged", prefix, current)
-	} else {
-		logger.Infof("%s: nonce refreshed %d -> %d", prefix, current, nonce)
-	}
-	return nonce
 }
 
 func newSubmitter(

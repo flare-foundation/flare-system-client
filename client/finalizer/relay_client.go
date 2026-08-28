@@ -272,8 +272,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common
 		case res.Err == nil:
 			return "confirmed " + res.Hash.Hex(), nil
 		case chain.MatchesError(res.Err, nonFatalRelayErrors):
-			logger.Infof("%s: non-fatal error, the round is already relayed: %v", p, res.Err)
-			return "already relayed (non-fatal error)", nil
+			return fmt.Sprintf("already relayed (non-fatal): %v", res.Err), nil
 		case res.Mined:
 			// Mined-reverted is deterministic ("Already relayed" handled above); a resend can't help.
 			logger.Warnf("%s: tx %s mined but reverted, not retrying: %v", p, res.Hash.Hex(), res.Err)
@@ -282,8 +281,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common
 			h, acc := chain.AnyAccepted(ctx, r.chainClient, r.senderAddress, broadcastHashes, nonFatalRelayErrors, chain.ReconcileLookupTimeout)
 			switch acc {
 			case chain.Accepted:
-				logger.Infof("%s: reconciled, earlier broadcast %s accepted; nonce too low is non-fatal", p, h.Hex())
-				return "reconciled " + h.Hex(), nil
+				return fmt.Sprintf("reconciled, earlier broadcast %s accepted (nonce too low is non-fatal)", h.Hex()), nil
 			case chain.Reverted:
 				// Our prior broadcast mined but reverted — same terminal handling as
 				// a direct mined-revert (deterministic; a resend can't help).
@@ -292,13 +290,11 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common
 			case chain.Undetermined:
 				// Outcome unknown: refresh the nonce and resend (a duplicate reverts
 				// non-fatally with "Already relayed").
-				logger.Warnf("%s: rejected as nonce too low, fate of own broadcast(s) %s unresolved; resending at a refreshed nonce",
-					p, chain.HashList(broadcastHashes))
-				nonce = r.refreshNonce(ctx, p, nonce)
+				nonce = r.refreshNonce(ctx, p,
+					fmt.Sprintf("rejected as nonce too low, fate of own broadcast(s) %s unresolved", chain.HashList(broadcastHashes)), nonce)
 				return "", res.Err
 			default: // NonceConsumed
-				logger.Warnf("%s: nonce consumed by another tx; resending at a refreshed nonce", p)
-				nonce = r.refreshNonce(ctx, p, nonce)
+				nonce = r.refreshNonce(ctx, p, "nonce consumed by another tx", nonce)
 				return "", res.Err
 			}
 		case res.Broadcast && chain.IsTimeout(res.Err):
@@ -307,12 +303,12 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common
 				p, res.Hash.Hex(), perAttempt)
 			return "", res.Err
 		default:
+			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			// Keep the nonce if a tx is already outstanding at it (retry replaces);
 			// only refresh when nothing has been broadcast yet.
 			if len(broadcastHashes) == 0 {
-				nonce = r.refreshNonce(ctx, p, nonce)
+				nonce = r.refreshNonce(ctx, p, "nothing broadcast at this nonce", nonce)
 			}
-			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			return "", res.Err
 		}
 	}, shared.MaxTxSendRetries, r.retryDelay)
@@ -320,8 +316,9 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common
 	elapsed := time.Since(start).Round(time.Millisecond)
 	switch {
 	case sendResult.Success:
-		logger.Infof("Relay protocol %d round %d: finished in %d attempt(s), %s, outcome: %s",
-			protocolID, votingRoundID, attempts, elapsed, sendResult.Value)
+		// nonce is the terminal attempt's — no terminal branch refreshes it
+		logger.Infof("Relay protocol %d round %d: finished in %d attempt(s), %s, nonce %d, outcome: %s",
+			protocolID, votingRoundID, attempts, elapsed, nonce, sendResult.Value)
 	case len(broadcastHashes) > 0:
 		// an outstanding broadcast can still mine: not a confirmed failure
 		logger.Warnf("Relay protocol %d round %d: outcome unknown after %d attempt(s), %s; broadcast tx(s) %s may be on chain: %v",
@@ -338,20 +335,22 @@ func relaySendPrefix(protocolID uint8, votingRoundID uint32, attempt int, nonce 
 }
 
 // refreshNonce best-effort re-fetches the sender nonce, keeping current on error.
-// Nonce reads the latest mined nonce, so an accepted-but-unmined tx (or a lagging
-// backend) reads back the rejected nonce — hence the log on an unchanged value.
-func (r *relayContractClient) refreshNonce(ctx context.Context, prefix string, current uint64) uint64 {
+// It logs reason (why the resend happens) together with the outcome, so a refresh
+// costs one line. Nonce reads the latest mined nonce, so an accepted-but-unmined tx
+// (or a lagging backend) reads back the rejected nonce — hence the unchanged case.
+func (r *relayContractClient) refreshNonce(ctx context.Context, prefix, reason string, current uint64) uint64 {
 	nonce, err := r.chainClient.Nonce(ctx, r.privateKey, time.Second)
-	if err != nil {
-		logger.Warnf("%s: nonce refresh failed, keeping %d: %v", prefix, current, err)
+	switch {
+	case err != nil:
+		logger.Warnf("%s: %s; nonce refresh failed, resending at %d: %v", prefix, reason, current, err)
 		return current
+	case nonce == current:
+		logger.Warnf("%s: %s; nonce refresh returned %d unchanged, resending at it", prefix, reason, current)
+		return current
+	default:
+		logger.Warnf("%s: %s; resending at refreshed nonce %d -> %d", prefix, reason, current, nonce)
+		return nonce
 	}
-	if nonce == current {
-		logger.Warnf("%s: nonce refresh returned %d unchanged", prefix, current)
-	} else {
-		logger.Infof("%s: nonce refreshed %d -> %d", prefix, current, nonce)
-	}
-	return nonce
 }
 
 // relayedKey is the lookup key for ProtocolMessageRelayed events.
