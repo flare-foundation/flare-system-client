@@ -177,7 +177,6 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 	if err != nil {
 		return err
 	}
-	logger.Infof("New signing policy sent for epoch %v", rewardEpochId)
 	return nil
 }
 
@@ -461,7 +460,6 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Contex
 	if err != nil {
 		return err
 	}
-	logger.Infof("Uptime vote sent for epoch %v", rewardEpochId)
 	return nil
 }
 
@@ -534,7 +532,6 @@ func (s *systemsManagerContractClientImpl) SignRewards(ctx context.Context, epoc
 }
 
 func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
-	logger.Infof("Signing rewards for epoch %v, hash: %s", epochId, rewardHash.Hex())
 	packed := encodeRewardsData(epochId, s.chainID, rewardHash, weightClaims)
 
 	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(packed)), s.signerPrivateKey)
@@ -601,8 +598,6 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, 
 	if err != nil {
 		return err
 	}
-	logger.Infof("Rewards signed for epoch %v", epochId)
-
 	return nil
 }
 
