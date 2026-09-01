@@ -146,7 +146,6 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 	elapsed := time.Since(start).Round(time.Millisecond)
 	switch {
 	case sendResult.Success:
-		// nonce is the terminal attempt's — no terminal branch refreshes it
 		logger.Infof("Submitter %s round %d: finished in %d attempt(s), %s, nonce %d, outcome: %s",
 			s.name, round, attempts, elapsed, nonce, sendResult.Value)
 	case len(broadcastHashes) > 0:

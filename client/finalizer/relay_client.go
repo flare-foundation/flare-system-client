@@ -316,7 +316,6 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common
 	elapsed := time.Since(start).Round(time.Millisecond)
 	switch {
 	case sendResult.Success:
-		// nonce is the terminal attempt's — no terminal branch refreshes it
 		logger.Infof("Relay protocol %d round %d: finished in %d attempt(s), %s, nonce %d, outcome: %s",
 			protocolID, votingRoundID, attempts, elapsed, nonce, sendResult.Value)
 	case len(broadcastHashes) > 0:
