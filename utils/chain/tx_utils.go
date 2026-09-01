@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -170,15 +171,35 @@ func errorReason(ctx context.Context, b ethereum.ContractCaller, from common.Add
 	return decodeRevert(res)
 }
 
-// decodeRevert unpacks ABI-encoded revert data into its reason string. A revert
-// without an Error(string) payload is undecodable but deterministic, so the
-// error wraps errRevertUndecodable to separate it from a transient RPC failure.
+// decodeRevert unpacks ABI-encoded revert data into its reason string: an
+// Error(string) payload, or a known custom-error selector rendered as its
+// signature. Anything else is undecodable but deterministic, so the error wraps
+// errRevertUndecodable to separate it from a transient RPC failure.
 func decodeRevert(data []byte) (string, error) {
 	reason, err := unpackError(data)
-	if err != nil {
-		return reason, fmt.Errorf("%w: %w", errRevertUndecodable, err)
+	if err == nil {
+		return reason, nil
 	}
-	return reason, nil
+	if name, ok := relayErrorName(data); ok {
+		return name, nil
+	}
+	return reason, fmt.Errorf("%w: %w", errRevertUndecodable, err)
+}
+
+// annotateRevert appends the decoded revert reason to a reverting eth_call /
+// eth_estimateGas error, which otherwise reads "execution reverted" with the
+// reason only in its data. It appends rather than replaces: callers match the
+// node's own text (e.g. the non-fatal lists in client/epoch).
+func annotateRevert(err error) error {
+	data, ok := revertDataFromError(err)
+	if !ok {
+		return err
+	}
+	reason, decErr := decodeRevert(data)
+	if decErr != nil || strings.Contains(err.Error(), reason) {
+		return err
+	}
+	return fmt.Errorf("%w: %s", err, reason)
 }
 
 // revertDataFromError extracts ABI-encoded revert data from a JSON-RPC error
@@ -427,24 +448,20 @@ func DryRunTxAbi(ctx context.Context, client *ethclient.Client, timeout time.Dur
 }
 
 func estimateGas(ctx context.Context, client *ethclient.Client, from, to common.Address, value *big.Int, data []byte) (uint64, error) {
-	return client.EstimateGas(ctx, ethereum.CallMsg{
+	gas, err := client.EstimateGas(ctx, ethereum.CallMsg{
 		From:  from,
 		To:    &to,
 		Value: value,
 		Data:  data,
 	})
+	return gas, annotateRevert(err)
 }
 
 func getGasLimit(ctx context.Context, gasConfig *config.Gas, client *ethclient.Client, fromAddress common.Address, toAddress common.Address, value *big.Int, data []byte, timeout time.Duration) uint64 {
 	var gasLimit uint64
 	if gasConfig.GasLimit == 0 {
 		estCtx, cancelFunc := context.WithTimeout(ctx, timeout)
-		estimatedGas, err := client.EstimateGas(estCtx, ethereum.CallMsg{
-			From:  fromAddress,
-			To:    &toAddress,
-			Value: value,
-			Data:  data,
-		})
+		estimatedGas, err := estimateGas(estCtx, client, fromAddress, toAddress, value, data)
 		cancelFunc()
 		if err != nil {
 			// estimation usually fails because the call would revert: the tx still sends and burns the nonce

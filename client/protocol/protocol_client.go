@@ -40,6 +40,10 @@ type client struct {
 
 	registry voterRegistry
 
+	relayCutover *shared.RelayCutover
+	// the wait for the breaking epoch's policy is logged once, not once per round
+	cutoverPendingLogged bool
+
 	identityAddress common.Address
 }
 
@@ -58,7 +62,7 @@ func (r voterRegistryImpl) IsVoterRegistered(ctx context.Context, address common
 // NewClient creates new Client that manages fetching data from subProtocol providers and posting them on submission contract.
 //
 // messageChannel is used to provider messages from submitSignature to the finalizer.Client.
-func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.ProtocolMessage) (*client, error) {
+func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.ProtocolMessage, relayCutover *shared.RelayCutover) (*client, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EnabledProtocolVoting {
 		return nil, nil
@@ -108,6 +112,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 		systemsManager:    systemsManager,
 		rewardEpochTiming: rewardEpochTiming,
 		registry:          voterRegistryImpl{registryClient},
+		relayCutover:      relayCutover,
 
 		identityAddress: cfg.Identity.Address,
 	}
@@ -130,7 +135,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 
 	if cfg.SubmitSignatures.Enabled {
 		pc.signatureSubmitter = newSignatureSubmitter(cl, chainCfg.ChainID, protocolContext, votingRoundTiming,
-			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols, messageChannel)
+			&cfg.SubmitSignatures, &cfg.SubmitGas, selectors.submitSignatures, subProtocols, messageChannel, relayCutover)
 	} else {
 		logger.Warn("submitSignatures is disabled")
 	}
@@ -151,6 +156,8 @@ func (c *client) Run(ctx context.Context) error {
 	for {
 		select {
 		case currentEpoch := <-ticker.C:
+			c.resolveRelayCutover(ctx)
+
 			// submit1 (commit) -> submit2 (reveal) -> submitSignatures obligations
 			// are penalised if broken (FTSO/FDC); run the enabled submitters as one
 			// chain so they survive shutdown (see runChain).
@@ -163,6 +170,44 @@ func (c *client) Run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// resolveRelayCutover learns the voting round the Relay switch takes effect on: the
+// breaking epoch's startVotingRoundId. The manager stores it in the transaction that emits
+// that epoch's SigningPolicyInitialized, so the call returns what the event carries even on
+// a node that started long after it fired. A revert means the epoch is not initialized yet.
+// The policy is initialized during the epoch before the breaking one, so asking earlier only
+// reverts — a delayed reward epoch moves the nominal index ahead of the chain, never behind.
+func (c *client) resolveRelayCutover(ctx context.Context) {
+	if !c.relayCutover.Scheduled() {
+		return
+	}
+	if _, known := c.relayCutover.BreakingVotingRound(); known {
+		return
+	}
+	currentRewardEpoch := c.rewardEpochTiming.EpochIndex(time.Now())
+	if currentRewardEpoch < c.relayCutover.BreakingRewardEpoch-1 {
+		return
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, relayCutoverLookupTimeout)
+	defer cancel()
+
+	round, err := c.systemsManager.GetStartVotingRoundId(
+		&bind.CallOpts{Context: callCtx}, big.NewInt(c.relayCutover.BreakingRewardEpoch))
+	if err != nil {
+		// past the breaking epoch this means signing the old way when the new Relay applies
+		if currentRewardEpoch >= c.relayCutover.BreakingRewardEpoch {
+			logger.Warnf("Relay cutover: cannot read the start round of reward epoch %d, still signing the old way: %v",
+				c.relayCutover.BreakingRewardEpoch, err)
+		} else if !c.cutoverPendingLogged {
+			c.cutoverPendingLogged = true
+			logger.Debugf("Relay cutover: reward epoch %d not initialized yet: %v", c.relayCutover.BreakingRewardEpoch, err)
+		}
+		return
+	}
+
+	c.relayCutover.ObserveSigningPolicy(c.relayCutover.BreakingRewardEpoch, round)
 }
 
 // submitterStep is one submitter invocation within a chain: wait until offset
@@ -276,6 +321,9 @@ func (c *client) waitUntilRegistered(ctx context.Context) error {
 }
 
 const registerCheckTimeout = 5 * time.Second
+
+// Bounds the once-per-round cutover lookup; it retries every round until it lands.
+const relayCutoverLookupTimeout = 5 * time.Second
 
 func (c *client) isRegistered(ctx context.Context, rewardEpoch int64) (bool, error) {
 	bOff := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)

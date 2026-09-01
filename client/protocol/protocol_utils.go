@@ -17,7 +17,9 @@ import (
 	"github.com/flare-foundation/flare-system-client/client/config"
 	"github.com/flare-foundation/flare-system-client/client/shared"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
 )
 
@@ -27,8 +29,8 @@ type DataVerifier func(*SubProtocolResponse) error
 
 type SubProtocol struct {
 	ID      uint8
-	APIUrl  string
-	XApiKey string
+	BaseURL string
+	XAPIKey string
 	Type    uint8 //type of submitSignature payload
 }
 
@@ -36,17 +38,23 @@ type SubProtocolResponse struct {
 	Status         payload.ResponseStatus `json:"status"`
 	Data           []byte                 `json:"data"`
 	AdditionalData []byte                 `json:"additionalData"`
+	// FinalizationData is what the finalizer must append to the round's relay() call — the
+	// random number and Merkle proof for the new Relay's random protocol; never in the payload.
+	FinalizationData hexutil.Bytes `json:"finalizationData"`
+}
+
+// subprotocolResponse is the provider envelope plus finalizationData (strict "0x…"), served
+// with the submitSignatures message; data and additionalData keep their lenient decoding below.
+type subprotocolResponse struct {
+	payload.SubprotocolResponse
+	FinalizationData hexutil.Bytes `json:"finalizationData"`
 }
 
 func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
-	apiUrl := config.APIUrl
-	if apiUrl == "" {
-		apiUrl = config.APIEndpoint
-	}
 	return &SubProtocol{
 		ID:      config.ID,
-		APIUrl:  apiUrl,
-		XApiKey: config.XApiKey(),
+		BaseURL: config.BaseURL(),
+		XAPIKey: config.XAPIKey(),
 		Type:    config.Type,
 	}
 }
@@ -60,8 +68,8 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	if err != nil {
 		return nil, fmt.Errorf("creating protocol client API request: %w", err)
 	}
-	if len(sp.XApiKey) > 0 {
-		req.Header.Set("X-API-KEY", sp.XApiKey)
+	if len(sp.XAPIKey) > 0 {
+		req.Header.Set("X-API-KEY", sp.XAPIKey)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -78,7 +86,7 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	decoder := json.NewDecoder(respLimited)
 	decoder.DisallowUnknownFields()
 
-	var response payload.SubprotocolResponse
+	var response subprotocolResponse
 
 	err = decoder.Decode(&response)
 	if err != nil {
@@ -105,9 +113,10 @@ func (sp *SubProtocol) fetchData(url *url.URL, timeout time.Duration) (*SubProto
 	}
 
 	return &SubProtocolResponse{
-		Status:         response.Status,
-		Data:           data,
-		AdditionalData: addData,
+		Status:           response.Status,
+		Data:             data,
+		AdditionalData:   addData,
+		FinalizationData: response.FinalizationData,
 	}, nil
 }
 
@@ -133,7 +142,7 @@ func (sp *SubProtocol) fetchDataWithRetryChan(
 	timeout time.Duration,
 	dataVerifier DataVerifier,
 ) <-chan shared.ExecuteStatus[*SubProtocolResponse] {
-	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
+	url, err := submitEndpointURL(votingRound, sp.BaseURL, endpoint, submitAddress)
 	if err != nil {
 		logger.Errorf("building url for protocol %v: %s", sp.ID, err)
 		out := make(chan shared.ExecuteStatus[*SubProtocolResponse])
@@ -162,7 +171,7 @@ func (sp *SubProtocol) fetchDataWithRetry(
 	dataVerifier DataVerifier,
 	minimalRetryDuration time.Duration,
 ) shared.ExecuteStatus[*SubProtocolResponse] {
-	url, err := submitEndpointUrl(votingRound, sp.APIUrl, endpoint, submitAddress)
+	url, err := submitEndpointURL(votingRound, sp.BaseURL, endpoint, submitAddress)
 	if err != nil {
 		logger.Errorf("building url for protocol %v: %v", sp.ID, err)
 		return shared.ExecuteStatus[*SubProtocolResponse]{Success: false, Message: fmt.Sprintf("initial error: %s", err)}
@@ -175,26 +184,39 @@ func (sp *SubProtocol) fetchDataWithRetry(
 		minimalRetryDuration)
 }
 
-func SignatureSubmitterDataVerifier(data *SubProtocolResponse) error {
-	switch data.Status {
-	case payload.Ok:
-	case payload.Retry:
-		return errors.New("retry")
-	case payload.Empty:
-		return nil
-	default:
-		return fmt.Errorf("unknown status: %v", data.Status)
-	}
+// SignatureSubmitterDataVerifier builds a verifier bound to the round and protocol the
+// response was fetched for. The message must name both: the digest form is derived from
+// the round in these bytes, so a message for another round would pick the wrong one, and
+// the payload header would label it with a round the message does not carry.
+func SignatureSubmitterDataVerifier(votingRoundID uint32, protocolID uint8) DataVerifier {
+	return func(data *SubProtocolResponse) error {
+		switch data.Status {
+		case payload.Ok:
+		case payload.Retry:
+			return errors.New("retry")
+		case payload.Empty:
+			return nil
+		default:
+			return fmt.Errorf("unknown status: %v", data.Status)
+		}
 
-	if len(data.Data) != 38 {
-		return fmt.Errorf("data length %d is not 38", len(data.Data))
+		message, err := shared.Message(data.Data).Parse()
+		if err != nil {
+			return err
+		}
+		if message.VotingRoundID != votingRoundID {
+			return fmt.Errorf("message is for voting round %d, fetched for %d", message.VotingRoundID, votingRoundID)
+		}
+		if message.ProtocolID != protocolID {
+			return fmt.Errorf("message is for protocol %d, fetched from %d", message.ProtocolID, protocolID)
+		}
+		// Check if additional data is too long
+		// Length of data without additional data is 104 bytes: 1 (type) + 38 (message) + 65 (signature)
+		if len(data.AdditionalData) > math.MaxUint16-104 {
+			return errors.New("additional data too long")
+		}
+		return nil
 	}
-	// Check if additional data is too long
-	// Length of data without additional data is 104 bytes: 1 (type) + 38 (message) + 65 (signature)
-	if len(data.AdditionalData) > math.MaxUint16-104 {
-		return errors.New("additional data too long")
-	}
-	return nil
 }
 
 func StatusDataVerifier(data *SubProtocolResponse) error {
@@ -210,8 +232,8 @@ func StatusDataVerifier(data *SubProtocolResponse) error {
 	}
 }
 
-// submitEndpointUrl builds url to be queried for the data for subprotocol for a given votingRound and address.
-func submitEndpointUrl(votingRound int64, apiEndpoint string, endpoint string, address string) (*url.URL, error) {
+// submitEndpointURL builds url to be queried for the data for subprotocol for a given votingRound and address.
+func submitEndpointURL(votingRound int64, apiEndpoint string, endpoint string, address string) (*url.URL, error) {
 	baseURL, err := url.JoinPath(
 		apiEndpoint,
 		endpoint,

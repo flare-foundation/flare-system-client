@@ -1,6 +1,7 @@
 package epoch
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
@@ -76,6 +78,7 @@ type systemsManagerContractClientImpl struct {
 	signerPrivateKey    *ecdsa.PrivateKey
 	chainID             int64
 	ethClient           *ethclient.Client
+	relayCutover        *shared.RelayCutover
 }
 
 func NewSystemsManagerClient(
@@ -84,7 +87,8 @@ func NewSystemsManagerClient(
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPrivateKey *ecdsa.PrivateKey,
-	chainID int64) (*systemsManagerContractClientImpl, error) {
+	chainID int64,
+	relayCutover *shared.RelayCutover) (*systemsManagerContractClientImpl, error) {
 	flareSystemsManager, err := system.NewFlareSystemsManager(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -99,6 +103,7 @@ func NewSystemsManagerClient(
 		signerPrivateKey:    signerPrivateKey,
 		chainID:             chainID,
 		ethClient:           ethClient,
+		relayCutover:        relayCutover,
 	}, nil
 }
 
@@ -113,7 +118,11 @@ func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(ctx context.Cont
 }
 
 func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.Context, rewardEpochId *big.Int, signingPolicy []byte) error {
-	newSigningPolicyHash := SigningPolicyHash(signingPolicy)
+	newSigningPolicyHash, err := s.signingPolicyHash(rewardEpochId, signingPolicy)
+	if err != nil {
+		return err
+	}
+
 	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.signerPrivateKey)
 	if err != nil {
 		return err
@@ -168,13 +177,66 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 	if err != nil {
 		return err
 	}
-	logger.Infof("New signing policy sent for epoch %v", rewardEpochId)
 	return nil
 }
 
+// signingPolicyHash returns the signingPolicy hash FlareSystemsManager accepts for
+// rewardEpochId: chain-bound from the breaking epoch on, the old fold before. Epoch and
+// relay address both gate it — the new Relay delegates pre-breaking epochs to the old one,
+// and until governance repoints, the old Relay answers for every epoch, breaking one
+// included. A table disagreeing with the chain costs a warning, not the signature; the
+// signed hash derives from the event bytes, never from a stored copy.
+func (s *systemsManagerContractClientImpl) signingPolicyHash(rewardEpochId *big.Int, signingPolicy []byte) ([]byte, error) {
+	relayAddress, err := s.flareSystemsManager.Relay(nil)
+	if err != nil {
+		return nil, fmt.Errorf("reading the manager's relay address: %w", err)
+	}
+	relayContract, err := relay.NewRelay(relayAddress, s.ethClient)
+	if err != nil {
+		return nil, fmt.Errorf("creating relay contract: %w", err)
+	}
+	stored, err := relayContract.ToSigningPolicyHash(nil, rewardEpochId)
+	if err != nil {
+		return nil, fmt.Errorf("reading the signing policy hash of epoch %v: %w", rewardEpochId, err)
+	}
+
+	chainBound := s.relayCutover.NewRelayFromRewardEpoch(rewardEpochId.Int64()) &&
+		relayAddress == s.relayCutover.NewAddress
+
+	expected, other := SigningPolicyHash(signingPolicy), ChainBoundSigningPolicyHash(signingPolicy, s.chainID)
+	expectedName, otherName := "legacy", "chain-bound"
+	if chainBound {
+		expected, other = other, expected
+		expectedName, otherName = otherName, expectedName
+	}
+
+	if bytes.Equal(expected, stored[:]) {
+		return expected, nil
+	}
+	if bytes.Equal(other, stored[:]) {
+		logger.Warnf(
+			"Signing policy of epoch %v is hashed %s by relay %s, not %s as the cutover table implies: the table disagrees with the chain",
+			rewardEpochId, otherName, relayAddress, expectedName)
+		return other, nil
+	}
+	return nil, fmt.Errorf("no supported hash of the signing policy of epoch %v matches relay %s hash %s",
+		rewardEpochId, relayAddress, common.Hash(stored))
+}
+
+// ChainBoundSigningPolicyHash is the hash the new Relay stores: one keccak over
+// the 32-byte source chain id followed by the raw encoded policy, unpadded.
+func ChainBoundSigningPolicyHash(signingPolicy []byte, chainID int64) []byte {
+	return crypto.Keccak256(shared.ChainIDWord(chainID), signingPolicy)
+}
+
+// SigningPolicyHash is the hash the old Relay stores: the encoded policy is
+// zero-padded to a multiple of 32 bytes and its chunks are folded left to right.
 func SigningPolicyHash(signingPolicy []byte) []byte {
-	if len(signingPolicy)%32 != 0 {
-		signingPolicy = append(signingPolicy, make([]byte, 32-len(signingPolicy)%32)...)
+	if rest := len(signingPolicy) % 32; rest != 0 {
+		// copy — appending could write past the caller's slice into the same allocation
+		padded := make([]byte, len(signingPolicy)+32-rest)
+		copy(padded, signingPolicy)
+		signingPolicy = padded
 	}
 	hash := crypto.Keccak256(signingPolicy[:32], signingPolicy[32:64])
 	for i := 2; i < len(signingPolicy)/32; i++ {
@@ -398,7 +460,6 @@ func (s *systemsManagerContractClientImpl) sendSignUptimeVote(ctx context.Contex
 	if err != nil {
 		return err
 	}
-	logger.Infof("Uptime vote sent for epoch %v", rewardEpochId)
 	return nil
 }
 
@@ -471,7 +532,6 @@ func (s *systemsManagerContractClientImpl) SignRewards(ctx context.Context, epoc
 }
 
 func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, epochId *big.Int, rewardHash *common.Hash, weightClaims int) error {
-	logger.Infof("Signing rewards for epoch %v, hash: %s", epochId, rewardHash.Hex())
 	packed := encodeRewardsData(epochId, s.chainID, rewardHash, weightClaims)
 
 	hashSignature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(packed)), s.signerPrivateKey)
@@ -538,8 +598,6 @@ func (s *systemsManagerContractClientImpl) sendSignRewards(ctx context.Context, 
 	if err != nil {
 		return err
 	}
-	logger.Infof("Rewards signed for epoch %v", epochId)
-
 	return nil
 }
 

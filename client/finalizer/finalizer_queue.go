@@ -54,7 +54,7 @@ type queueItem struct {
 	seed          *big.Int
 	votingRoundID uint32
 	protocolID    uint8
-	msgHash       common.Hash
+	digest        common.Hash
 }
 
 func (i *queueItem) String() string {
@@ -124,12 +124,21 @@ func (q *finalizerQueue) Pop() *queueItem {
 
 // Add adds a finalizationItem to the finalization queue
 func (p *finalizerQueueProcessor) Add(item *FinalizationReady, seed *big.Int) {
-	p.queue.Add(&queueItem{
+	queued := &queueItem{
 		seed:          seed,
 		votingRoundID: item.votingRoundID,
 		protocolID:    item.protocolID,
-		msgHash:       item.msgHash,
-	})
+		digest:        item.digest,
+	}
+
+	p.queue.Add(queued)
+}
+
+// needsFinalizationData reports whether a finalization must carry the random number and Merkle
+// proof: the random protocol from the breaking reward epoch on, the only Relay that uses them.
+func (p *finalizerQueueProcessor) needsFinalizationData(protocolID uint8, rewardEpochID int64) bool {
+	return protocolID == p.finalizerContext.randomNumberProtocolID &&
+		p.relayClient.relayCutover.NewRelayFromRewardEpoch(rewardEpochID)
 }
 
 // Run runs the infinite loops that handles finalization queue.
@@ -160,7 +169,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		} else {
 			logger.Infof("Finalizer with address %v will send outside grace period for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
-			_, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.msgHash)
+			_, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest)
 			if exists {
 				// Finalization for a votingRoundID should happen in the following voting round votingRoundID + 1
 				votingRoundStartTime := p.finalizerContext.votingRoundTiming.StartTime(int64(item.votingRoundID + 1))
@@ -183,7 +192,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	if item == nil {
 		return false
 	}
-	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.msgHash)
+	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest)
 	if !exists {
 		return false
 	}
@@ -222,26 +231,41 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		return
 	}
 
-	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.msgHash)
+	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest)
 	if !exists {
 		logger.Warnf("finalization data for protocol %d for round %d missing", item.protocolID, item.votingRoundID)
 		return
 	}
 
-	finalizationData, err := PrepareFinalizationResults(data)
+	result, err := PrepareFinalizationResults(data)
 	if err != nil {
 		logger.Warnf("finalization data preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return
 	}
 
-	txInput, err := finalizationData.PrepareFinalizationTxInput()
+	if p.needsFinalizationData(item.protocolID, data.signingPolicy.RewardEpochID) {
+		if len(result.finalizationData) == 0 {
+			// without the random number and proof the Relay reverts; the delayed queue retries
+			logger.Errorf("the random protocol served no random number and Merkle proof for round %d, not finalizing protocol %d",
+				item.votingRoundID, item.protocolID)
+			return
+		}
+	} else {
+		// arrival judged a possibly newer policy than the collection's; only the target Relay reads them
+		result.finalizationData = nil
+	}
+
+	txInput, err := result.PrepareFinalizationTxInput()
 	if err != nil {
 		logger.Warnf("finalization tx input preparation for protocol %d for round %d failed - %v", item.protocolID, item.votingRoundID, err)
 		return
 	}
 
-	logger.Infof("Relaying for round %d for protocol %d (delayed=%t)", item.votingRoundID, item.protocolID, isDelayed)
-	p.relayClient.SubmitPayloads(ctx, txInput, isDelayed, item.protocolID, item.votingRoundID)
+	// the tx carries the policy bytes, so it must go to the Relay storing that policy's hash
+	address := p.relayClient.addressForRewardEpoch(data.signingPolicy.RewardEpochID)
+
+	logger.Infof("Relaying for round %d for protocol %d to %s (delayed=%t)", item.votingRoundID, item.protocolID, address, isDelayed)
+	p.relayClient.SubmitPayloads(ctx, address, txInput, isDelayed, item.protocolID, item.votingRoundID)
 }
 
 func (p *finalizerQueueProcessor) processDelayedQueue(ctx context.Context, items []*queueItem) error {
@@ -256,8 +280,12 @@ func (p *finalizerQueueProcessor) processDelayedQueue(ctx context.Context, items
 	}
 
 	for _, item := range items {
-		if relayedItems[relayedKey{protocolID: item.protocolID, votingRoundID: item.votingRoundID}] {
-			continue
+		// skip only when the item's own target Relay already has it
+		if data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest); exists {
+			address := p.relayClient.addressForRewardEpoch(data.signingPolicy.RewardEpochID)
+			if relayedItems.has(address, relayedKey{protocolID: item.protocolID, votingRoundID: item.votingRoundID}) {
+				continue
+			}
 		}
 		logger.Infof("Finalizer processes delayed queue item for round %v for protocol %v", item.votingRoundID, item.protocolID)
 		p.processItem(ctx, item, true)

@@ -9,6 +9,8 @@ import (
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/flare-foundation/go-flare-common/pkg/policy"
 )
 
@@ -16,6 +18,10 @@ type FinalizationResult struct {
 	message       shared.Message
 	signatures    []IndexedSignature //signatures are ordered by voterIndex of their provider
 	signingPolicy *policy.SigningPolicy
+
+	// what relay() reads after the signatures: randomNumber(32) ‖ proof(32×d) for the
+	// random protocol on the new Relay, empty everywhere else.
+	finalizationData []byte
 }
 
 type IndexedSignature struct {
@@ -63,9 +69,10 @@ func PrepareFinalizationResults(sc *signaturesCollection) (FinalizationResult, e
 	})
 
 	return FinalizationResult{
-		message:       sc.message,
-		signatures:    selectedSignatures,
-		signingPolicy: sc.signingPolicy,
+		message:          sc.message,
+		signatures:       selectedSignatures,
+		signingPolicy:    sc.signingPolicy,
+		finalizationData: sc.finalizationData,
 	}, nil
 }
 
@@ -82,6 +89,17 @@ func (fr FinalizationResult) PrepareFinalizationTxInput() ([]byte, error) {
 	}
 
 	buffer.Write(encodedSignatures)
+
+	// relay() rejects partial words; the cap is ours
+	if len(fr.finalizationData) > 0 {
+		if len(fr.finalizationData)%common.HashLength != 0 {
+			return nil, fmt.Errorf("finalization data is %d bytes, not a multiple of %d", len(fr.finalizationData), common.HashLength)
+		}
+		if len(fr.finalizationData) > maxFinalizationDataLength {
+			return nil, fmt.Errorf("finalization data is %d bytes, over the %d cap", len(fr.finalizationData), maxFinalizationDataLength)
+		}
+		buffer.Write(fr.finalizationData)
+	}
 
 	return buffer.Bytes(), nil
 }

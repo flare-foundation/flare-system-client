@@ -25,7 +25,7 @@ const (
 type Chain struct {
 	ChainID   int64  `toml:"chain_id" envconfig:"CHAIN_ID"`
 	EthRPCURL string `toml:"eth_rpc_url" envconfig:"ETH_RPC_URL"`
-	ApiKey    string `toml:"api_key" envconfig:"API_KEY"`
+	APIKey    string `toml:"api_key" envconfig:"API_KEY"`
 }
 
 // Dial the chain node and return an ethclient.Client.
@@ -72,12 +72,12 @@ func (cfg *Chain) getRPCURL() (string, error) {
 		return "", err
 	}
 
-	if cfg.ApiKey == "" {
+	if cfg.APIKey == "" {
 		return u.String(), nil
 	}
 
 	q := u.Query()
-	q.Set("x-apikey", cfg.ApiKey)
+	q.Set("x-apikey", cfg.APIKey)
 	u.RawQuery = q.Encode()
 
 	return u.String(), nil

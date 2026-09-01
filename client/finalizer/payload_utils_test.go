@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/binary"
+	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -156,8 +158,11 @@ func TestRoundTripWithEncodePayload(t *testing.T) {
 
 	const votingRound int64 = 1234
 
-	type0Message := bytes.Repeat([]byte{0x11}, 38)
-	type1Message := bytes.Repeat([]byte{0x22}, 16)
+	// both types sign a 38-byte protocol message — the submitter's data verifier enforces that
+	type0Message, err := encodeMessage(1, uint32(votingRound), false, bytes.Repeat([]byte{0x11}, 32))
+	require.NoError(t, err)
+	type1Message, err := encodeMessage(5, uint32(votingRound), false, bytes.Repeat([]byte{0x22}, 32))
+	require.NoError(t, err)
 
 	cases := []struct {
 		protocolID   uint8
@@ -176,7 +181,7 @@ func TestRoundTripWithEncodePayload(t *testing.T) {
 			Status: payload.Ok,
 			Data:   c.data,
 		}
-		err := protocol.EncodePayload(buf, votingRound, resp, c.protocolID, c.protocolType, privateKey)
+		err := protocol.EncodePayload(buf, votingRound, testCutover, resp, c.protocolID, c.protocolType, privateKey)
 		require.NoError(t, err)
 	}
 
@@ -349,8 +354,7 @@ func TestAddSigner_WrongMessageHashRecoversWrongAddress(t *testing.T) {
 }
 
 func TestAddSigner_RejectsSignatureWithInvalidVByte(t *testing.T) {
-	// V outside {27, 28} produces an out-of-range recovery byte after the
-	// VRS→RSV transform; crypto.SigToPub rejects.
+	// V outside {27, 28} is the Relay's BadV revert; canonicalSignature refuses it pre-recovery.
 	priv, _ := newKeyAndAddress(t)
 	hash := crypto.Keccak256([]byte("msg"))
 	sig := signVRS(t, hash, priv)
@@ -361,5 +365,139 @@ func TestAddSigner_RejectsSignatureWithInvalidVByte(t *testing.T) {
 	set := voters.NewSet([]common.Address{addr}, []uint16{1}, nil)
 
 	err := pld.AddSigner(hash, set)
-	require.Error(t, err)
+	require.ErrorIs(t, err, errBadPayload)
+	require.Equal(t, -1, pld.voterIndex)
+}
+
+// --- signature canonicality (EIP-2 low-s) -----------------------------------
+//
+// One non-canonical signature counted toward the threshold reverts every finalization of the
+// round, so canonicalSignature normalizes at ingestion.
+
+// relayHalfOrderHex is the s literal in contracts/protocol/implementation/Relay.sol, ERR_BAD_S
+const relayHalfOrderHex = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0"
+
+func TestHalfOrderMatchesRelayConstant(t *testing.T) {
+	require.Equal(t, relayHalfOrderHex, hex.EncodeToString(secp256k1HalfN.Bytes()),
+		"the low-s bound must equal the constant the Relay reverts above")
+}
+
+// malleateVRS returns the other valid encoding (r, n-s, v^1): same recovered signer, and what
+// a signer that does not normalize s emits.
+func malleateVRS(t *testing.T, vrs []byte) []byte {
+	t.Helper()
+	require.Len(t, vrs, 65)
+
+	s := new(big.Int).SetBytes(vrs[33:65])
+	out := make([]byte, 65)
+	if vrs[0] == 27 {
+		out[0] = 28
+	} else {
+		out[0] = 27
+	}
+	copy(out[1:33], vrs[1:33])
+	new(big.Int).Sub(secp256k1N, s).FillBytes(out[33:65])
+	return out
+}
+
+func TestCanonicalSignature_LeavesLowSUntouched(t *testing.T) {
+	priv, _ := newKeyAndAddress(t)
+	hash := crypto.Keccak256([]byte("msg"))
+	sig := signVRS(t, hash, priv) // crypto.Sign always produces low-s
+
+	got, normalized, err := canonicalSignature(sig)
+	require.NoError(t, err)
+	require.False(t, normalized)
+	require.Equal(t, sig, got)
+}
+
+func TestCanonicalSignature_NormalizesHighS(t *testing.T) {
+	priv, _ := newKeyAndAddress(t)
+	hash := crypto.Keccak256([]byte("msg"))
+	low := signVRS(t, hash, priv)
+	high := malleateVRS(t, low)
+
+	// the fixture must really be the form the Relay rejects
+	require.Greater(t, new(big.Int).SetBytes(high[33:65]).Cmp(secp256k1HalfN), 0)
+
+	got, normalized, err := canonicalSignature(high)
+	require.NoError(t, err)
+	require.True(t, normalized)
+	require.Equal(t, low, got, "normalizing must reproduce the canonical encoding")
+	require.Equal(t, high, malleateVRS(t, low), "fixture sanity: malleation is its own inverse")
+}
+
+func TestCanonicalSignature_RejectsOutOfRangeRS(t *testing.T) {
+	priv, _ := newKeyAndAddress(t)
+	hash := crypto.Keccak256([]byte("msg"))
+
+	zero := make([]byte, 32)
+	order := secp256k1N.Bytes()
+
+	tests := []struct {
+		name   string
+		mutate func(sig []byte)
+	}{
+		{"s == 0", func(sig []byte) { copy(sig[33:65], zero) }},
+		{"s == n", func(sig []byte) { copy(sig[33:65], order) }},
+		{"r == 0", func(sig []byte) { copy(sig[1:33], zero) }},
+		{"r == n", func(sig []byte) { copy(sig[1:33], order) }},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sig := signVRS(t, hash, priv)
+			tc.mutate(sig)
+
+			_, _, err := canonicalSignature(sig)
+			require.ErrorIs(t, err, errBadPayload)
+		})
+	}
+}
+
+func TestCanonicalSignature_RejectsWrongLength(t *testing.T) {
+	for _, length := range []int{0, 64, 66} {
+		_, _, err := canonicalSignature(make([]byte, length))
+		require.ErrorIs(t, err, errBadPayload, "length %d must be rejected", length)
+	}
+}
+
+// Dropping a malleated signature would lose the voter's weight and could put the round below
+// threshold; the payload must carry the canonical form onward into the calldata.
+func TestAddSigner_NormalizesHighSAndKeepsTheVoter(t *testing.T) {
+	priv, addr := newKeyAndAddress(t)
+	hash := crypto.Keccak256([]byte("any-message"))
+
+	low := signVRS(t, hash, priv)
+	pld := submitSignaturesPayload{
+		signature:  malleateVRS(t, low),
+		voterIndex: -1,
+	}
+	set := voters.NewSet([]common.Address{addr}, []uint16{777}, nil)
+
+	require.NoError(t, pld.AddSigner(hash, set))
+	require.Equal(t, addr, pld.signer, "n-s must recover the same signer")
+	require.Equal(t, 0, pld.voterIndex)
+	require.Equal(t, uint16(777), pld.weight)
+	require.Equal(t, low, pld.signature, "the stored signature must be the low-s form")
+}
+
+// Only canonical signatures reach the finalization calldata, so the Relay's BadV/BadS
+// branches are unreachable for a tx we build.
+func TestPreparedTxInputCarriesOnlyCanonicalSignatures(t *testing.T) {
+	priv, addr := newKeyAndAddress(t)
+	hash := crypto.Keccak256([]byte("msg"))
+
+	pld := submitSignaturesPayload{
+		signature:  malleateVRS(t, signVRS(t, hash, priv)),
+		voterIndex: -1,
+	}
+	require.NoError(t, pld.AddSigner(hash, voters.NewSet([]common.Address{addr}, []uint16{1}, nil)))
+
+	encoded, err := encodeSignatures([]IndexedSignature{{index: 0, signature: pld.signature}})
+	require.NoError(t, err)
+
+	sig := encoded[2:67] // skip the 2-byte count
+	require.Contains(t, []byte{27, 28}, sig[0])
+	require.LessOrEqual(t, new(big.Int).SetBytes(sig[33:65]).Cmp(secp256k1HalfN), 0)
 }

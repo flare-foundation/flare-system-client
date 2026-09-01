@@ -13,7 +13,6 @@ import (
 	"github.com/flare-foundation/flare-system-client/utils"
 	"github.com/flare-foundation/flare-system-client/utils/chain"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -51,6 +50,8 @@ type Submitter struct {
 
 type SignatureSubmitter struct {
 	SubmitterBase
+
+	relayCutover *shared.RelayCutover
 
 	messageChannel chan<- shared.ProtocolMessage
 
@@ -100,7 +101,7 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 
 		switch {
 		case res.Err == nil:
-			return res.Hash.Hex(), nil // mined successfully
+			return "confirmed " + res.Hash.Hex(), nil
 		case chain.IsNonceTooLow(res.Err):
 			// Nonce is consumed by some mined tx. If it was one of ours the payload
 			// is submitted; if we cannot tell, do NOT resend (would duplicate);
@@ -110,22 +111,18 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 			h, acc := chain.AnyAccepted(ctx, s.chainClient, from, broadcastHashes, nil, time.Second)
 			switch acc {
 			case chain.Accepted:
-				logger.Infof("%s: reconciled, earlier broadcast %s mined successfully; nonce too low is non-fatal", p, h.Hex())
-				return h.Hex(), nil
+				return fmt.Sprintf("reconciled, earlier broadcast %s mined successfully (nonce too low is non-fatal)", h.Hex()), nil
 			case chain.Reverted:
 				// the protocol obliges us to keep submitting, so a revert retries like a consumed nonce
-				logger.Warnf("%s: own tx %s mined but reverted; resending at a refreshed nonce", p, h.Hex())
-				nonce = s.refreshNonce(ctx, p, nonce)
+				nonce = s.refreshNonce(ctx, p, fmt.Sprintf("own tx %s mined but reverted", h.Hex()), nonce)
 				return "", res.Err
 			case chain.Undetermined:
 				// Outcome unknown: refresh the nonce and resend (duplicate submits are idempotent).
-				logger.Warnf("%s: rejected as nonce too low, fate of own broadcast(s) %s unresolved; resending at a refreshed nonce",
-					p, chain.HashList(broadcastHashes))
-				nonce = s.refreshNonce(ctx, p, nonce)
+				nonce = s.refreshNonce(ctx, p,
+					fmt.Sprintf("rejected as nonce too low, fate of own broadcast(s) %s unresolved", chain.HashList(broadcastHashes)), nonce)
 				return "", res.Err
 			default: // NonceConsumed
-				logger.Warnf("%s: nonce consumed by another tx; resending at a refreshed nonce", p)
-				nonce = s.refreshNonce(ctx, p, nonce)
+				nonce = s.refreshNonce(ctx, p, "nonce consumed by another tx", nonce)
 				return "", res.Err
 			}
 		case res.Broadcast && chain.IsTimeout(res.Err):
@@ -135,13 +132,13 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 				p, res.Hash.Hex(), s.submitTimeout)
 			return "", res.Err
 		default:
+			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			// Not confirmed. If we have already broadcast a tx it is outstanding at
 			// this nonce, so keep it (a retry replaces it); only refresh the nonce
 			// when nothing has been broadcast yet.
 			if len(broadcastHashes) == 0 {
-				nonce = s.refreshNonce(ctx, p, nonce)
+				nonce = s.refreshNonce(ctx, p, "nothing broadcast at this nonce", nonce)
 			}
-			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			return "", res.Err
 		}
 	}, s.submitRetries, s.retryDelay)
@@ -149,7 +146,8 @@ func (s *SubmitterBase) submit(ctx context.Context, round int64, input []byte) b
 	elapsed := time.Since(start).Round(time.Millisecond)
 	switch {
 	case sendResult.Success:
-		logger.Infof("Submitter %s round %d: submitted tx %s in %d attempt(s), %s", s.name, round, sendResult.Value, attempts, elapsed)
+		logger.Infof("Submitter %s round %d: finished in %d attempt(s), %s, nonce %d, outcome: %s",
+			s.name, round, attempts, elapsed, nonce, sendResult.Value)
 	case len(broadcastHashes) > 0:
 		// an outstanding broadcast can still mine: not a confirmed failure
 		logger.Warnf("Submitter %s round %d: outcome unknown after %d attempt(s), %s; broadcast tx(s) %s may be on chain: %s",
@@ -165,20 +163,22 @@ func (s *SubmitterBase) sendPrefix(round int64, attempt int, nonce uint64) strin
 }
 
 // refreshNonce best-effort re-fetches the account nonce, keeping current on error.
-// Nonce reads the latest mined nonce, so an accepted-but-unmined tx (or a lagging
-// backend) reads back the rejected nonce — hence the log on an unchanged value.
-func (s *SubmitterBase) refreshNonce(ctx context.Context, prefix string, current uint64) uint64 {
+// It logs reason (why the resend happens) together with the outcome, so a refresh
+// costs one line. Nonce reads the latest mined nonce, so an accepted-but-unmined tx
+// (or a lagging backend) reads back the rejected nonce — hence the unchanged case.
+func (s *SubmitterBase) refreshNonce(ctx context.Context, prefix, reason string, current uint64) uint64 {
 	nonce, err := s.chainClient.Nonce(ctx, s.submitPrivateKey, time.Second)
-	if err != nil {
-		logger.Warnf("%s: nonce refresh failed, keeping %d: %v", prefix, current, err)
+	switch {
+	case err != nil:
+		logger.Warnf("%s: %s; nonce refresh failed, resending at %d: %v", prefix, reason, current, err)
 		return current
+	case nonce == current:
+		logger.Warnf("%s: %s; nonce refresh returned %d unchanged, resending at it", prefix, reason, current)
+		return current
+	default:
+		logger.Warnf("%s: %s; resending at refreshed nonce %d -> %d", prefix, reason, current, nonce)
+		return nonce
 	}
-	if nonce == current {
-		logger.Warnf("%s: nonce refresh returned %d unchanged", prefix, current)
-	} else {
-		logger.Infof("%s: nonce refreshed %d -> %d", prefix, current, nonce)
-	}
-	return nonce
 }
 
 func newSubmitter(
@@ -280,6 +280,7 @@ func newSignatureSubmitter(
 	selector []byte,
 	subProtocols []*SubProtocol,
 	messageChannel chan<- shared.ProtocolMessage,
+	relayCutover *shared.RelayCutover,
 ) *SignatureSubmitter {
 	delay := submitCfg.CycleDuration
 	if delay <= 0 {
@@ -303,6 +304,7 @@ func newSignatureSubmitter(
 			dataFetchTimeout:  submitCfg.DataFetchTimeout,
 			dataFetchRetries:  submitCfg.DataFetchRetries,
 		},
+		relayCutover:   relayCutover,
 		maxCycles:      submitCfg.MaxCycles,
 		cycleDuration:  delay,
 		messageChannel: messageChannel,
@@ -314,17 +316,21 @@ func newSignatureSubmitter(
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 66).
 // If an error is returned, the buffer is unchanged.
 func (s *SignatureSubmitter) WritePayload(
-	buffer *bytes.Buffer, epoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
+	buffer *bytes.Buffer, votingRoundID int64, data *SubProtocolResponse, protocolID, protocolType uint8,
 ) error {
-	return EncodePayload(buffer, epoch, data, protocolID, protocolType, s.protocolContext.signerPrivateKey)
+	return EncodePayload(buffer, votingRoundID, s.relayCutover, data, protocolID, protocolType, s.protocolContext.signerPrivateKey)
 }
 
 // EncodePayload encodes a signed submitSignatures payload to buffer.
 // Payload data should be valid (data length 38, additional data length <= maxuint16 - 66).
 // If an error is returned, the buffer is unchanged.
 func EncodePayload(
-	buffer *bytes.Buffer, epoch int64, data *SubProtocolResponse, protocolID, protocolType uint8,
-	signerPrivateKey *ecdsa.PrivateKey,
+	buffer *bytes.Buffer,
+	votingRoundID int64,
+	cutover *shared.RelayCutover,
+	data *SubProtocolResponse,
+	protocolID, protocolType uint8,
+	privateKey *ecdsa.PrivateKey,
 ) error {
 	var dataLength int
 	switch protocolType {
@@ -336,13 +342,17 @@ func EncodePayload(
 		return errors.New("unrecognized protocol type")
 	}
 
-	dataHash := accounts.TextHash(crypto.Keccak256(data.Data))
-	signature, err := crypto.Sign(dataHash, signerPrivateKey)
+	signature, err := SignSignaturePayload(cutover, data.Data, privateKey)
 	if err != nil {
 		return fmt.Errorf("signing submitSignatures data: %w", err)
 	}
 
-	epochBytes := shared.Uint32toBytes(uint32(epoch))
+	vrsSignature, err := utils.TransformSignatureRSVtoVRS(signature)
+	if err != nil {
+		return fmt.Errorf("signature sanity check, this should not happen: %w", err)
+	}
+
+	epochBytes := shared.Uint32toBytes(uint32(votingRoundID))
 	lengthBytes := shared.Uint16toBytes(uint16(dataLength + len(data.AdditionalData)))
 
 	tempBuffer := bytes.NewBuffer(nil)
@@ -359,10 +369,6 @@ func EncodePayload(
 		}
 	}
 
-	vrsSignature, err := utils.TransformSignatureRSVtoVRS(signature)
-	if err != nil {
-		return fmt.Errorf("signature sanity check, this should not happen: %w", err)
-	}
 	tempBuffer.Write(vrsSignature)
 	tempBuffer.Write(data.AdditionalData)
 
@@ -419,7 +425,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 				"submitSignatures",
 				s.protocolContext.submitSignaturesAddress.Hex(),
 				s.dataFetchTimeout,
-				SignatureSubmitterDataVerifier,
+				SignatureSubmitterDataVerifier(uint32(round), protocol.ID),
 				time.Second, // TODO make it configurable
 			)
 
@@ -427,7 +433,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 				results[i] = response.Value
 				finished <- i
 			} else {
-				logger.Debugf("unsuccessful data for round %d for protocol %d: %v", round, protocol.ID, response.Message)
+				logger.Warnf("unsuccessful data for round %d for protocol %d: %v", round, protocol.ID, response.Message)
 			}
 		}()
 	}
@@ -451,9 +457,10 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 					if s.messageChannel != nil {
 						select {
 						case s.messageChannel <- shared.ProtocolMessage{
-							ProtocolID:    s.subProtocols[i].ID,
-							VotingRoundID: uint32(round),
-							Message:       results[i].Data,
+							ProtocolID:       s.subProtocols[i].ID,
+							VotingRoundID:    uint32(round),
+							Message:          results[i].Data,
+							FinalizationData: results[i].FinalizationData,
 						}:
 						default:
 							logger.Warnf("message channel full. Dropping message round %d for protocol %d after deadline", round, s.subProtocols[i].ID)
@@ -515,7 +522,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round in
 				s.protocolContext.submitSignaturesAddress.Hex(),
 				s.dataFetchRetries,
 				s.dataFetchTimeout,
-				SignatureSubmitterDataVerifier,
+				SignatureSubmitterDataVerifier(uint32(round), protocol.ID),
 			)
 		}
 
@@ -533,7 +540,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round in
 				return
 			case data := <-channels[i]:
 				if !data.Success {
-					logger.Warnf("Error getting data for submitter %s: %s", s.name, data.Message)
+					logger.Warnf("Error getting data for submitter %s for protocol %d: %s", s.name, s.subProtocols[i].ID, data.Message)
 					continue
 				}
 
@@ -547,9 +554,10 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round in
 						if s.messageChannel != nil {
 							select {
 							case s.messageChannel <- shared.ProtocolMessage{
-								ProtocolID:    s.subProtocols[i].ID,
-								VotingRoundID: uint32(round),
-								Message:       data.Value.Data,
+								ProtocolID:       s.subProtocols[i].ID,
+								VotingRoundID:    uint32(round),
+								Message:          data.Value.Data,
+								FinalizationData: data.Value.FinalizationData,
 							}:
 							default:
 								logger.Warnf("message channel full. Dropping message round %d for protocol %d after deadline", round, s.subProtocols[i].ID)

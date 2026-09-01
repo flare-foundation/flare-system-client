@@ -21,11 +21,18 @@ type finalizerContext struct {
 
 	votingRoundTiming *utils.EpochTimingConfig
 	rewardEpoch       *utils.RewardEpochConfig
+
+	// the protocol whose finalization the new Relay requires a random trailer for
+	randomNumberProtocolID uint8
+
+	// factor the Relay scales a prolonged reward epoch's threshold by; >= 10000 by
+	// contract (Relay.sol:327), so it can only raise it
+	thresholdIncreaseBIPS uint16
 }
 
 // func newFinalizerContext(cfg *config.ClientConfig, systemsManager *system.FlareSystemsManager) (*finalizerContext, error) {
 func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerContext, error) {
-	votingRoundTiming, rewardEpoch, err := shared.EpochsFromChain(relay)
+	votingRoundTiming, rewardEpoch, randomNumberProtocolID, thresholdIncreaseBIPS, err := shared.EpochsFromChain(relay)
 	if err != nil {
 		return nil, err
 	}
@@ -34,12 +41,25 @@ func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerCont
 		startingVotingRound = uint32(votingRoundTiming.EpochIndex(time.Now()))
 	}
 	return &finalizerContext{
-		startingRewardEpoch:  cfg.Finalizer.StartingRewardEpoch,
-		startingVotingRound:  startingVotingRound,
-		startTimeOffset:      cfg.Finalizer.StartOffset,
-		voterThresholdBIPS:   cfg.Finalizer.VoterThresholdBIPS,
-		gracePeriodEndOffset: cfg.Finalizer.GracePeriodEndOffset,
-		votingRoundTiming:    votingRoundTiming,
-		rewardEpoch:          rewardEpoch,
+		startingRewardEpoch:    cfg.Finalizer.StartingRewardEpoch,
+		startingVotingRound:    startingVotingRound,
+		startTimeOffset:        cfg.Finalizer.StartOffset,
+		voterThresholdBIPS:     cfg.Finalizer.VoterThresholdBIPS,
+		gracePeriodEndOffset:   cfg.Finalizer.GracePeriodEndOffset,
+		votingRoundTiming:      votingRoundTiming,
+		rewardEpoch:            rewardEpoch,
+		randomNumberProtocolID: randomNumberProtocolID,
+		thresholdIncreaseBIPS:  thresholdIncreaseBIPS,
 	}, nil
+}
+
+// randomProtocolConfigured reports whether the submitter queries the protocol serving the
+// random number and Merkle proof — without it the finalizer never sees them.
+func randomProtocolConfigured(protocols map[string]config.ProtocolConfig, protocolID uint8) bool {
+	for _, protocol := range protocols {
+		if protocol.ID == protocolID {
+			return true
+		}
+	}
+	return false
 }

@@ -43,7 +43,7 @@ type client struct {
 }
 
 // NewClient creates a client that manages reward epoch tasks.
-func NewClient(ctx flarectx.ClientContext) (*client, error) {
+func NewClient(ctx flarectx.ClientContext, relayCutover *shared.RelayCutover) (*client, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EpochClientEnabled() {
 		return nil, nil
@@ -80,6 +80,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 		senderTxOpts,
 		signerPk,
 		chainCfg.ChainID,
+		relayCutover,
 	)
 	if err != nil {
 		return nil, err
@@ -88,6 +89,7 @@ func NewClient(ctx flarectx.ClientContext) (*client, error) {
 	relayClient, err := NewRelayContractClient(
 		ethClient,
 		cfg.ContractAddresses.Relay,
+		relayCutover,
 	)
 	if err != nil {
 		return nil, err
@@ -216,7 +218,7 @@ func (c *client) signPolicy(ctx context.Context, epochID *big.Int, policy []byte
 	logger.Infof("SigningPolicyInitialized event emitted for next epoch %v, signing new policy", epochID)
 	signingResult := <-c.systemsManagerClient.SignNewSigningPolicy(ctx, epochID, policy)
 	if signingResult.Success {
-		logger.Info("SignNewSigningPolicy success")
+		logger.Infof("New signing policy signed for epoch %v", epochID)
 	} else {
 		logger.Errorf("SignNewSigningPolicy failed %s", signingResult.Message)
 		return
@@ -226,7 +228,7 @@ func (c *client) signPolicy(ctx context.Context, epochID *big.Int, policy []byte
 func (c *client) signUptimeVote(ctx context.Context, epochId *big.Int) {
 	signUptimeVoteResult := <-c.systemsManagerClient.SignUptimeVote(ctx, epochId)
 	if signUptimeVoteResult.Success {
-		logger.Info("SignUptimeVote completed")
+		logger.Infof("Uptime vote signed for epoch %v", epochId)
 	} else {
 		logger.Errorf("SignUptimeVote failed %s", signUptimeVoteResult.Message)
 		return
@@ -263,6 +265,7 @@ func (c *client) isFutureEpoch(epochID *big.Int) bool {
 // Since reward claim data is currently published manually, and it might take a day or so for the data to be available,
 // a retry mechanism is employed with a large retry interval (configurable).
 func (c *client) signRewards(ctx context.Context, epochId *big.Int) {
+	var signedHash *common.Hash // stays nil when the hash was already signed on chain
 	res := shared.ExecuteWithRetryAttempts(ctx, func(i int) (*struct{}, error) {
 		if c.systemsManagerClient.IsRewardHashSigned(epochId) {
 			return nil, nil
@@ -285,15 +288,19 @@ func (c *client) signRewards(ctx context.Context, epochId *big.Int) {
 		if !signingResult.Success {
 			return nil, errors.New("unable to send reward signature")
 		}
+		signedHash = hash
 		return nil, nil
 	}, c.rewardsConfig.Retries, c.rewardsConfig.RetryInterval)
 
 	// The retry loop may run four hours until the reward data is published, so we don't block for result here.
 	go func() {
-		status := <-res
-		if status.Success {
-			logger.Infof("Signing rewards for epoch %v completed", epochId)
-		} else {
+		status := <-res // orders the signedHash write above before the read below
+		switch {
+		case status.Success && signedHash != nil:
+			logger.Infof("Rewards signed for epoch %v, hash: %s", epochId, signedHash.Hex())
+		case status.Success:
+			logger.Infof("Rewards for epoch %v were already signed", epochId)
+		default:
 			logger.Infof("Signing rewards for epoch %v failed: %s", epochId, status.Message)
 		}
 	}()

@@ -21,7 +21,7 @@ import (
 // fix for the duplicate-suppression bug in processDelayedQueue: the
 // lookup key built from a ProtocolMessageRelayed event must match the
 // lookup performed against a queueItem regardless of that item's seed
-// (*big.Int, pointer-compared by maps) and msgHash.
+// (*big.Int, pointer-compared by maps) and digest.
 //
 // Pre-fix, ProtocolMessageRelayed used queueItem as the map key with
 // only protocolID + votingRoundID populated, so the lookup with a
@@ -38,20 +38,20 @@ func TestRelayedKey_LookupMatchesWithUnrelatedQueueItemFields(t *testing.T) {
 		seed:          big.NewInt(0xdeadbeef), // non-nil pointer — would have broken the old lookup
 		votingRoundID: 42,
 		protocolID:    100,
-		msgHash:       common.HexToHash("0xabc"), // non-zero — would have broken the old lookup
+		digest:        common.HexToHash("0xabc"), // non-zero — would have broken the old lookup
 	}
 
 	require.True(
 		t,
 		relayed[relayedKey{protocolID: item.protocolID, votingRoundID: item.votingRoundID}],
-		"already-relayed lookup must match by (protocolID, votingRoundID) regardless of seed/msgHash",
+		"already-relayed lookup must match by (protocolID, votingRoundID) regardless of seed/digest",
 	)
 
 	miss := &queueItem{
 		seed:          big.NewInt(1),
 		votingRoundID: 43, // different round
 		protocolID:    100,
-		msgHash:       common.HexToHash("0xabc"),
+		digest:        common.HexToHash("0xabc"),
 	}
 	require.False(
 		t,
@@ -88,13 +88,15 @@ type scriptedRelayClient struct {
 	nonceFail int // number of leading Nonce calls that fail before succeeding
 
 	sentNonces    []uint64
+	sentTo        []common.Address
 	sendRemaining []time.Duration // per send: time left on its ctx deadline (0 = none)
 	sendIdx       int
 	nonceIdx      int
 }
 
-func (c *scriptedRelayClient) SendRawTx(ctx context.Context, _ *ecdsa.PrivateKey, nonce uint64, _ common.Address, _ []byte, _ *config.Gas, _ time.Duration, _ bool) chain.SendResult {
+func (c *scriptedRelayClient) SendRawTx(ctx context.Context, _ *ecdsa.PrivateKey, nonce uint64, to common.Address, _ []byte, _ *config.Gas, _ time.Duration, _ bool) chain.SendResult {
 	c.sentNonces = append(c.sentNonces, nonce)
+	c.sentTo = append(c.sentTo, to)
 	remaining := time.Duration(0)
 	if dl, ok := ctx.Deadline(); ok {
 		remaining = time.Until(dl)
@@ -138,17 +140,22 @@ var (
 	relayHash1 = common.HexToHash("0x12")
 )
 
-// A relay tx reverting with "Already relayed" on the current attempt is a
-// non-fatal success (someone else finalized the round).
-func TestRelayAlreadyRelayedIsNonFatal(t *testing.T) {
-	cc := &scriptedRelayClient{
-		nonces:  []uint64{10},
-		results: []chain.SendResult{{Broadcast: false, Err: errors.New("execution reverted: Already relayed")}},
-	}
-	r := testRelayClient(t, cc)
+// The new Relay reverts with a bare custom-error selector, which chain decodes to
+// its signature. Both relays' reasons must stay non-fatal: the old one still serves
+// every reward epoch before the cutover.
+func TestRelayAlreadyRelayedReasons(t *testing.T) {
+	for _, reason := range []string{"Already relayed", "AlreadyRelayed()"} {
+		t.Run(reason+" on the current attempt", func(t *testing.T) {
+			cc := &scriptedRelayClient{
+				nonces:  []uint64{10},
+				results: []chain.SendResult{{Err: errors.New("preparing tx: dry run: execution reverted: " + reason)}},
+			}
+			r := testRelayClient(t, cc)
 
-	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1, 100)
-	require.Len(t, cc.sentNonces, 1) // no retry, treated as success
+			r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
+			require.Len(t, cc.sentNonces, 1) // no retry, treated as success
+		})
+	}
 }
 
 // pins the per-attempt ctx cap — without it one slow attempt eats later attempts' slices
@@ -164,7 +171,7 @@ func TestRelaySendAttemptsAreDeadlineScoped(t *testing.T) {
 		cc := failing()
 		r := testRelayClient(t, cc)
 
-		r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1, 100)
+		r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
 
 		require.NotEmpty(t, cc.sendRemaining)
 		for _, remaining := range cc.sendRemaining {
@@ -179,7 +186,7 @@ func TestRelaySendAttemptsAreDeadlineScoped(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 		defer cancel()
 
-		r.SubmitPayloads(ctx, make([]byte, 40), false, 1, 100)
+		r.SubmitPayloads(ctx, relayContractAddress, make([]byte, 40), false, 1, 100)
 
 		require.NotEmpty(t, cc.sendRemaining)
 		// perAttempt = (remaining − 2×retryDelay)/3 ≈ 16.7s, well below the 50s parent
@@ -190,22 +197,26 @@ func TestRelaySendAttemptsAreDeadlineScoped(t *testing.T) {
 	})
 }
 
-// A prior broadcast mined but reverted with the allowed "Already relayed" reason
-// must reconcile a subsequent "nonce too low" as success (no duplicate).
+// A prior broadcast mined but reverted with an allowed reason — either relay's
+// spelling — must reconcile a subsequent "nonce too low" as success (no duplicate).
 func TestRelayReconcilesMinedRevertedAllowed(t *testing.T) {
-	cc := &scriptedRelayClient{
-		nonces: []uint64{10},
-		results: []chain.SendResult{
-			{Hash: relayHash0, Broadcast: true, Err: context.DeadlineExceeded}, // post-broadcast timeout
-			{Hash: relayHash1, Broadcast: false, Err: errors.New("nonce too low")},
-		},
-		receipts: map[common.Hash]*types.Receipt{relayHash0: {Status: types.ReceiptStatusFailed}},
-		reverts:  map[common.Hash]string{relayHash0: "Already relayed"},
-	}
-	r := testRelayClient(t, cc)
+	for _, reason := range []string{"Already relayed", "AlreadyRelayed()"} {
+		t.Run(reason, func(t *testing.T) {
+			cc := &scriptedRelayClient{
+				nonces: []uint64{10},
+				results: []chain.SendResult{
+					{Hash: relayHash0, Broadcast: true, Err: context.DeadlineExceeded}, // post-broadcast timeout
+					{Hash: relayHash1, Broadcast: false, Err: errors.New("nonce too low")},
+				},
+				receipts: map[common.Hash]*types.Receipt{relayHash0: {Status: types.ReceiptStatusFailed}},
+				reverts:  map[common.Hash]string{relayHash0: reason},
+			}
+			r := testRelayClient(t, cc)
 
-	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1, 100)
-	require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled, nonce not bumped
+			r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
+			require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled, nonce not bumped
+		})
+	}
 }
 
 // A mined-but-reverted relay tx with a fatal (non-"Already relayed") reason is
@@ -217,7 +228,7 @@ func TestRelayMinedRevertedFatalIsTerminal(t *testing.T) {
 	}
 	r := testRelayClient(t, cc)
 
-	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1, 100)
+	r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
 	require.Equal(t, []uint64{10}, cc.sentNonces) // exactly one send: no retry, no bump
 }
 
@@ -230,7 +241,7 @@ func TestRelayMinedRevertedAllowedIsSuccess(t *testing.T) {
 	}
 	r := testRelayClient(t, cc)
 
-	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1, 100)
+	r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
 	require.Len(t, cc.sentNonces, 1) // non-fatal: success, no retry
 }
 
@@ -249,7 +260,7 @@ func TestRelayReconciledMinedRevertedFatalIsTerminal(t *testing.T) {
 	}
 	r := testRelayClient(t, cc)
 
-	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1, 100)
+	r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
 	require.Equal(t, []uint64{10, 10}, cc.sentNonces) // reconciled to terminal: no bump, no attempt 3
 }
 
@@ -267,7 +278,7 @@ func TestRelayNonceTooLowUndeterminedRefetchesNonce(t *testing.T) {
 	}
 	r := testRelayClient(t, cc)
 
-	r.SubmitPayloads(context.Background(), make([]byte, 40), false, 1, 100)
+	r.SubmitPayloads(context.Background(), relayContractAddress, make([]byte, 40), false, 1, 100)
 	require.Equal(t, []uint64{10, 10, 11}, cc.sentNonces)
 }
 
@@ -292,7 +303,7 @@ func TestSubmitPayloadsHonorsContextDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	r.SubmitPayloads(ctx, make([]byte, 40), false, 1, 100)
+	r.SubmitPayloads(ctx, relayContractAddress, make([]byte, 40), false, 1, 100)
 	require.Less(t, time.Since(start), 5*time.Second) // deadline abort, not the ~100s budget
 	require.LessOrEqual(t, len(cc.sentNonces), 2)
 }
@@ -304,6 +315,6 @@ func TestRelayNonceFetchAbortsOnCanceledCtx(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // canceled: the retry loop must bail instead of grinding the budget
-	r.SubmitPayloads(ctx, make([]byte, 40), false, 1, 100)
+	r.SubmitPayloads(ctx, relayContractAddress, make([]byte, 40), false, 1, 100)
 	require.Empty(t, cc.sentNonces) // never reached the send loop
 }

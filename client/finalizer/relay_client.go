@@ -1,9 +1,11 @@
 package finalizer
 
 import (
+	"cmp"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -13,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
@@ -23,32 +26,18 @@ const (
 )
 
 // nonFatalRelayErrors are relay revert reasons that mean the finalization is
-// already done on chain, so our tx failing that way is a success. "nonce too
-// low" is handled separately (chain.IsNonceTooLow) via hash reconciliation.
+// already done on chain, so our tx failing that way is a success. Both relays
+// are matched: only the old one can emit the string, only the new one the custom
+// error, so the round's contract picks itself. "nonce too low" is handled
+// separately (chain.IsNonceTooLow) via hash reconciliation.
 var nonFatalRelayErrors = []string{
-	"Already relayed",
+	"Already relayed",  // old Relay
+	"AlreadyRelayed()", // new Relay
 }
 
-var (
-	RelayFlareOld          = common.HexToAddress("0x57a4c3676d08Aa5d15410b5A6A80fBcEF72f3F45")
-	RelayFlareNew          = common.HexToAddress("0xCcF30790A93F15e24EB909548a2C58a9b0a7FBd4")
-	RewardEpochChangeFlare = int64(374)
-
-	RelayCoston2Old          = common.HexToAddress("0x97702e350CaEda540935d92aAf213307e9069784")
-	RelayCoston2New          = common.HexToAddress("0xa10B672D1c62e5457b17af63d4302add6A99d7dE")
-	RewardEpochChangeCoston2 = int64(5236)
-
-	RelaySongbirdOld          = common.HexToAddress("0x67a916E175a2aF01369294739AA60dDdE1Fad189")
-	RelaySongbirdNew          = common.HexToAddress("0xCB86E8Be709001e01897Bf59847406853da8f14b")
-	RewardEpochChangeSongbird = int64(374)
-
-	RelayCostonOld          = common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7")
-	RelayCostonNew          = common.HexToAddress("0x051f214D346Cfd97B107BECb87E2B35D1b4287E9")
-	RewardEpochChangeCoston = int64(5236)
-)
-
 type relayContractClient struct {
-	address common.Address
+	address      common.Address       // configured Relay, holds the signing policies before the cutover
+	relayCutover *shared.RelayCutover // NewAddress serves the reward epochs from the cutover on
 
 	chainClient chain.Client
 	gasConfig   *config.Gas
@@ -76,6 +65,7 @@ func NewRelayContractClient(
 	senderAddress common.Address,
 	gasConfig *config.Gas,
 	chainID int64,
+	relayCutover *shared.RelayCutover,
 ) (*relayContractClient, error) {
 	relayContract, err := relay.NewRelay(address, ethClient)
 	if err != nil {
@@ -103,6 +93,7 @@ func NewRelayContractClient(
 	return &relayContractClient{
 		chainClient:   chain.NewClientImpl(ethClient, chainID),
 		address:       address,
+		relayCutover:  relayCutover,
 		relay:         relayContract,
 		privateKey:    privateKey,
 		senderAddress: senderAddress,
@@ -114,9 +105,52 @@ func NewRelayContractClient(
 	}, nil
 }
 
+// addressForRewardEpoch returns the Relay holding rewardEpochID's signing policy:
+// only that one can verify a finalization signed under it.
+func (r *relayContractClient) addressForRewardEpoch(rewardEpochID int64) common.Address {
+	if r.relayCutover.NewRelayFromRewardEpoch(rewardEpochID) {
+		return r.relayCutover.NewAddress
+	}
+	return r.address
+}
+
+// addresses lists the Relays to read events from — both across the cutover, since the old
+// one emits only the events before it and the new one only those after.
+func (r *relayContractClient) addresses() []common.Address {
+	if !r.relayCutover.Scheduled() {
+		return []common.Address{r.address}
+	}
+	return []common.Address{r.address, r.relayCutover.NewAddress}
+}
+
+// fetchLogs fetches topic0 logs of every relevant Relay in (from,to], in chain order.
+func (r *relayContractClient) fetchLogs(ctx context.Context, db finalizerDB, topic0 common.Hash, from, to int64) ([]database.Log, error) {
+	var all []database.Log
+	for _, address := range r.addresses() {
+		logs, err := db.FetchLogsByAddressAndTopic0(ctx, address, topic0, from, to)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, logs...)
+	}
+	sortLogs(all)
+	return all, nil
+}
+
+// sortLogs restores chain order across merged per-address queries; callers rely on it to
+// take the latest policy and to advance their event range.
+func sortLogs(logs []database.Log) {
+	slices.SortFunc(logs, func(a, b database.Log) int {
+		if a.BlockNumber != b.BlockNumber {
+			return cmp.Compare(a.BlockNumber, b.BlockNumber)
+		}
+		return cmp.Compare(a.LogIndex, b.LogIndex)
+	})
+}
+
 // FetchSigningPolicies fetches signing policies emitted by in SigningPolicyInitialized events from Relay smart contract with timestamps in the interval (from,to].
 func (r *relayContractClient) FetchSigningPolicies(ctx context.Context, db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
-	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, from, to)
+	logs, err := r.fetchLogs(ctx, db, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +180,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Conte
 			}
 			now := time.Now().Unix()
 
-			logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, eventRangeStart, now)
+			logs, err := r.fetchLogs(ctx, db, r.topic0SPI, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -168,12 +202,15 @@ func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Conte
 	return out
 }
 
-// SubmitPayloads sends a transaction with input to the Relay contract, retrying
-// with the same pre-/post-broadcast and nonce-too-low reconciliation logic as
-// the protocol submitter (see SubmitterBase.submit).
-func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool, protocolID uint8, votingRoundID uint32) {
+// SubmitPayloads sends a transaction with input to the Relay at address, with the same
+// pre-/post-broadcast and nonce-too-low reconciliation logic as SubmitterBase.submit.
+func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common.Address, input []byte, dryRun bool, protocolID uint8, votingRoundID uint32) {
 	if len(input) == 0 {
 		logger.Warnf("Relay protocol %d round %d: empty tx input, nothing to send", protocolID, votingRoundID)
+		return
+	}
+	if address == (common.Address{}) {
+		logger.Errorf("Relay protocol %d round %d: no Relay address for this round, nothing to send", protocolID, votingRoundID)
 		return
 	}
 
@@ -225,7 +262,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 
 		// one slice per attempt — SendRawTx spends timeout per phase, uncapped that's ~3 slices
 		attemptCtx, cancelAttempt := context.WithTimeout(ctx, perAttempt)
-		res := r.chainClient.SendRawTx(attemptCtx, r.privateKey, nonce, r.address, input, gasConfig, perAttempt, dryRun)
+		res := r.chainClient.SendRawTx(attemptCtx, r.privateKey, nonce, address, input, gasConfig, perAttempt, dryRun)
 		cancelAttempt()
 		if res.Broadcast {
 			broadcastHashes = append(broadcastHashes, res.Hash)
@@ -235,8 +272,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 		case res.Err == nil:
 			return "confirmed " + res.Hash.Hex(), nil
 		case chain.MatchesError(res.Err, nonFatalRelayErrors):
-			logger.Infof("%s: non-fatal error, the round is already relayed: %v", p, res.Err)
-			return "already relayed (non-fatal error)", nil
+			return fmt.Sprintf("already relayed (non-fatal): %v", res.Err), nil
 		case res.Mined:
 			// Mined-reverted is deterministic ("Already relayed" handled above); a resend can't help.
 			logger.Warnf("%s: tx %s mined but reverted, not retrying: %v", p, res.Hash.Hex(), res.Err)
@@ -245,8 +281,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 			h, acc := chain.AnyAccepted(ctx, r.chainClient, r.senderAddress, broadcastHashes, nonFatalRelayErrors, chain.ReconcileLookupTimeout)
 			switch acc {
 			case chain.Accepted:
-				logger.Infof("%s: reconciled, earlier broadcast %s accepted; nonce too low is non-fatal", p, h.Hex())
-				return "reconciled " + h.Hex(), nil
+				return fmt.Sprintf("reconciled, earlier broadcast %s accepted (nonce too low is non-fatal)", h.Hex()), nil
 			case chain.Reverted:
 				// Our prior broadcast mined but reverted — same terminal handling as
 				// a direct mined-revert (deterministic; a resend can't help).
@@ -255,13 +290,11 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 			case chain.Undetermined:
 				// Outcome unknown: refresh the nonce and resend (a duplicate reverts
 				// non-fatally with "Already relayed").
-				logger.Warnf("%s: rejected as nonce too low, fate of own broadcast(s) %s unresolved; resending at a refreshed nonce",
-					p, chain.HashList(broadcastHashes))
-				nonce = r.refreshNonce(ctx, p, nonce)
+				nonce = r.refreshNonce(ctx, p,
+					fmt.Sprintf("rejected as nonce too low, fate of own broadcast(s) %s unresolved", chain.HashList(broadcastHashes)), nonce)
 				return "", res.Err
 			default: // NonceConsumed
-				logger.Warnf("%s: nonce consumed by another tx; resending at a refreshed nonce", p)
-				nonce = r.refreshNonce(ctx, p, nonce)
+				nonce = r.refreshNonce(ctx, p, "nonce consumed by another tx", nonce)
 				return "", res.Err
 			}
 		case res.Broadcast && chain.IsTimeout(res.Err):
@@ -270,12 +303,12 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 				p, res.Hash.Hex(), perAttempt)
 			return "", res.Err
 		default:
+			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			// Keep the nonce if a tx is already outstanding at it (retry replaces);
 			// only refresh when nothing has been broadcast yet.
 			if len(broadcastHashes) == 0 {
-				nonce = r.refreshNonce(ctx, p, nonce)
+				nonce = r.refreshNonce(ctx, p, "nothing broadcast at this nonce", nonce)
 			}
-			logger.Warnf("%s: send failed (broadcast=%t mined=%t): %v", p, res.Broadcast, res.Mined, res.Err)
 			return "", res.Err
 		}
 	}, shared.MaxTxSendRetries, r.retryDelay)
@@ -283,8 +316,8 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, 
 	elapsed := time.Since(start).Round(time.Millisecond)
 	switch {
 	case sendResult.Success:
-		logger.Infof("Relay protocol %d round %d: finished in %d attempt(s), %s, outcome: %s",
-			protocolID, votingRoundID, attempts, elapsed, sendResult.Value)
+		logger.Infof("Relay protocol %d round %d: finished in %d attempt(s), %s, nonce %d, outcome: %s",
+			protocolID, votingRoundID, attempts, elapsed, nonce, sendResult.Value)
 	case len(broadcastHashes) > 0:
 		// an outstanding broadcast can still mine: not a confirmed failure
 		logger.Warnf("Relay protocol %d round %d: outcome unknown after %d attempt(s), %s; broadcast tx(s) %s may be on chain: %v",
@@ -301,25 +334,27 @@ func relaySendPrefix(protocolID uint8, votingRoundID uint32, attempt int, nonce 
 }
 
 // refreshNonce best-effort re-fetches the sender nonce, keeping current on error.
-// Nonce reads the latest mined nonce, so an accepted-but-unmined tx (or a lagging
-// backend) reads back the rejected nonce — hence the log on an unchanged value.
-func (r *relayContractClient) refreshNonce(ctx context.Context, prefix string, current uint64) uint64 {
+// It logs reason (why the resend happens) together with the outcome, so a refresh
+// costs one line. Nonce reads the latest mined nonce, so an accepted-but-unmined tx
+// (or a lagging backend) reads back the rejected nonce — hence the unchanged case.
+func (r *relayContractClient) refreshNonce(ctx context.Context, prefix, reason string, current uint64) uint64 {
 	nonce, err := r.chainClient.Nonce(ctx, r.privateKey, time.Second)
-	if err != nil {
-		logger.Warnf("%s: nonce refresh failed, keeping %d: %v", prefix, current, err)
+	switch {
+	case err != nil:
+		logger.Warnf("%s: %s; nonce refresh failed, resending at %d: %v", prefix, reason, current, err)
 		return current
+	case nonce == current:
+		logger.Warnf("%s: %s; nonce refresh returned %d unchanged, resending at it", prefix, reason, current)
+		return current
+	default:
+		logger.Warnf("%s: %s; resending at refreshed nonce %d -> %d", prefix, reason, current, nonce)
+		return nonce
 	}
-	if nonce == current {
-		logger.Warnf("%s: nonce refresh returned %d unchanged", prefix, current)
-	} else {
-		logger.Infof("%s: nonce refreshed %d -> %d", prefix, current, nonce)
-	}
-	return nonce
 }
 
 // relayedKey is the lookup key for ProtocolMessageRelayed events.
 //
-// It deliberately excludes the seed and msgHash fields of queueItem:
+// It deliberately excludes the seed and digest fields of queueItem:
 // ProtocolMessageRelayed events identify a finalization uniquely by
 // (protocolID, votingRoundID), and using queueItem directly as a map
 // key would compare *big.Int by pointer identity — guaranteeing the
@@ -329,25 +364,36 @@ type relayedKey struct {
 	votingRoundID uint32
 }
 
-// ProtocolMessageRelayed returns a set of (protocolID, votingRoundID)
-// pairs that have already been finalized on chain in the given time
-// range.
-func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (map[relayedKey]bool, error) {
-	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0PMR, from.Unix(), to.Unix())
-	if err != nil {
-		return nil, err
-	}
+// relayedSet holds the finalizations seen on chain, per Relay: a round relayed only on
+// the old Relay still has to be sent to the new one.
+type relayedSet map[common.Address]map[relayedKey]bool
 
-	result := make(map[relayedKey]bool)
-	for _, log := range logs {
-		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
+func (s relayedSet) has(address common.Address, key relayedKey) bool {
+	return s[address][key]
+}
+
+// ProtocolMessageRelayed returns, per Relay, the (protocolID, votingRoundID) pairs
+// already finalized on chain in the given time range.
+func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (relayedSet, error) {
+	result := make(relayedSet)
+	for _, address := range r.addresses() {
+		logs, err := db.FetchLogsByAddressAndTopic0(ctx, address, r.topic0PMR, from.Unix(), to.Unix())
 		if err != nil {
 			return nil, err
 		}
-		result[relayedKey{
-			protocolID:    data.ProtocolId,
-			votingRoundID: data.VotingRoundId,
-		}] = true
+
+		relayed := make(map[relayedKey]bool)
+		for _, log := range logs {
+			data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
+			if err != nil {
+				return nil, err
+			}
+			relayed[relayedKey{
+				protocolID:    data.ProtocolId,
+				votingRoundID: data.VotingRoundId,
+			}] = true
+		}
+		result[address] = relayed
 	}
 	return result, nil
 }

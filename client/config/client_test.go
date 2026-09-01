@@ -2,12 +2,14 @@ package config
 
 import (
 	"fmt"
+	"github.com/flare-foundation/flare-system-client/config"
 	"math"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -167,6 +169,29 @@ func TestFinalizerValidate(t *testing.T) {
 	require.ErrorContains(t, Finalizer{VoterThresholdBIPS: 500}.validate(), "grace_period_end_offset")
 	require.ErrorContains(t, Finalizer{GracePeriodEndOffset: -time.Second, VoterThresholdBIPS: 500}.validate(), "grace_period_end_offset")
 	require.ErrorContains(t, Finalizer{GracePeriodEndOffset: 65 * time.Second}.validate(), "voter_threshold_bips")
+}
+
+// A half-scheduled cutover leaves Scheduled() false, silently keeping the old Relay past the switch.
+func TestRelayCutoverValidate(t *testing.T) {
+	address := common.HexToAddress("0x00000000000000000000000000000000000000ff")
+
+	require.NoError(t, RelayCutover{}.validate())
+	require.NoError(t, RelayCutover{Address: address, StartingRewardEpoch: 5236}.validate())
+
+	require.ErrorContains(t, RelayCutover{Address: address}.validate(), "starting_reward_epoch")
+	require.ErrorContains(t, RelayCutover{StartingRewardEpoch: 5236}.validate(), "address is not")
+	require.ErrorContains(t, RelayCutover{Address: address, StartingRewardEpoch: -1}.validate(), "negative")
+}
+
+// Without an envconfig tag a field binds the field-path key, not the documented spelling.
+func TestRelayCutoverBindsTheDocumentedEnvKeys(t *testing.T) {
+	t.Setenv("RELAY_CUTOVER_CONTRACT_ADDRESS", "0x00000000000000000000000000000000000000ff")
+	t.Setenv("RELAY_CUTOVER_STARTING_REWARD_EPOCH", "5236")
+
+	var cfg Client
+	require.NoError(t, config.ReadEnv(&cfg))
+	require.Equal(t, common.HexToAddress("0x00000000000000000000000000000000000000ff"), cfg.RelayCutover.Address)
+	require.Equal(t, int64(5236), cfg.RelayCutover.StartingRewardEpoch)
 }
 
 func validSubmit() Submit {

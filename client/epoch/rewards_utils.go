@@ -125,20 +125,20 @@ func encodeRewardsData(epochId *big.Int, chainId int64, rewardHash *common.Hash,
 }
 
 func fetchRewardData(epochId *big.Int, config *config.RewardsConfig) (*rewardDistributionData, error) {
-	if config.UrlPrefix == "" {
+	if config.URLPrefix == "" {
 		return nil, errors.New("reward data url prefix not set")
 	}
 
-	rewardsUrl, err := url.JoinPath(config.UrlPrefix, epochId.Text(10), "reward-distribution-data.json")
+	rewardsURL, err := url.JoinPath(config.URLPrefix, epochId.Text(10), "reward-distribution-data.json")
 	if err != nil {
 		return nil, fmt.Errorf("joining url: %w", err)
 	}
 
-	logger.Infof("Fetching reward data at: %s", rewardsUrl)
+	logger.Infof("Fetching reward data at: %s", rewardsURL)
 	result := <-shared.ExecuteWithRetryChan(context.Background(), func() (*rewardDistributionData, error) {
 		client := &http.Client{Timeout: timeout}
 
-		resp, err := client.Get(rewardsUrl)
+		resp, err := client.Get(rewardsURL)
 		if err != nil {
 			return nil, err
 		}
