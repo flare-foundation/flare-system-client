@@ -434,7 +434,7 @@ func (s *SignatureSubmitter) RunEpochBeforeDeadline(ctx context.Context, round i
 				results[i] = response.Value
 				finished <- i
 			} else {
-				logger.Debugf("unsuccessful data for round %d for protocol %d: %v", round, protocol.ID, response.Message)
+				logger.Warnf("unsuccessful data for round %d for protocol %d: %v", round, protocol.ID, response.Message)
 			}
 		}()
 	}
@@ -541,7 +541,7 @@ func (s *SignatureSubmitter) RunEpochAfterDeadline(ctx context.Context, round in
 				return
 			case data := <-channels[i]:
 				if !data.Success {
-					logger.Warnf("Error getting data for submitter %s: %s", s.name, data.Message)
+					logger.Warnf("Error getting data for submitter %s for protocol %d: %s", s.name, s.subProtocols[i].ID, data.Message)
 					continue
 				}
 
