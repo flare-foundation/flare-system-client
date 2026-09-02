@@ -270,8 +270,14 @@ func TestBadPayloadClassification(t *testing.T) {
 // Tests using it must not be parallel: the logger is global.
 func captureWarnings(t *testing.T) func() string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "warn.log")
-	logger.Set(logger.Config{Level: "WARN", File: path, MaxFileSize: 1})
+	return captureLogs(t, "WARN")
+}
+
+// captureLogs redirects the global logger to a file for the test and returns a reader of it.
+func captureLogs(t *testing.T, level string) func() string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "test.log")
+	logger.Set(logger.Config{Level: level, File: path, MaxFileSize: 1})
 	t.Cleanup(func() { logger.Set(logger.DefaultConfig()) })
 
 	return func() string {

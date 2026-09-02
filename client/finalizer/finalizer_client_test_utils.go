@@ -118,7 +118,8 @@ func setupTest(protocolType uint8) (*testClients, error) {
 
 	fCtx := &finalizerContext{
 		votingRoundTiming: &utils.EpochTimingConfig{
-			Start:  time.Unix(0, 0),
+			// round 5 now: below minRoundsStored so round 1 survives the pruner, round 2's grace is past
+			Start:  time.Now().Add(-5 * time.Hour),
 			Period: time.Hour,
 		},
 		rewardEpoch: &utils.RewardEpochConfig{
