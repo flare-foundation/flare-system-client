@@ -77,9 +77,9 @@ func TestProcessDelayedQueueSurvivesDBError(t *testing.T) {
 	require.NoError(t, err)
 
 	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{sender}, []uint16{2}, nil)}
-	storage := newFinalizationStorage(testCutover)
+	storage := storageWithMessage(t, testCutover, 1, msg, sp)
 	ready, err := storage.addPayload(&submitSignaturesPayload{
-		protocolID: 1, votingRoundID: 1, typeID: 0, message: msg, signature: sig, sender: sender,
+		protocolID: 1, votingRoundID: 1, signature: sig, sender: sender,
 	}, sp, 1)
 	require.NoError(t, err)
 	require.True(t, ready.thresholdReached)
@@ -98,7 +98,7 @@ func TestProcessDelayedQueueSurvivesDBError(t *testing.T) {
 	)
 
 	err = qp.processDelayedQueue(context.Background(), []*queueItem{
-		{votingRoundID: ready.votingRoundID, protocolID: ready.protocolID, digest: ready.digest},
+		{votingRoundID: ready.votingRoundID, protocolID: ready.protocolID},
 	})
 	require.NoError(t, err)
 	require.Len(t, eth.sentTxs, 1, "item must be sent despite the failed dedup query")

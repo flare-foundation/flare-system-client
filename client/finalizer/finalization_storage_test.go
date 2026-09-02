@@ -3,6 +3,8 @@ package finalizer
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -11,20 +13,21 @@ import (
 
 	"github.com/flare-foundation/flare-system-client/client/shared"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/policy"
 	"github.com/flare-foundation/go-flare-common/pkg/voters"
 )
 
 func bufferPayload(t *testing.T, pc *protocolCollection, sender common.Address) {
 	t.Helper()
-	_, _, err := pc.addPayload(&submitSignaturesPayload{typeID: 1, sender: sender})
+	_, err := pc.addPayload(&submitSignaturesPayload{sender: sender})
 	require.NoError(t, err)
 }
 
-// Before messageAdded, a sender may buffer at most one payload per (round,
+// Before the message, a sender may buffer at most one payload per (round,
 // protocol); extras are dropped to bound the ECDSA-recovery burst on drain (DOS-01).
 func TestProtocolCollectionBuffersOnePayloadPerSender(t *testing.T) {
-	pc := &protocolCollection{signatureCollection: map[common.Hash]*signaturesCollection{}, relayCutover: testCutover}
+	pc := &protocolCollection{relayCutover: testCutover}
 	sender := common.HexToAddress("0x1111111111111111111111111111111111111111")
 
 	for range 100 {
@@ -35,7 +38,7 @@ func TestProtocolCollectionBuffersOnePayloadPerSender(t *testing.T) {
 }
 
 func TestProtocolCollectionBuffersPerSenderIndependently(t *testing.T) {
-	pc := &protocolCollection{signatureCollection: map[common.Hash]*signaturesCollection{}, relayCutover: testCutover}
+	pc := &protocolCollection{relayCutover: testCutover}
 	a := common.HexToAddress("0xaaaa000000000000000000000000000000000001")
 	b := common.HexToAddress("0xbbbb000000000000000000000000000000000002")
 
@@ -47,44 +50,77 @@ func TestProtocolCollectionBuffersPerSenderIndependently(t *testing.T) {
 	require.Len(t, pc.unprocessedPayloads, 2, "one buffered payload per distinct sender")
 }
 
-// TypeID-0 payloads carry the message inline, so an attacker controls the
-// digest key per payload. Without the cap, each payload allocates a fresh
-// signaturesCollection before any signer check, giving an unbounded memory
-// growth vector. The cap limits allocations to one per sender per (round, protocol).
-func TestProtocolCollectionCapsTypeZeroAllocations(t *testing.T) {
-	sender := common.HexToAddress("0x1111111111111111111111111111111111111111")
-	pc := &protocolCollection{
-		signatureCollection: map[common.Hash]*signaturesCollection{},
-		signingPolicy: &policy.SigningPolicy{
-			Voters: voters.NewSet([]common.Address{sender}, []uint16{1}, nil),
-		},
-		relayCutover: testCutover,
-	}
+// Only the local message creates a collection. Payloads that arrive first, whatever their type,
+// wait in the buffer and are verified against that message when it lands.
+func TestPayloadsWaitForTheMessage(t *testing.T) {
+	const round = uint32(50)
+	priv, addr := newKeyAndAddress(t)
+	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{addr}, []uint16{2}, nil)}
 
-	for range 100 {
-		// fresh 38-byte message per call → unique hash per payload
-		msg := make(shared.Message, 38)
-		_, err := rand.Read(msg)
-		require.NoError(t, err)
-		// Errors from AddSigner (bad signature) are expected and irrelevant here;
-		// what we assert is that no further allocations occur past the cap.
-		_, _, _ = pc.addPayload(&submitSignaturesPayload{
-			typeID:    0,
-			sender:    sender,
-			message:   msg,
-			signature: make([]byte, 65), // satisfy AddSigner length; recovery will fail
-		})
-	}
+	message := make(shared.Message, 38)
+	_, err := rand.Read(message)
+	require.NoError(t, err)
 
-	require.LessOrEqual(t, len(pc.signatureCollection), 1,
-		"only the first type-0 payload per sender may allocate a signaturesCollection")
+	s := newFinalizationStorage(testCutover)
+	ready, err := s.addPayload(&submitSignaturesPayload{
+		sender: addr, votingRoundID: round, protocolID: 1,
+		signature: signVRS(t, testDigest(message), priv),
+	}, sp, 1)
+	require.NoError(t, err)
+	require.False(t, ready.thresholdReached)
+	_, exists := s.get(round, 1)
+	require.False(t, exists, "no collection before the message")
+
+	ready, err = s.AddMessage(&shared.ProtocolMessage{ProtocolID: 1, VotingRoundID: round, Message: message}, sp, 1)
+	require.NoError(t, err)
+	require.True(t, ready.thresholdReached, "the buffered signature counts once the message is known")
+	sc, exists := s.get(round, 1)
+	require.True(t, exists)
+	require.Equal(t, message, sc.message)
 }
 
-// bufferRoundPayload stores a buffered (typeID-1) payload so the round exists in the storage.
+// The first local message wins: a re-served one must not displace the root, drop the counted
+// weight or refresh finalizationData.
+func TestASecondMessageCannotDisplaceTheFirst(t *testing.T) {
+	const round = uint32(60)
+	priv, addr := newKeyAndAddress(t)
+	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{addr}, []uint16{2}, nil)}
+
+	first := buildMessage(1, round, randomValue)
+	firstData := words(randomValue)
+
+	s := newFinalizationStorage(testCutover)
+	_, err := s.AddMessage(&shared.ProtocolMessage{
+		ProtocolID: 1, VotingRoundID: round, Message: first, FinalizationData: firstData,
+	}, sp, 1)
+	require.NoError(t, err)
+
+	ready, err := s.addPayload(&submitSignaturesPayload{
+		sender: addr, votingRoundID: round, protocolID: 1, signature: signVRS(t, testDigest(first), priv),
+	}, sp, 1)
+	require.NoError(t, err)
+	require.True(t, ready.thresholdReached)
+
+	ready, secondErr := s.AddMessage(&shared.ProtocolMessage{
+		ProtocolID: 1, VotingRoundID: round, Message: buildMessage(1, round, proofNodeA),
+		FinalizationData: words(proofNodeA),
+	}, sp, 1)
+
+	sc, exists := s.get(round, 1)
+	require.True(t, exists)
+	require.Equal(t, first, sc.message, "the root the counted signature covers")
+	require.Equal(t, firstData, sc.finalizationData)
+	require.Equal(t, uint16(2), sc.weight, "the counted signature survives")
+	require.True(t, sc.thresholdReached)
+	require.ErrorContains(t, secondErr, "message added twice")
+	require.False(t, ready.thresholdReached, "one round and protocol queue at most once")
+}
+
+// bufferRoundPayload stores a buffered payload so the round exists in the storage.
 func bufferRoundPayload(t *testing.T, s *finalizationStorage, round uint32, sp *policy.SigningPolicy) error {
 	t.Helper()
 	sender := common.HexToAddress("0x1111111111111111111111111111111111111111")
-	_, err := s.addPayload(&submitSignaturesPayload{typeID: 1, sender: sender, votingRoundID: round, protocolID: 1}, sp, 1)
+	_, err := s.addPayload(&submitSignaturesPayload{sender: sender, votingRoundID: round, protocolID: 1}, sp, 1)
 	return err
 }
 
@@ -148,11 +184,9 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	for i := range voterCount {
 		wg.Go(func() {
 			p := &submitSignaturesPayload{
-				typeID:        0,
 				sender:        addrs[i],
 				votingRoundID: round,
 				protocolID:    protocolID,
-				message:       message,
 				signature:     signVRS(t, digest, privs[i]),
 			}
 			_, err := s.addPayload(p, sp, threshold)
@@ -167,7 +201,7 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	for range 4 {
 		wg.Go(func() {
 			for range 200 {
-				if sc, exists := s.get(round, protocolID, common.Hash(digest)); exists {
+				if sc, exists := s.get(round, protocolID); exists {
 					_, _ = PrepareFinalizationResults(sc)
 				}
 			}
@@ -183,58 +217,10 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// all signatures landed and the final state is consistent
-	sc, exists := s.get(round, protocolID, common.Hash(digest))
+	sc, exists := s.get(round, protocolID)
 	require.True(t, exists)
 	require.True(t, sc.thresholdReached)
 	require.Equal(t, uint16(voterCount), sc.weight)
-}
-
-// Regression: addMessage used to reassign sc.message on an already-existing
-// collection under the storage lock, while PrepareFinalizationResults reads
-// sc.message under sc.mu only — disjoint locks, a data race on the slice header.
-// Run with -race; the loop retries the one-shot window enough times to trip it.
-func TestAddMessageDoesNotRaceWithPrepare(t *testing.T) {
-	const round = uint32(50)
-	const protocolID = uint8(1)
-
-	priv, addr := newKeyAndAddress(t)
-	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{addr}, []uint16{1}, nil)}
-
-	message := make(shared.Message, 38)
-	_, err := rand.Read(message)
-	require.NoError(t, err)
-	digest := testDigest(message)
-	sig := signVRS(t, digest, priv)
-
-	for range 2000 {
-		s := newFinalizationStorage(testCutover)
-		// threshold 0: the single typeID-0 payload creates the collection and
-		// already reaches the threshold, so the reader gets past the weight
-		// check in PrepareFinalizationResults to the sc.message read.
-		ready, err := s.addPayload(&submitSignaturesPayload{
-			typeID:        0,
-			sender:        addr,
-			votingRoundID: round,
-			protocolID:    protocolID,
-			message:       message,
-			signature:     sig,
-		}, sp, 0)
-		require.NoError(t, err)
-		require.True(t, ready.thresholdReached)
-
-		var wg sync.WaitGroup
-		wg.Go(func() {
-			_, _ = s.AddMessage(&shared.ProtocolMessage{ProtocolID: protocolID, VotingRoundID: round, Message: message}, sp, 0)
-		})
-		wg.Go(func() {
-			for range 20 {
-				if sc, exists := s.get(round, protocolID, common.Hash(digest)); exists {
-					_, _ = PrepareFinalizationResults(sc)
-				}
-			}
-		})
-		wg.Wait()
-	}
 }
 
 // TestBadPayloadClassification pins that the four payload-caused rejections wrap
@@ -278,4 +264,66 @@ func TestBadPayloadClassification(t *testing.T) {
 		_, err := s.addPayload(&submitSignaturesPayload{votingRoundID: 1}, sp, 100)
 		require.ErrorIs(t, err, errBadPayload)
 	})
+}
+
+// captureWarnings redirects the process logger to a file for the duration of the test.
+// Tests using it must not be parallel: the logger is global.
+func captureWarnings(t *testing.T) func() string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "warn.log")
+	logger.Set(logger.Config{Level: "WARN", File: path, MaxFileSize: 1})
+	t.Cleanup(func() { logger.Set(logger.DefaultConfig()) })
+
+	return func() string {
+		logger.SyncFileLogger()
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return ""
+		}
+		return string(b)
+	}
+}
+
+// Giving up on a round is the only Warn-level signal; protocols we never served a message for are skipped.
+func TestPruneWarnsAboutAnUnfinalizedRound(t *testing.T) {
+	warnings := captureWarnings(t)
+	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{{}}, []uint16{1}, nil)}
+	message := make(shared.Message, shared.RelayMessageLength)
+
+	s := newFinalizationStorage(testCutover)
+	// protocol 1: we served the message, nothing valid signed it
+	_, err := s.AddMessage(&shared.ProtocolMessage{ProtocolID: 1, VotingRoundID: 40, Message: message}, sp, 100)
+	require.NoError(t, err)
+	// protocol 200: peers submit, we never served a message
+	_, err = s.addPayload(&submitSignaturesPayload{
+		sender: common.HexToAddress("0x1111111111111111111111111111111111111111"), votingRoundID: 40, protocolID: 200,
+	}, sp, 100)
+	require.NoError(t, err)
+
+	s.RemoveRoundsBefore(41)
+
+	out := warnings()
+	require.Contains(t, out, "Discarding round 40 for protocol 1 unfinalized")
+	require.NotContains(t, out, "protocol 200", "a protocol this node does not answer for is not its business")
+}
+
+// A round that did reach the threshold is discarded quietly.
+func TestPruneIsQuietForAFinalizedRound(t *testing.T) {
+	warnings := captureWarnings(t)
+	priv, addr := newKeyAndAddress(t)
+	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{addr}, []uint16{2}, nil)}
+	message := make(shared.Message, shared.RelayMessageLength)
+
+	s := newFinalizationStorage(testCutover)
+	_, err := s.AddMessage(&shared.ProtocolMessage{ProtocolID: 1, VotingRoundID: 40, Message: message}, sp, 1)
+	require.NoError(t, err)
+	ready, err := s.addPayload(&submitSignaturesPayload{
+		sender: addr, votingRoundID: 40, protocolID: 1, signature: signVRS(t, testDigest(message), priv),
+	}, sp, 1)
+	require.NoError(t, err)
+	require.True(t, ready.thresholdReached)
+
+	s.RemoveRoundsBefore(41)
+
+	require.NotContains(t, warnings(), "round 40")
 }

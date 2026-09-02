@@ -36,6 +36,15 @@ func cutoverForTest() *shared.RelayCutover {
 	}
 }
 
+// storageWithMessage returns a storage holding the local message of protocol 1 for round.
+func storageWithMessage(t *testing.T, cutover *shared.RelayCutover, round uint32, message shared.Message, sp *policy.SigningPolicy) *finalizationStorage {
+	t.Helper()
+	s := newFinalizationStorage(cutover)
+	_, err := s.AddMessage(&shared.ProtocolMessage{ProtocolID: 1, VotingRoundID: round, Message: message}, sp, 1)
+	require.NoError(t, err)
+	return s
+}
+
 // A finalization carries the policy bytes, so it verifies only on the Relay holding that hash:
 // pre-cutover epochs stay on the old Relay after the switch, or a late one reverts on mismatch.
 func TestAddressForRewardEpoch(t *testing.T) {
@@ -120,10 +129,9 @@ func signDigest(t *testing.T, digest []byte, key *ecdsa.PrivateKey) []byte {
 	return vrs
 }
 
-// A payload counted after the boundary is learned recovers under the round-derived digest, but the
-// collection is still filed under the fallback one it was created with: the reported key must be the
-// one the storage answers to, or the round is dropped as missing.
-func TestThresholdKeyIsTheKeyTheCollectionIsStoredUnder(t *testing.T) {
+// The boundary can be learned after the message arrived: a payload counted then must recover under
+// the round-derived digest, the form its signer used, not the fallback the collection was built with.
+func TestSignerRecoveryFollowsTheLearnedBoundary(t *testing.T) {
 	cutover := cutoverForTest()
 
 	key, err := crypto.HexToECDSA(testPrivateKeyHex)
@@ -133,7 +141,7 @@ func TestThresholdKeyIsTheKeyTheCollectionIsStoredUnder(t *testing.T) {
 	message, err := encodeMessage(1, testBreakingRound, true, make([]byte, 32))
 	require.NoError(t, err)
 
-	// a policy below the breaking epoch files the collection under the legacy digest
+	// a policy below the breaking epoch: the message arrives while the fallback form still applies
 	sp := &policy.SigningPolicy{
 		RewardEpochID: testBreakingEpoch - 1,
 		Voters:        voters.NewSet([]common.Address{signer}, []uint16{2}, nil),
@@ -148,17 +156,11 @@ func TestThresholdKeyIsTheKeyTheCollectionIsStoredUnder(t *testing.T) {
 	cutover.ObserveSigningPolicy(testBreakingEpoch, testBreakingRound)
 
 	ready, err := storage.addPayload(&submitSignaturesPayload{
-		typeID: 1, sender: signer, protocolID: 1, votingRoundID: testBreakingRound,
+		sender: signer, protocolID: 1, votingRoundID: testBreakingRound,
 		signature: signDigest(t, shared.MessageDigest(message, cutover.ChainID, true), key),
 	}, sp, 1)
 	require.NoError(t, err)
 	require.True(t, ready.thresholdReached, "the chain-bound signature its signer used recovers")
-
-	legacy := common.Hash(shared.MessageDigest(message, cutover.ChainID, false))
-	require.Equal(t, legacy, ready.digest)
-
-	_, exists := storage.get(testBreakingRound, 1, ready.digest)
-	require.True(t, exists, "the reported key resolves, so the finalization is not dropped")
 }
 
 // With the round boundary not yet learned (a restart may fetch only post-breaking policies) the
@@ -191,28 +193,24 @@ func TestFinalizerRecoversSignersUnderThePolicyEpochDigest(t *testing.T) {
 			}
 
 			matching := &submitSignaturesPayload{
-				typeID:        0,
 				sender:        signer,
 				votingRoundID: 7,
 				protocolID:    1,
-				message:       message,
 				signature:     signDigest(t, shared.MessageDigest(message, cutover.ChainID, c.chainBound), key),
 			}
-			s := newFinalizationStorage(cutover)
+			s := storageWithMessage(t, cutover, 7, message, sp)
 			ready, err := s.addPayload(matching, sp, 1)
 			require.NoError(t, err)
 			require.True(t, ready.thresholdReached)
 
 			// the other digest form recovers a stranger, which is not in the policy
 			wrong := &submitSignaturesPayload{
-				typeID:        0,
 				sender:        signer,
 				votingRoundID: 7,
 				protocolID:    1,
-				message:       message,
 				signature:     signDigest(t, shared.MessageDigest(message, cutover.ChainID, !c.chainBound), key),
 			}
-			s = newFinalizationStorage(cutover)
+			s = storageWithMessage(t, cutover, 7, message, sp)
 			_, err = s.addPayload(wrong, sp, 1)
 			require.ErrorIs(t, err, errBadPayload)
 		})
@@ -251,28 +249,24 @@ func TestFinalizerRecoversSignersUnderTheEmbeddedRoundDigest(t *testing.T) {
 				Voters:        voters.NewSet([]common.Address{signer}, []uint16{2}, nil),
 			}
 			pld := &submitSignaturesPayload{
-				typeID:        0,
 				sender:        signer,
 				votingRoundID: c.round,
 				protocolID:    1,
-				message:       message,
 				signature:     signDigest(t, shared.MessageDigest(message, cutover.ChainID, c.chainBound), key),
 			}
-			s := newFinalizationStorage(cutover)
+			s := storageWithMessage(t, cutover, c.round, message, sp)
 			ready, err := s.addPayload(pld, sp, 1)
 			require.NoError(t, err)
 			require.True(t, ready.thresholdReached)
 
 			// the other digest form recovers a stranger, which is not in the policy
 			wrong := &submitSignaturesPayload{
-				typeID:        0,
 				sender:        signer,
 				votingRoundID: c.round,
 				protocolID:    1,
-				message:       message,
 				signature:     signDigest(t, shared.MessageDigest(message, cutover.ChainID, !c.chainBound), key),
 			}
-			s = newFinalizationStorage(cutover)
+			s = storageWithMessage(t, cutover, c.round, message, sp)
 			_, err = s.addPayload(wrong, sp, 1)
 			require.ErrorIs(t, err, errBadPayload)
 		})

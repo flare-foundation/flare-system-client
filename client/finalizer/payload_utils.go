@@ -71,51 +71,40 @@ type submitSignaturesPayload struct {
 
 	protocolID    uint8
 	votingRoundID uint32
-	typeID        uint8
 	signature     []byte
 
 	//assigned after processing
 	signer     common.Address
 	voterIndex int
 	weight     uint16
-
-	message shared.Message // only if type 0
 }
 
+// FromSignedPayload reads the signature out of a payload; a type-0 payload's inline message is skipped.
 func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) error {
 	if len(payloadMsg.payload) < 1 {
 		return errors.New("empty payload")
 	}
 	typeID := payloadMsg.payload[0]
 
-	var signatureStart, signatureEnd int
-
+	var signatureStart int
 	switch typeID {
 	case 0:
-		signatureStart = 1 + 38
-		signatureEnd = signatureStart + 1 + 2*32
+		signatureStart = 1 + shared.RelayMessageLength
 	case 1:
 		signatureStart = 1
-		signatureEnd = signatureStart + 1 + 2*32
 	default:
 		return fmt.Errorf("invalid typeID %d", typeID)
 	}
+	signatureEnd := signatureStart + utils.SignatureLength
 
 	if len(payloadMsg.payload) < signatureEnd {
 		return fmt.Errorf("payload of type %d to short got %d, should be at least %d", typeID, len(payloadMsg.payload), signatureEnd)
 	}
 
-	signature := payloadMsg.payload[signatureStart:signatureEnd]
-
 	s.protocolID = payloadMsg.protocolID
 	s.votingRoundID = payloadMsg.votingRoundID
-	s.typeID = typeID
-	s.signature = signature
+	s.signature = payloadMsg.payload[signatureStart:signatureEnd]
 	s.voterIndex = -1 // 0 is a valid index, we use -1 before assigning the proper value
-
-	if typeID == 0 {
-		s.message = payloadMsg.payload[1:39]
-	}
 
 	return nil
 }

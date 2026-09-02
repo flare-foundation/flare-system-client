@@ -90,12 +90,7 @@ func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) erro
 
 		if finalizationReady.thresholdReached {
 			logger.Infof("Threshold reached for protocol %d in voting round %d", finalizationReady.protocolID, finalizationReady.votingRoundID)
-			c.queueProcessor.Add(&finalizationReady, sp.Seed)
-
-			//clean old rounds
-			if finalizationReady.votingRoundID > minRoundsStored {
-				c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored)
-			}
+			c.onThresholdReached(&finalizationReady, sp)
 		}
 	}
 	return nil

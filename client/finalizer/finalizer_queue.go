@@ -9,8 +9,6 @@ import (
 
 	"github.com/flare-foundation/flare-system-client/utils"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
@@ -54,7 +52,6 @@ type queueItem struct {
 	seed          *big.Int
 	votingRoundID uint32
 	protocolID    uint8
-	digest        common.Hash
 }
 
 func (i *queueItem) String() string {
@@ -128,7 +125,6 @@ func (p *finalizerQueueProcessor) Add(item *FinalizationReady, seed *big.Int) {
 		seed:          seed,
 		votingRoundID: item.votingRoundID,
 		protocolID:    item.protocolID,
-		digest:        item.digest,
 	}
 
 	p.queue.Add(queued)
@@ -169,7 +165,7 @@ func (p *finalizerQueueProcessor) Run(ctx context.Context) error {
 		} else {
 			logger.Infof("Finalizer with address %v will send outside grace period for voting round %v for protocol %v", p.relayClient.senderAddress, item.votingRoundID, item.protocolID)
 
-			_, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest)
+			_, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID)
 			if exists {
 				// Finalization for a votingRoundID should happen in the following voting round votingRoundID + 1
 				votingRoundStartTime := p.finalizerContext.votingRoundTiming.StartTime(int64(item.votingRoundID + 1))
@@ -192,7 +188,7 @@ func (p *finalizerQueueProcessor) isVoterForCurrentEpoch(item *queueItem) bool {
 	if item == nil {
 		return false
 	}
-	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest)
+	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID)
 	if !exists {
 		return false
 	}
@@ -231,7 +227,7 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 		return
 	}
 
-	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest)
+	data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID)
 	if !exists {
 		logger.Warnf("finalization data for protocol %d for round %d missing", item.protocolID, item.votingRoundID)
 		return
@@ -245,7 +241,7 @@ func (p *finalizerQueueProcessor) processItem(ctx context.Context, item *queueIt
 
 	if p.needsFinalizationData(item.protocolID, data.signingPolicy.RewardEpochID) {
 		if len(result.finalizationData) == 0 {
-			// without the random number and proof the Relay reverts; the delayed queue retries
+			// the Relay reverts without them, and no retry can supply them
 			logger.Errorf("the random protocol served no random number and Merkle proof for round %d, not finalizing protocol %d",
 				item.votingRoundID, item.protocolID)
 			return
@@ -281,7 +277,7 @@ func (p *finalizerQueueProcessor) processDelayedQueue(ctx context.Context, items
 
 	for _, item := range items {
 		// skip only when the item's own target Relay already has it
-		if data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID, item.digest); exists {
+		if data, exists := p.finalizationStorage.get(item.votingRoundID, item.protocolID); exists {
 			address := p.relayClient.addressForRewardEpoch(data.signingPolicy.RewardEpochID)
 			if relayedItems.has(address, relayedKey{protocolID: item.protocolID, votingRoundID: item.votingRoundID}) {
 				continue

@@ -21,17 +21,14 @@ type signaturesCollection struct {
 	signingPolicy    *policy.SigningPolicy
 	threshold        uint16
 
-	// what relay() must have appended for this message, served with it by the provider.
-	// Per digest: equal digests are equal bytes, so it never rides the wrong merkle root.
+	// what relay() must have appended for this message, served with it by the provider
 	finalizationData []byte
 
 	mu sync.RWMutex
 }
 
 type protocolCollection struct {
-	messageAdded        bool
-	messageChosenDigest common.Hash
-	signatureCollection map[common.Hash]*signaturesCollection
+	collection          *signaturesCollection // nil until the local message arrives
 	unprocessedPayloads []*submitSignaturesPayload
 	bufferedSenders     map[common.Address]struct{} // senders already buffered pre-message (DOS-01 cap)
 	signingPolicy       *policy.SigningPolicy
@@ -68,7 +65,6 @@ type FinalizationReady struct {
 	thresholdReached bool
 	protocolID       uint8
 	votingRoundID    uint32
-	digest           common.Hash
 }
 
 func NewSignatureCollection(message shared.Message, signingPolicy *policy.SigningPolicy, threshold uint16) *signaturesCollection {
@@ -104,33 +100,15 @@ func (sc *signaturesCollection) addSignature(p *submitSignaturesPayload) (bool, 
 	return false, nil
 }
 
-// setFinalizationData stores what relay() needs appended for the collection's message.
-// A collection created by a payload can already be read by a send, hence the lock.
-func (sc *signaturesCollection) setFinalizationData(data []byte) {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-
-	sc.finalizationData = data
-}
-
-func (pc *protocolCollection) addMessage(message shared.Message, finalizationData []byte) (bool, common.Hash, error) {
-	if pc.messageAdded {
-		return false, common.Hash{}, errors.New("message added twice")
+// addMessage creates the round's only collection and drains the buffered payloads into it.
+func (pc *protocolCollection) addMessage(message shared.Message, finalizationData []byte) (bool, error) {
+	if pc.collection != nil {
+		return false, errors.New("message added twice")
 	}
 
-	digest := common.Hash(pc.messageDigest(message))
-	// An existing collection at digest already holds an equal-bytes message
-	// (same hash). Do not reassign it: PrepareFinalizationResults reads message
-	// under sc.mu only, not the storage lock, so it must stay fixed.
-	sc, exists := pc.signatureCollection[digest]
-	if !exists {
-		sc = NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
-		pc.signatureCollection[digest] = sc
-	}
-	sc.setFinalizationData(finalizationData)
-
-	pc.messageChosenDigest = digest
-	pc.messageAdded = true
+	sc := NewSignatureCollection(message, pc.signingPolicy, pc.threshold)
+	sc.finalizationData = finalizationData // not yet visible to a send, no lock needed
+	pc.collection = sc
 
 	thresholdReached := false
 
@@ -140,14 +118,12 @@ func (pc *protocolCollection) addMessage(message shared.Message, finalizationDat
 	pc.bufferedSenders = nil
 
 	for _, up := range pc.unprocessedPayloads {
-		tr, digestCheck, err := pc.addPayload(up)
+		tr, err := pc.addPayload(up)
 		switch {
 		case errors.Is(err, errBadPayload):
 			logger.Debugf("Ignoring buffered signature for voting round %d, protocolID %d from sender %s: %v", up.votingRoundID, up.protocolID, up.sender, err)
 		case err != nil:
 			logger.Errorf("Failed to add buffered signature for voting round %d, protocolID %d from sender %s: %v", up.votingRoundID, up.protocolID, up.sender, err)
-		case digestCheck != digest:
-			logger.Debug("Unexpected behavior, hashes should match")
 		}
 		if tr {
 			thresholdReached = true
@@ -157,60 +133,35 @@ func (pc *protocolCollection) addMessage(message shared.Message, finalizationDat
 	//clear unprocessedPayloads
 	pc.unprocessedPayloads = nil
 
-	return thresholdReached, digest, nil
+	return thresholdReached, nil
 }
 
-func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool, common.Hash, error) {
-	// DOS-01: cap each sender to one payload per (round, protocol). Applied above
-	// the type/message-state branching to bound both attack vectors:
-	//   - pre-message TypeID-1 buffer (unprocessedPayloads + ECDSA burst on drain)
-	//   - TypeID-0 signatureCollection allocations keyed on attacker-controlled hashes
+// addPayload buffers payload until the message arrives, then verifies it against that message.
+func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool, error) {
+	// DOS-01: one payload per sender per (round, protocol) — bounds the buffer and its ECDSA drain
 	if pc.bufferedSenders == nil {
 		pc.bufferedSenders = make(map[common.Address]struct{})
 	}
 	if _, seen := pc.bufferedSenders[payload.sender]; seen {
-		return false, common.Hash{}, nil
+		return false, nil
 	}
 	pc.bufferedSenders[payload.sender] = struct{}{}
 
-	if !pc.messageAdded && payload.typeID != 0 {
+	if pc.collection == nil {
 		pc.unprocessedPayloads = append(pc.unprocessedPayloads, payload)
 
-		return false, common.Hash{}, nil
+		return false, nil
 	}
 
-	// key and digest can differ: messageDigest follows the round once the boundary is
-	// learned, which can happen after the message was filed under the fallback form.
-	// The signature must be recovered under the form its signer used, but the caller
-	// gets the key the collection is actually stored under.
-	var digest []byte
-	var key common.Hash
-	var sigCollection *signaturesCollection
-	if payload.typeID == 0 {
-		digest = pc.messageDigest(payload.message)
-		key = common.Hash(digest)
-		sc, exists := pc.signatureCollection[key]
-		if !exists {
-			sc = NewSignatureCollection(payload.message, pc.signingPolicy, pc.threshold)
-			pc.signatureCollection[key] = sc
-		}
-		sigCollection = sc
-	} else if pc.messageAdded {
-		key = pc.messageChosenDigest
-		sigCollection = pc.signatureCollection[key]
-		digest = pc.messageDigest(sigCollection.message)
-	} else {
-		return false, common.Hash{}, errors.New("unexpected behavior, no message")
-	}
+	// per payload, not per message: the digest form can change once the cutover boundary is learned
+	digest := pc.messageDigest(pc.collection.message)
 
-	err := payload.AddSigner(digest, sigCollection.signingPolicy.Voters)
+	err := payload.AddSigner(digest, pc.collection.signingPolicy.Voters)
 	if err != nil {
-		return false, common.Hash{}, err
+		return false, err
 	}
 
-	thresholdReached, err := sigCollection.addSignature(payload)
-
-	return thresholdReached, key, err
+	return pc.collection.addSignature(payload)
 }
 
 func newFinalizationStorage(relayCutover *shared.RelayCutover) *finalizationStorage {
@@ -240,16 +191,16 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 	pc, exists := rc.protocolCollections[p.protocolID]
 	if !exists {
-		pc = &protocolCollection{signingPolicy: signingPolicy, signatureCollection: make(map[common.Hash]*signaturesCollection), threshold: threshold, relayCutover: s.relayCutover}
+		pc = &protocolCollection{signingPolicy: signingPolicy, threshold: threshold, relayCutover: s.relayCutover}
 		rc.protocolCollections[p.protocolID] = pc
 	}
 
-	thresholdReached, digest, err := pc.addPayload(p)
+	thresholdReached, err := pc.addPayload(p)
 	if err != nil {
 		return FinalizationReady{thresholdReached: false}, err
 	}
 	if thresholdReached {
-		return FinalizationReady{thresholdReached: true, protocolID: p.protocolID, votingRoundID: p.votingRoundID, digest: digest}, nil
+		return FinalizationReady{thresholdReached: true, protocolID: p.protocolID, votingRoundID: p.votingRoundID}, nil
 	}
 
 	return FinalizationReady{thresholdReached: false}, nil
@@ -273,26 +224,24 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 
 	pc, exists := rc.protocolCollections[p.ProtocolID]
 	if !exists {
-		pc = &protocolCollection{signatureCollection: make(map[common.Hash]*signaturesCollection), signingPolicy: signingPolicy, threshold: threshold, relayCutover: s.relayCutover}
+		pc = &protocolCollection{signingPolicy: signingPolicy, threshold: threshold, relayCutover: s.relayCutover}
 		rc.protocolCollections[p.ProtocolID] = pc
 	}
 
-	thresholdReached, digest, err := pc.addMessage(p.Message, p.FinalizationData)
+	thresholdReached, err := pc.addMessage(p.Message, p.FinalizationData)
 	if err != nil {
 		return FinalizationReady{thresholdReached: false}, err
 	}
 	if thresholdReached {
-		return FinalizationReady{thresholdReached: true, protocolID: p.ProtocolID, votingRoundID: p.VotingRoundID, digest: digest}, nil
+		return FinalizationReady{thresholdReached: true, protocolID: p.ProtocolID, votingRoundID: p.VotingRoundID}, nil
 	}
 
 	return FinalizationReady{thresholdReached: false}, nil
 }
 
-// get returns the signatureCollection for votingRoundID and protocolID.
-// A boolean inductor of existence is also returned.
-// Access or mutate signatures, weight, thresholdReached, and finalizationData under
-// the mutex; the other fields are fixed after creation.
-func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, digest common.Hash) (*signaturesCollection, bool) {
+// get returns the collection for votingRoundID and protocolID; none exists before the local message.
+// signatures, weight and thresholdReached need the mutex; the rest is fixed before the collection is published.
+func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8) (*signaturesCollection, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
 	round, exists := fs.stg[votingRoundID]
@@ -301,16 +250,11 @@ func (fs *finalizationStorage) get(votingRoundID uint32, protocolID uint8, diges
 	}
 
 	pc, exists := round.protocolCollections[protocolID]
-	if !exists {
+	if !exists || pc.collection == nil {
 		return &signaturesCollection{}, false
 	}
 
-	sigCollection, exists := pc.signatureCollection[digest]
-	if !exists {
-		return &signaturesCollection{}, false
-	}
-
-	return sigCollection, true
+	return pc.collection, true
 }
 
 // LowestRoundStored returns the lowest round that is still stored.
@@ -334,10 +278,36 @@ func (fs *finalizationStorage) RemoveRoundsBefore(votingRoundID uint32) {
 	if votingRoundID > fs.lowestRoundStored {
 		for i := fs.lowestRoundStored; i < votingRoundID; i++ {
 			logger.Debugf("Deleting round %d in finalization storage", i)
+			fs.warnUnfinalized(i)
 			delete(fs.stg, i)
 		}
 
 		// votingRoundID is the lowest round that remains stored
 		fs.lowestRoundStored = votingRoundID
+	}
+}
+
+// warnUnfinalized logs a round dropped short of the threshold — the only non-Debug sign that this
+// node stopped finalizing. Protocols the local provider never served are skipped.
+func (fs *finalizationStorage) warnUnfinalized(votingRoundID uint32) {
+	rc, exists := fs.stg[votingRoundID]
+	if !exists {
+		return
+	}
+
+	for protocolID, pc := range rc.protocolCollections {
+		sc := pc.collection
+		if sc == nil {
+			continue
+		}
+
+		sc.mu.RLock()
+		reached, weight := sc.thresholdReached, sc.weight
+		sc.mu.RUnlock()
+
+		if !reached {
+			logger.Warnf("Discarding round %d for protocol %d unfinalized: signed weight %d, need more than %d",
+				votingRoundID, protocolID, weight, sc.threshold)
+		}
 	}
 }

@@ -259,9 +259,19 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 		}
 
 		if finalizationReady.thresholdReached {
-			logger.Infof("Threshold reached for protocol %d in voting round %d with digest %v", finalizationReady.protocolID, finalizationReady.votingRoundID, finalizationReady.digest)
-			c.queueProcessor.Add(&finalizationReady, sp.Seed)
+			logger.Infof("Threshold reached for protocol %d in voting round %d", finalizationReady.protocolID, finalizationReady.votingRoundID)
+			c.onThresholdReached(&finalizationReady, sp)
 		}
+	}
+}
+
+// onThresholdReached queues the finalization and prunes rounds too old to finalize. Both intake
+// paths call it: a buffered payload crosses the threshold inside AddMessage.
+func (c *client) onThresholdReached(ready *FinalizationReady, sp *policy.SigningPolicy) {
+	c.queueProcessor.Add(ready, sp.Seed)
+
+	if ready.votingRoundID > minRoundsStored {
+		c.finalizationStorage.RemoveRoundsBefore(ready.votingRoundID - minRoundsStored)
 	}
 }
 

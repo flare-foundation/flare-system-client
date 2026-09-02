@@ -14,6 +14,7 @@
 - From the cutover on, protocol-message digests are `keccak256(chainID ‖ message)` and the signing-policy hash is one keccak over the chain id and the raw policy bytes; the form is picked by the voting round or reward epoch in question.
 - `APIUrl`, `XApiKey` and `ApiKey` are renamed `APIURL`, `XAPIKey` and `APIKey`, and `SubProtocol.APIURL` is renamed `BaseURL`; TOML keys and environment variables are unchanged.
 - Logging: the send loops log one line per outcome, with the final nonce; a failed provider data fetch logs at warning, naming the round and protocol; each reward-epoch signing duty logs its outcome once; a pending cutover is logged once rather than every round.
+- Finalizers verify every peer signature against the message their own data provider served for the round and protocol; the message inside a type-0 `submitSignatures` payload is no longer read. A round the provider did not answer for is not finalized, and one dropped short of the threshold is logged at warning.
 
 ### Fixed
 
