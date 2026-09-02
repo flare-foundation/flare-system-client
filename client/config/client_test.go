@@ -598,3 +598,35 @@ func TestGasString(t *testing.T) {
 		})
 	}
 }
+
+// An omitted `type` means type 1; an explicit 0 must still be selectable.
+func TestProtocolTypeDefaultsToOne(t *testing.T) {
+	var cfg Client
+	_, err := toml.Decode(`
+[protocol.omitted]
+id = 1
+api_url = "http://localhost:1"
+
+[protocol.zero]
+id = 2
+api_url = "http://localhost:2"
+type = 0
+
+[protocol.one]
+id = 3
+api_url = "http://localhost:3"
+type = 1
+`, &cfg)
+	require.NoError(t, err)
+
+	require.Equal(t, uint8(1), cfg.Protocol["omitted"].PayloadType())
+	require.Equal(t, uint8(0), cfg.Protocol["zero"].PayloadType())
+	require.Equal(t, uint8(1), cfg.Protocol["one"].PayloadType())
+}
+
+func TestProtocolValidate(t *testing.T) {
+	two := uint8(2)
+	require.NoError(t, ProtocolConfig{}.validate("ftso"))
+	require.NoError(t, ProtocolConfig{Type: new(uint8)}.validate("ftso"))
+	require.ErrorContains(t, ProtocolConfig{Type: &two}.validate("ftso"), "protocol.ftso: type 2")
+}
