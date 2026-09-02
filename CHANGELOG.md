@@ -18,6 +18,7 @@
 - A `[protocol.*]` section without `type` sends type-1 (signature-only) payloads; a `type` other than 0 or 1 fails startup.
 - Peer signatures are stored only for the protocols configured in `[protocol.*]`.
 - Finalizer storage drops rounds older than ten voting rounds on the clock, not only when a threshold is crossed; later payloads or messages for them are rejected.
+- A parsed signature is copied out of the decoded calldata instead of pointing into it, which kept the whole calldata alive until the round was pruned.
 
 ### Fixed
 

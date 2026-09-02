@@ -14,6 +14,7 @@ import (
 
 	"github.com/flare-foundation/flare-system-client/client/protocol"
 	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
 
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
 	"github.com/flare-foundation/go-flare-common/pkg/policy"
@@ -556,4 +557,37 @@ func TestBothTypesShareOneCollection(t *testing.T) {
 	sc, exists := s.get(7, 1)
 	require.True(t, exists)
 	require.Equal(t, uint16(2), sc.weight)
+}
+
+// A buffered signature must be a copy: a subslice would pin the whole decoded tx input, up to
+// ~65 KB per bundled payload, until the round is pruned.
+func TestParsedSignatureDoesNotPinTheTxInput(t *testing.T) {
+	const trailer = 8192
+	payload := make([]byte, 1+utils.SignatureLength+trailer)
+	payload[0] = 1
+	for i := range payload[1 : 1+utils.SignatureLength] {
+		payload[1+i] = byte(i + 1)
+	}
+
+	input := make([]byte, 4, 4+7+len(payload))
+	input = append(input, 7)
+	input = binary.BigEndian.AppendUint32(input, 42)
+	input = binary.BigEndian.AppendUint16(input, uint16(len(payload)))
+	input = append(input, payload...)
+
+	payloads, err := ExtractPayloads(input)
+	require.NoError(t, err)
+	require.Len(t, payloads, 1)
+
+	var s submitSignaturesPayload
+	require.NoError(t, s.FromSignedPayload(payloads[0]))
+	signature := bytes.Clone(s.signature)
+
+	require.Less(t, cap(s.signature), trailer, "the signature must not keep the tx input reachable")
+
+	// overwriting the input must not reach the parsed signature
+	for i := range input {
+		input[i] = 0xff
+	}
+	require.Equal(t, signature, s.signature)
 }

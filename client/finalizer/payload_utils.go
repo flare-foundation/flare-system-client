@@ -1,6 +1,7 @@
 package finalizer
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -103,7 +104,8 @@ func (s *submitSignaturesPayload) FromSignedPayload(payloadMsg payloadMessage) e
 
 	s.protocolID = payloadMsg.protocolID
 	s.votingRoundID = payloadMsg.votingRoundID
-	s.signature = payloadMsg.payload[signatureStart:signatureEnd]
+	// clone: a subslice would pin the whole decoded calldata until the round is pruned
+	s.signature = bytes.Clone(payloadMsg.payload[signatureStart:signatureEnd])
 	s.voterIndex = -1 // 0 is a valid index, we use -1 before assigning the proper value
 
 	return nil
