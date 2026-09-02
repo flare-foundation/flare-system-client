@@ -46,16 +46,19 @@ func buildMessage(protocolID uint8, round uint32, root common.Hash) shared.Messa
 	return msg
 }
 
-// The data arrives through the random protocol's own message, so that protocol must be
-// one the submitter queries; anything else must fail startup.
-func TestRandomProtocolConfigured(t *testing.T) {
-	protocols := map[string]config.ProtocolConfig{
+// The random protocol must be one the submitter queries, or startup fails; the same set gates
+// which peer payloads are stored, so an unset one admits nothing.
+func TestServesOnlyConfiguredProtocols(t *testing.T) {
+	fc := &finalizerContext{protocolIDs: configuredProtocolIDs(map[string]config.ProtocolConfig{
 		"ftso": {ID: randomProtocolID, APIURL: "https://ftso.example/api"},
 		"fdc":  {ID: 200, APIURL: "https://fdc.example"},
-	}
-	require.True(t, randomProtocolConfigured(protocols, randomProtocolID))
-	require.False(t, randomProtocolConfigured(protocols, 42))
-	require.False(t, randomProtocolConfigured(nil, randomProtocolID))
+	})}
+	require.True(t, fc.serves(randomProtocolID))
+	require.True(t, fc.serves(200))
+	require.False(t, fc.serves(42))
+
+	require.False(t, (&finalizerContext{protocolIDs: configuredProtocolIDs(nil)}).serves(randomProtocolID))
+	require.False(t, (&finalizerContext{}).serves(randomProtocolID), "an unset set must fail closed")
 }
 
 // Only the random protocol's rounds on the new Relay keep what the message carries,

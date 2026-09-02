@@ -95,7 +95,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 	}
 	// only the new Relay demands the random number and Merkle proof, and they ride on the random
 	// protocol's own message, so that protocol must be one the submitter queries
-	if relayCutover.Scheduled() && !randomProtocolConfigured(cfg.Protocol, finalizerContext.randomNumberProtocolID) {
+	if relayCutover.Scheduled() && !finalizerContext.serves(finalizerContext.randomNumberProtocolID) {
 		return nil, fmt.Errorf("a relay cutover is scheduled but protocol %d, whose provider serves the random number and Merkle proof the new Relay needs to finalize it, is not configured", finalizerContext.randomNumberProtocolID)
 	}
 

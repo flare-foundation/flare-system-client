@@ -200,3 +200,36 @@ func TestThresholdOnTheMessagePathPrunesStorage(t *testing.T) {
 		require.NotContains(t, storage.stg, old)
 	}
 }
+
+// A protocol the submitter does not query never gets a local message, so its payloads are not stored.
+func TestOnlyConfiguredProtocolsAreStored(t *testing.T) {
+	const round = uint32(50)
+	sp := &policy.SigningPolicy{
+		RewardEpochID: 1, StartVotingRoundID: 1, Threshold: 100,
+		Voters: voters.NewSet([]common.Address{{}}, []uint16{1}, nil),
+	}
+	policies := policy.NewStorage()
+	require.NoError(t, policies.Add(sp))
+
+	storage := newFinalizationStorage(testCutover)
+	c := &client{
+		signingPolicyStorage: policies,
+		finalizationStorage:  storage,
+		finalizerContext: &finalizerContext{
+			votingRoundTiming: &utils.EpochTimingConfig{Start: time.Unix(0, 0), Period: time.Hour},
+			rewardEpoch:       &utils.RewardEpochConfig{Start: 0, Period: 100},
+			protocolIDs:       map[uint8]struct{}{1: {}},
+		},
+	}
+
+	sender := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	require.NoError(t, c.ProcessSubmissionData([]*submitSignaturesPayload{
+		{sender: sender, votingRoundID: round, protocolID: 1},
+		{sender: sender, votingRoundID: round, protocolID: 200},
+	}))
+
+	rc, exists := storage.stg[round]
+	require.True(t, exists)
+	require.Contains(t, rc.protocolCollections, uint8(1))
+	require.NotContains(t, rc.protocolCollections, uint8(200), "an unconfigured protocol must not be buffered")
+}

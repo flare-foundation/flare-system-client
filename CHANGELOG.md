@@ -16,6 +16,7 @@
 - Logging: the send loops log one line per outcome, with the final nonce; a failed provider data fetch logs at warning, naming the round and protocol; each reward-epoch signing duty logs its outcome once; a pending cutover is logged once rather than every round.
 - Finalizers verify every peer signature against the message their own data provider served for the round and protocol; the message inside a type-0 `submitSignatures` payload is no longer read. A round the provider did not answer for is not finalized, and one dropped short of the threshold is logged at warning.
 - A `[protocol.*]` section without `type` sends type-1 (signature-only) payloads; a `type` other than 0 or 1 fails startup.
+- Peer signatures are stored only for the protocols configured in `[protocol.*]`.
 
 ### Fixed
 

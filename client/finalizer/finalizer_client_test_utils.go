@@ -126,6 +126,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 			Period: 100,
 		},
 		voterThresholdBIPS: 5000,
+		protocolIDs:        map[uint8]struct{}{item.protocolID: {}},
 	}
 
 	// the local message is the only source of the root, whatever type the peers sent
