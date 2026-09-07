@@ -14,7 +14,7 @@
 
 ...
 
-[![API Reference](https://pkg.go.dev/badge/github.com/flare-foundation/flare-system-client)](https://pkg.go.dev/github.com/flare-foundation/flare-system-client@v1.0.10)
+[![API Reference](https://pkg.go.dev/badge/github.com/flare-foundation/flare-system-client)](https://pkg.go.dev/github.com/flare-foundation/flare-system-client@v1.2.0)
 
 ## Configuration
 
