@@ -24,6 +24,9 @@ import (
 const (
 	minRoundsStored uint32 = 10
 
+	// floor of the stale-round prune interval, for a tiny round period
+	minStalePruneInterval = time.Second
+
 	// Relay.sol's THRESHOLD_BIPS, the divisor of thresholdIncreaseBIPS
 	relayThresholdBIPS = 10000
 
@@ -95,7 +98,7 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 	}
 	// only the new Relay demands the random number and Merkle proof, and they ride on the random
 	// protocol's own message, so that protocol must be one the submitter queries
-	if relayCutover.Scheduled() && !randomProtocolConfigured(cfg.Protocol, finalizerContext.randomNumberProtocolID) {
+	if relayCutover.Scheduled() && !finalizerContext.serves(finalizerContext.randomNumberProtocolID) {
 		return nil, fmt.Errorf("a relay cutover is scheduled but protocol %d, whose provider serves the random number and Merkle proof the new Relay needs to finalize it, is not configured", finalizerContext.randomNumberProtocolID)
 	}
 
@@ -127,6 +130,12 @@ func (c *client) Run(ctx context.Context) error {
 		return err
 	}
 
+	// before the listeners, so the startup floor is not a race with them
+	c.pruneStaleRounds()
+
+	eg.Go(func() error {
+		return c.runStalePruner(ctx)
+	})
 	eg.Go(func() error {
 		return c.runSigningPolicyInitializedListener(ctx, startTime)
 	})
@@ -259,10 +268,55 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 		}
 
 		if finalizationReady.thresholdReached {
-			logger.Infof("Threshold reached for protocol %d in voting round %d with digest %v", finalizationReady.protocolID, finalizationReady.votingRoundID, finalizationReady.digest)
-			c.queueProcessor.Add(&finalizationReady, sp.Seed)
+			logger.Infof("Threshold reached for protocol %d in voting round %d", finalizationReady.protocolID, finalizationReady.votingRoundID)
+			c.onThresholdReached(&finalizationReady, sp)
 		}
 	}
+}
+
+// onThresholdReached queues the finalization and prunes rounds too old to finalize. Both intake
+// paths call it: a buffered payload crosses the threshold inside AddMessage.
+func (c *client) onThresholdReached(ready *FinalizationReady, sp *policy.SigningPolicy) {
+	c.queueProcessor.Add(ready, sp.Seed)
+
+	if ready.votingRoundID > minRoundsStored {
+		c.finalizationStorage.RemoveRoundsBefore(ready.votingRoundID - minRoundsStored)
+	}
+}
+
+// runStalePruner prunes on the clock: only the local message crosses a threshold, so a provider
+// outage would otherwise prune nothing.
+//
+// Should be run in a goroutine.
+func (c *client) runStalePruner(ctx context.Context) error {
+	ticker := time.NewTicker(stalePruneInterval(c.finalizerContext.votingRoundTiming.Period))
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			c.pruneStaleRounds()
+		case <-ctx.Done():
+			logger.Info("Finalizer stale round pruner stopped")
+			return ctx.Err()
+		}
+	}
+}
+
+// stalePruneInterval is half the round period, floored: at or below the period, at most one extra
+// round is kept.
+func stalePruneInterval(period time.Duration) time.Duration {
+	return max(period/2, minStalePruneInterval)
+}
+
+// pruneStaleRounds drops the rounds too old to finalize, by the clock.
+func (c *client) pruneStaleRounds() {
+	current := c.finalizerContext.votingRoundTiming.EpochIndex(time.Now())
+	if current <= int64(minRoundsStored) {
+		return
+	}
+
+	c.finalizationStorage.RemoveRoundsBefore(uint32(current) - minRoundsStored)
 }
 
 // finalizationDataToStore returns what relay() needs appended: the random number and Merkle proof

@@ -38,20 +38,18 @@ func TestRelayedKey_LookupMatchesWithUnrelatedQueueItemFields(t *testing.T) {
 		seed:          big.NewInt(0xdeadbeef), // non-nil pointer — would have broken the old lookup
 		votingRoundID: 42,
 		protocolID:    100,
-		digest:        common.HexToHash("0xabc"), // non-zero — would have broken the old lookup
 	}
 
 	require.True(
 		t,
 		relayed[relayedKey{protocolID: item.protocolID, votingRoundID: item.votingRoundID}],
-		"already-relayed lookup must match by (protocolID, votingRoundID) regardless of seed/digest",
+		"already-relayed lookup must match by (protocolID, votingRoundID) regardless of seed",
 	)
 
 	miss := &queueItem{
 		seed:          big.NewInt(1),
 		votingRoundID: 43, // different round
 		protocolID:    100,
-		digest:        common.HexToHash("0xabc"),
 	}
 	require.False(
 		t,

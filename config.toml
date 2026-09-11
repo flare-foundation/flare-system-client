@@ -80,16 +80,16 @@ protocol_manager_submit_signatures_private_key_file = "/path/to/protocol_manager
 
 # Protocol configurations. You can define multiple protocols.
 [protocol.ftso]
-id = 0
+id = 100
 api_endpoint = "http://localhost:3100" # url where subptotocol clients exposes endpoints
-type = 1 # Type of submitSignature payload
+type = 1 # submitSignatures payload type: 1 signature only (the default), 0 also carries the message
 # To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_${id} (PROTOCOL_X_API_KEY_0) env var
 
 
 [protocol.fdc]
 id = 200
 api_endpoint = "http://localhost:8080/fsp"
-type = 1 # Type of submitSignature payload
+type = 1 # submitSignatures payload type: 1 signature only (the default), 0 also carries the message
 # To specify an API key for this endpoint set it via PROTOCOL_X_API_KEY_${id} (PROTOCOL_X_API_KEY_200) env var
 
 

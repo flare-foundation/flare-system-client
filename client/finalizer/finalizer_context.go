@@ -25,6 +25,9 @@ type finalizerContext struct {
 	// the protocol whose finalization the new Relay requires a random trailer for
 	randomNumberProtocolID uint8
 
+	// ids of the [protocol.*] sections — the only ones a local message can arrive for
+	protocolIDs map[uint8]struct{}
+
 	// factor the Relay scales a prolonged reward epoch's threshold by; >= 10000 by
 	// contract (Relay.sol:327), so it can only raise it
 	thresholdIncreaseBIPS uint16
@@ -50,16 +53,21 @@ func newFinalizerContext(cfg *config.Client, relay *relay.Relay) (*finalizerCont
 		rewardEpoch:            rewardEpoch,
 		randomNumberProtocolID: randomNumberProtocolID,
 		thresholdIncreaseBIPS:  thresholdIncreaseBIPS,
+		protocolIDs:            configuredProtocolIDs(cfg.Protocol),
 	}, nil
 }
 
-// randomProtocolConfigured reports whether the submitter queries the protocol serving the
-// random number and Merkle proof — without it the finalizer never sees them.
-func randomProtocolConfigured(protocols map[string]config.ProtocolConfig, protocolID uint8) bool {
+// configuredProtocolIDs collects the ids of the [protocol.*] sections.
+func configuredProtocolIDs(protocols map[string]config.ProtocolConfig) map[uint8]struct{} {
+	ids := make(map[uint8]struct{}, len(protocols))
 	for _, protocol := range protocols {
-		if protocol.ID == protocolID {
-			return true
-		}
+		ids[protocol.ID] = struct{}{}
 	}
-	return false
+	return ids
+}
+
+// serves reports whether the submitter queries protocolID; an empty set serves nothing.
+func (fc *finalizerContext) serves(protocolID uint8) bool {
+	_, ok := fc.protocolIDs[protocolID]
+	return ok
 }

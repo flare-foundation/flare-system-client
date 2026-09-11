@@ -54,6 +54,15 @@ type testClients struct {
 	finalizer *client
 }
 
+// testPayload is the submitSignatures payload the fixture writes to the mocked DB.
+type testPayload struct {
+	protocolID    uint8
+	votingRoundID uint32
+	typeID        uint8
+	message       []byte
+	signature     []byte
+}
+
 func setupTest(protocolType uint8) (*testClients, error) {
 	// prepare a private and public key
 	privateKey, err := crypto.HexToECDSA(testPrivateKeyHex)
@@ -64,7 +73,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 
 	// prepare a message signed by the private key
 	merkleRoot := bytes.Repeat([]byte{0xff}, 32)
-	item := submitSignaturesPayload{
+	item := testPayload{
 		protocolID:    0x1,
 		votingRoundID: 1,
 		typeID:        protocolType,
@@ -109,7 +118,8 @@ func setupTest(protocolType uint8) (*testClients, error) {
 
 	fCtx := &finalizerContext{
 		votingRoundTiming: &utils.EpochTimingConfig{
-			Start:  time.Unix(0, 0),
+			// round 5 now: below minRoundsStored so round 1 survives the pruner, round 2's grace is past
+			Start:  time.Now().Add(-5 * time.Hour),
 			Period: time.Hour,
 		},
 		rewardEpoch: &utils.RewardEpochConfig{
@@ -117,12 +127,12 @@ func setupTest(protocolType uint8) (*testClients, error) {
 			Period: 100,
 		},
 		voterThresholdBIPS: 5000,
+		protocolIDs:        map[uint8]struct{}{item.protocolID: {}},
 	}
 
+	// the local message is the only source of the root, whatever type the peers sent
 	messagesChannel := make(chan shared.ProtocolMessage, 1)
-	if protocolType == 1 {
-		messagesChannel <- shared.ProtocolMessage{ProtocolID: item.protocolID, VotingRoundID: item.votingRoundID, Message: item.message}
-	}
+	messagesChannel <- shared.ProtocolMessage{ProtocolID: item.protocolID, VotingRoundID: item.votingRoundID, Message: item.message}
 
 	client := &client{
 		db:                   db,
@@ -201,7 +211,7 @@ type testDB struct {
 	submitterPayload []byte
 }
 
-func newTestDB(item submitSignaturesPayload, voterAddress common.Address) (*testDB, error) {
+func newTestDB(item testPayload, voterAddress common.Address) (*testDB, error) {
 	spiLog, err := newSPILog(voterAddress)
 	if err != nil {
 		return nil, err
@@ -305,7 +315,7 @@ func newSPILog(voterAddress common.Address) (*database.Log, error) {
 	return log, nil
 }
 
-func encodePayload(item *submitSignaturesPayload) ([]byte, error) {
+func encodePayload(item *testPayload) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	if err := buf.WriteByte(item.typeID); err != nil {
 		return nil, err
@@ -325,7 +335,7 @@ func encodePayload(item *submitSignaturesPayload) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func encodeForDB(item *submitSignaturesPayload) ([]byte, error) {
+func encodeForDB(item *testPayload) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	if _, err := buf.Write([]byte{0xde, 0xad, 0xbe, 0xef}); err != nil {

@@ -59,6 +59,12 @@ func (c *client) ProcessTransaction(tx database.Transaction) error {
 
 func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) error {
 	for _, payloadItem := range payloads {
+		// no local message ever comes for an unconfigured protocol; its payloads would only expire in the buffer
+		if !c.finalizerContext.serves(payloadItem.protocolID) {
+			logger.Debugf("ProcessSubmissionData: Ignoring submitted signature for voting round %d, protocolID %d - protocol not configured", payloadItem.votingRoundID, payloadItem.protocolID)
+			continue
+		}
+
 		if payloadItem.votingRoundID < c.finalizerContext.startingVotingRound {
 			continue
 		}
@@ -90,12 +96,7 @@ func (c *client) ProcessSubmissionData(payloads []*submitSignaturesPayload) erro
 
 		if finalizationReady.thresholdReached {
 			logger.Infof("Threshold reached for protocol %d in voting round %d", finalizationReady.protocolID, finalizationReady.votingRoundID)
-			c.queueProcessor.Add(&finalizationReady, sp.Seed)
-
-			//clean old rounds
-			if finalizationReady.votingRoundID > minRoundsStored {
-				c.finalizationStorage.RemoveRoundsBefore(finalizationReady.votingRoundID - minRoundsStored)
-			}
+			c.onThresholdReached(&finalizationReady, sp)
 		}
 	}
 	return nil

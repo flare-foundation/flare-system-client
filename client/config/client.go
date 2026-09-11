@@ -158,6 +158,11 @@ func (c *Client) validate() error {
 	if err := c.validateContracts(); err != nil {
 		return fmt.Errorf("validating contracts: %w", err)
 	}
+	for name, p := range c.Protocol {
+		if err := p.validate(name); err != nil {
+			return err
+		}
+	}
 	if c.Clients.EnabledFinalizer {
 		if err := c.Finalizer.validate(); err != nil {
 			return fmt.Errorf("validating finalizer: %w", err)

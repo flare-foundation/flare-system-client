@@ -13,7 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/flare-foundation/flare-system-client/client/protocol"
+	"github.com/flare-foundation/flare-system-client/client/shared"
+	"github.com/flare-foundation/flare-system-client/utils"
+
 	"github.com/flare-foundation/go-flare-common/pkg/payload"
+	"github.com/flare-foundation/go-flare-common/pkg/policy"
 	"github.com/flare-foundation/go-flare-common/pkg/voters"
 )
 
@@ -81,8 +85,6 @@ func TestFromSignedPayload(t *testing.T) {
 				t.Helper()
 				require.Equal(t, uint8(7), s.protocolID)
 				require.Equal(t, uint32(42), s.votingRoundID)
-				require.Equal(t, uint8(0), s.typeID)
-				require.Equal(t, message, []byte(s.message))
 				require.Equal(t, signature, s.signature)
 				require.Equal(t, -1, s.voterIndex)
 			},
@@ -98,8 +100,6 @@ func TestFromSignedPayload(t *testing.T) {
 				t.Helper()
 				require.Equal(t, uint8(9), s.protocolID)
 				require.Equal(t, uint32(1234), s.votingRoundID)
-				require.Equal(t, uint8(1), s.typeID)
-				require.Nil(t, s.message)
 				require.Equal(t, signature, s.signature)
 				require.Equal(t, -1, s.voterIndex)
 			},
@@ -113,10 +113,8 @@ func TestFromSignedPayload(t *testing.T) {
 			},
 			check: func(t *testing.T, s *submitSignaturesPayload) {
 				t.Helper()
-				require.Equal(t, message, []byte(s.message))
 				require.Equal(t, signature, s.signature)
 				require.Len(t, s.signature, 65)
-				require.Len(t, s.message, 38)
 			},
 		},
 		{
@@ -128,7 +126,6 @@ func TestFromSignedPayload(t *testing.T) {
 			},
 			check: func(t *testing.T, s *submitSignaturesPayload) {
 				t.Helper()
-				require.Nil(t, s.message)
 				require.Equal(t, signature, s.signature)
 				require.Len(t, s.signature, 65)
 			},
@@ -151,7 +148,7 @@ func TestFromSignedPayload(t *testing.T) {
 
 // TestRoundTripWithEncodePayload generates a tx-style input with protocol.EncodePayload
 // for both protocol types, parses it back through ExtractPayloads and FromSignedPayload,
-// and confirms the round trip preserves protocolID, votingRoundID, typeID, and message.
+// and confirms the round trip preserves protocolID, votingRoundID and a 65-byte signature.
 func TestRoundTripWithEncodePayload(t *testing.T) {
 	privateKey, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)
@@ -194,14 +191,8 @@ func TestRoundTripWithEncodePayload(t *testing.T) {
 		require.NoError(t, s.FromSignedPayload(payloads[i]))
 		require.Equal(t, c.protocolID, s.protocolID)
 		require.Equal(t, uint32(votingRound), s.votingRoundID)
-		require.Equal(t, c.protocolType, s.typeID)
 		require.Len(t, s.signature, 65)
 		require.Equal(t, -1, s.voterIndex)
-		if c.protocolType == 0 {
-			require.Equal(t, c.data, []byte(s.message))
-		} else {
-			require.Nil(t, s.message)
-		}
 	}
 }
 
@@ -500,4 +491,103 @@ func TestPreparedTxInputCarriesOnlyCanonicalSignatures(t *testing.T) {
 	sig := encoded[2:67] // skip the 2-byte count
 	require.Contains(t, []byte{27, 28}, sig[0])
 	require.LessOrEqual(t, new(big.Int).SetBytes(sig[33:65]).Cmp(secp256k1HalfN), 0)
+}
+
+// submittedPayload runs message through the submitter's encoder as protocolType and parses the
+// result back the way the finalizer reads it off the chain.
+func submittedPayload(t *testing.T, key *ecdsa.PrivateKey, protocolType uint8, message []byte) *submitSignaturesPayload {
+	t.Helper()
+	msg, err := shared.Message(message).Parse()
+	require.NoError(t, err)
+
+	buf := bytes.NewBuffer([]byte{0xde, 0xad, 0xbe, 0xef})
+	resp := &protocol.SubProtocolResponse{Status: payload.Ok, Data: message}
+	require.NoError(t, protocol.EncodePayload(buf, int64(msg.VotingRoundID), testCutover, resp, msg.ProtocolID, protocolType, key))
+
+	payloads, err := ExtractPayloads(buf.Bytes())
+	require.NoError(t, err)
+	require.Len(t, payloads, 1)
+
+	s := &submitSignaturesPayload{sender: crypto.PubkeyToAddress(key.PublicKey)}
+	require.NoError(t, s.FromSignedPayload(payloads[0]))
+	return s
+}
+
+// A type-0 payload's own message is never read: the signature is checked against the local message.
+func TestSignatureIsVerifiedAgainstTheLocalMessage(t *testing.T) {
+	key, addr := newKeyAndAddress(t)
+	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{addr}, []uint16{2}, nil)}
+
+	signed, err := encodeMessage(1, 7, true, bytes.Repeat([]byte{0x11}, 32))
+	require.NoError(t, err)
+	other, err := encodeMessage(1, 7, true, bytes.Repeat([]byte{0x22}, 32))
+	require.NoError(t, err)
+
+	s := storageWithMessage(t, testCutover, 7, other, sp)
+	_, err = s.addPayload(submittedPayload(t, key, 0, signed), sp, 1)
+	require.ErrorIs(t, err, errBadPayload, "the inline message must not rescue a signature over other bytes")
+	sc, exists := s.get(7, 1)
+	require.True(t, exists)
+	require.Equal(t, other, []byte(sc.message), "and must not displace the local message")
+
+	s = storageWithMessage(t, testCutover, 7, signed, sp)
+	ready, err := s.addPayload(submittedPayload(t, key, 0, signed), sp, 1)
+	require.NoError(t, err)
+	require.True(t, ready.thresholdReached)
+}
+
+// Both payload types are signatures over the same message and land in the same collection.
+func TestBothTypesShareOneCollection(t *testing.T) {
+	keyA, addrA := newKeyAndAddress(t)
+	keyB, addrB := newKeyAndAddress(t)
+	sp := &policy.SigningPolicy{Voters: voters.NewSet([]common.Address{addrA, addrB}, []uint16{1, 1}, nil)}
+
+	message, err := encodeMessage(1, 7, true, bytes.Repeat([]byte{0x33}, 32))
+	require.NoError(t, err)
+
+	s := storageWithMessage(t, testCutover, 7, message, sp)
+	ready, err := s.addPayload(submittedPayload(t, keyA, 0, message), sp, 1)
+	require.NoError(t, err)
+	require.False(t, ready.thresholdReached)
+
+	ready, err = s.addPayload(submittedPayload(t, keyB, 1, message), sp, 1)
+	require.NoError(t, err)
+	require.True(t, ready.thresholdReached, "the weights add up across types")
+
+	sc, exists := s.get(7, 1)
+	require.True(t, exists)
+	require.Equal(t, uint16(2), sc.weight)
+}
+
+// A buffered signature must be a copy: a subslice would pin the whole decoded tx input, up to
+// ~65 KB per bundled payload, until the round is pruned.
+func TestParsedSignatureDoesNotPinTheTxInput(t *testing.T) {
+	const trailer = 8192
+	payload := make([]byte, 1+utils.SignatureLength+trailer)
+	payload[0] = 1
+	for i := range payload[1 : 1+utils.SignatureLength] {
+		payload[1+i] = byte(i + 1)
+	}
+
+	input := make([]byte, 4, 4+7+len(payload))
+	input = append(input, 7)
+	input = binary.BigEndian.AppendUint32(input, 42)
+	input = binary.BigEndian.AppendUint16(input, uint16(len(payload)))
+	input = append(input, payload...)
+
+	payloads, err := ExtractPayloads(input)
+	require.NoError(t, err)
+	require.Len(t, payloads, 1)
+
+	var s submitSignaturesPayload
+	require.NoError(t, s.FromSignedPayload(payloads[0]))
+	signature := bytes.Clone(s.signature)
+
+	require.Less(t, cap(s.signature), trailer, "the signature must not keep the tx input reachable")
+
+	// overwriting the input must not reach the parsed signature
+	for i := range input {
+		input[i] = 0xff
+	}
+	require.Equal(t, signature, s.signature)
 }

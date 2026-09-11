@@ -55,7 +55,7 @@ func NewSubProtocol(config config.ProtocolConfig) *SubProtocol {
 		ID:      config.ID,
 		BaseURL: config.BaseURL(),
 		XAPIKey: config.XAPIKey(),
-		Type:    config.Type,
+		Type:    config.PayloadType(),
 	}
 }
 
