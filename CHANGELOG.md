@@ -14,6 +14,10 @@
 - Indexer transactions and logs with equal timestamps are processed in database id order.
 - The client exits with status 1 when a running client stops on an error or the config or database fails at startup; both exited with 0. A shutdown on SIGINT or SIGTERM still exits with 0.
 
+### Security
+
+- TLS connections reject certificates issued under the eight compromised eMudhra (emSign) intermediate CA keys, whichever root they chain to. The CA bundle in the image no longer contains the emSign ECC Root CA - G3 and Comodo AAA Services roots.
+
 ## [v1.2.0](https://github.com/flare-foundation/flare-system-client/tree/v1.2.0) - 2026-09-07
 
 ### Added
