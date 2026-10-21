@@ -16,10 +16,12 @@ include:
   - component: gitlab.com/flarenetwork/ci-components-private/lint-shell@2
   - component: gitlab.com/flarenetwork/ci-components-private/test-go@2
     inputs:
-      go_version: "1.26.4"
+      go_version: "1.26.10"
+      # the coverage converter runs inside the module, so it needs the go.mod Go version
+      cobertura_go_version: "1.26.10"
   - component: gitlab.com/flarenetwork/ci-components-private/lint-go@2
     inputs:
-      go_version: "1.26.4"
+      go_version: "1.26.10"
       golangci_version: "v2.11.3"
       golangci_config_file: ".golangci.yml"
   - template: Jobs/Secret-Detection.latest.gitlab-ci.yml
