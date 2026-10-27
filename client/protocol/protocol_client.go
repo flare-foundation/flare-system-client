@@ -34,8 +34,6 @@ type client struct {
 	signatureSubmitter *SignatureSubmitter
 
 	votingRoundTiming *utils.EpochTimingConfig
-	systemsManager    *system.FlareSystemsManager
-
 	rewardEpochTiming *utils.EpochTimingConfig
 
 	registry voterRegistry
@@ -105,7 +103,6 @@ func NewClient(ctx clientContext.ClientContext, messageChannel chan<- shared.Pro
 		protocolContext:   protocolContext,
 		subProtocols:      subProtocols,
 		votingRoundTiming: votingRoundTiming,
-		systemsManager:    systemsManager,
 		rewardEpochTiming: rewardEpochTiming,
 		registry:          voterRegistryImpl{registryClient},
 
