@@ -1,7 +1,6 @@
 package epoch
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -21,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
@@ -79,7 +77,6 @@ type systemsManagerContractClientImpl struct {
 	signerPrivateKey    *ecdsa.PrivateKey
 	chainID             int64
 	ethClient           *ethclient.Client
-	relayCutover        *shared.RelayCutover
 }
 
 func NewSystemsManagerClient(
@@ -88,8 +85,7 @@ func NewSystemsManagerClient(
 	address common.Address,
 	senderTxOpts *bind.TransactOpts,
 	signerPrivateKey *ecdsa.PrivateKey,
-	chainID int64,
-	relayCutover *shared.RelayCutover) (*systemsManagerContractClientImpl, error) {
+	chainID int64) (*systemsManagerContractClientImpl, error) {
 	flareSystemsManager, err := system.NewFlareSystemsManager(address, ethClient)
 	if err != nil {
 		return nil, err
@@ -104,7 +100,6 @@ func NewSystemsManagerClient(
 		signerPrivateKey:    signerPrivateKey,
 		chainID:             chainID,
 		ethClient:           ethClient,
-		relayCutover:        relayCutover,
 	}, nil
 }
 
@@ -119,11 +114,7 @@ func (s *systemsManagerContractClientImpl) SignNewSigningPolicy(ctx context.Cont
 }
 
 func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.Context, rewardEpochId *big.Int, signingPolicy []byte) error {
-	newSigningPolicyHash, err := s.signingPolicyHash(rewardEpochId, signingPolicy)
-	if err != nil {
-		return err
-	}
-
+	newSigningPolicyHash := policy.ChainBoundHash(uint64(s.chainID), signingPolicy)
 	hashSignature, err := crypto.Sign(accounts.TextHash(newSigningPolicyHash), s.signerPrivateKey)
 	if err != nil {
 		return err
@@ -179,49 +170,6 @@ func (s *systemsManagerContractClientImpl) sendSignNewSigningPolicy(ctx context.
 		return err
 	}
 	return nil
-}
-
-// signingPolicyHash returns the signingPolicy hash FlareSystemsManager accepts for
-// rewardEpochId: chain-bound from the breaking epoch on, the old fold before. Epoch and
-// relay address both gate it — the new Relay delegates pre-breaking epochs to the old one,
-// and until governance repoints, the old Relay answers for every epoch, breaking one
-// included. A table disagreeing with the chain costs a warning, not the signature; the
-// signed hash derives from the event bytes, never from a stored copy.
-func (s *systemsManagerContractClientImpl) signingPolicyHash(rewardEpochId *big.Int, signingPolicy []byte) ([]byte, error) {
-	relayAddress, err := s.flareSystemsManager.Relay(nil)
-	if err != nil {
-		return nil, fmt.Errorf("reading the manager's relay address: %w", err)
-	}
-	relayContract, err := relay.NewRelay(relayAddress, s.ethClient)
-	if err != nil {
-		return nil, fmt.Errorf("creating relay contract: %w", err)
-	}
-	stored, err := relayContract.ToSigningPolicyHash(nil, rewardEpochId)
-	if err != nil {
-		return nil, fmt.Errorf("reading the signing policy hash of epoch %v: %w", rewardEpochId, err)
-	}
-
-	chainBound := s.relayCutover.NewRelayFromRewardEpoch(rewardEpochId.Int64()) &&
-		relayAddress == s.relayCutover.NewAddress
-
-	expected, other := policy.Hash(signingPolicy), policy.ChainBoundHash(uint64(s.chainID), signingPolicy)
-	expectedName, otherName := "legacy", "chain-bound"
-	if chainBound {
-		expected, other = other, expected
-		expectedName, otherName = otherName, expectedName
-	}
-
-	if bytes.Equal(expected, stored[:]) {
-		return expected, nil
-	}
-	if bytes.Equal(other, stored[:]) {
-		logger.Warnf(
-			"Signing policy of epoch %v is hashed %s by relay %s, not %s as the cutover table implies: the table disagrees with the chain",
-			rewardEpochId, otherName, relayAddress, expectedName)
-		return other, nil
-	}
-	return nil, fmt.Errorf("no supported hash of the signing policy of epoch %v matches relay %s hash %s",
-		rewardEpochId, relayAddress, common.Hash(stored))
 }
 
 func (s *systemsManagerContractClientImpl) GetCurrentRewardEpochID() <-chan shared.ExecuteStatus[*big.Int] {

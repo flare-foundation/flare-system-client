@@ -76,7 +76,7 @@ func TestProcessDelayedQueueSurvivesDBError(t *testing.T) {
 	require.NoError(t, err)
 
 	sp := &policy.SigningPolicy{Voters: newVoterSet(t, []common.Address{sender}, []uint16{2})}
-	storage := storageWithMessage(t, testCutover, 1, msg, sp)
+	storage := storageWithMessage(t, 1, msg, sp)
 	ready, err := storage.addPayload(&submitSignaturesPayload{
 		protocolID: 1, votingRoundID: 1, signature: sig, sender: sender,
 	}, sp, 1)
@@ -84,7 +84,7 @@ func TestProcessDelayedQueueSurvivesDBError(t *testing.T) {
 	require.True(t, ready.thresholdReached)
 
 	eth := new(testEthClient)
-	relayClient, err := NewRelayContractClient(nil, relayContractAddress, privateKey, sender, &config.Gas{}, testChainID, testCutover)
+	relayClient, err := NewRelayContractClient(nil, relayContractAddress, privateKey, sender, &config.Gas{}, testChainID)
 	require.NoError(t, err)
 	relayClient.chainClient = eth
 	relayClient.retryDelay = time.Millisecond

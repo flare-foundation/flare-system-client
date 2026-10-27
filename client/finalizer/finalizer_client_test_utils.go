@@ -40,13 +40,10 @@ const (
 var (
 	relayContractAddress      = common.HexToAddress(relayContractAddressHex)
 	submissionContractAddress = common.HexToAddress(submissionContractAddressHex)
-
-	// the fixture chain has no scheduled cutover, so fixtures sign the legacy digest
-	testCutover = shared.NewRelayCutover(testChainID, common.Address{}, 0)
 )
 
 func testDigest(message []byte) []byte {
-	return shared.MessageDigest(message, testChainID, false)
+	return shared.MessageDigest(message, testChainID)
 }
 
 type testClients struct {
@@ -107,7 +104,6 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		fromAddress,
 		&config.Gas{},
 		testChainID,
-		testCutover,
 	)
 	if err != nil {
 		return nil, err
@@ -115,7 +111,7 @@ func setupTest(protocolType uint8) (*testClients, error) {
 
 	relayClient.chainClient = ethClient
 
-	finalizationStorage := newFinalizationStorage(testCutover)
+	finalizationStorage := newFinalizationStorage(testChainID)
 
 	fCtx := &finalizerContext{
 		votingRoundTiming: &utils.EpochTimingConfig{
@@ -143,7 +139,6 @@ func setupTest(protocolType uint8) (*testClients, error) {
 		submissionListener:   NewSubmissionListener(submissionContractAddress),
 		queueProcessor:       newFinalizerQueueProcessor(db, finalizationStorage, relayClient, fCtx),
 		finalizerContext:     fCtx,
-		relayCutover:         testCutover,
 		messages:             messagesChannel,
 	}
 

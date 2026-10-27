@@ -4,7 +4,7 @@ import "github.com/ethereum/go-ethereum/crypto"
 
 // relayErrorNames are the Relay's custom errors, copied verbatim from
 // IRelay.sol in flare-smart-contracts-v2. All are zero-argument, so the name is
-// the signature. The new Relay's relay() is hand-written assembly that reverts
+// the signature. The Relay's relay() is hand-written assembly that reverts
 // with a bare 4-byte selector, so a revert carries no Error(string) to unpack.
 var relayErrorNames = []string{
 	"AlreadyRelayed()",

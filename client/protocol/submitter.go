@@ -53,7 +53,7 @@ type Submitter struct {
 type SignatureSubmitter struct {
 	SubmitterBase
 
-	relayCutover *shared.RelayCutover
+	chainID int64 // bound into the signed message digest
 
 	messageChannel chan<- shared.ProtocolMessage
 
@@ -282,7 +282,6 @@ func newSignatureSubmitter(
 	selector []byte,
 	subProtocols []*SubProtocol,
 	messageChannel chan<- shared.ProtocolMessage,
-	relayCutover *shared.RelayCutover,
 ) *SignatureSubmitter {
 	delay := submitCfg.CycleDuration
 	if delay <= 0 {
@@ -306,7 +305,7 @@ func newSignatureSubmitter(
 			dataFetchTimeout:  submitCfg.DataFetchTimeout,
 			dataFetchRetries:  submitCfg.DataFetchRetries,
 		},
-		relayCutover:   relayCutover,
+		chainID:        chainID,
 		maxCycles:      submitCfg.MaxCycles,
 		cycleDuration:  delay,
 		messageChannel: messageChannel,
@@ -320,7 +319,7 @@ func newSignatureSubmitter(
 func (s *SignatureSubmitter) WritePayload(
 	buffer *bytes.Buffer, votingRoundID int64, data *SubProtocolResponse, protocolID, protocolType uint8,
 ) error {
-	return EncodePayload(buffer, votingRoundID, s.relayCutover, data, protocolID, protocolType, s.protocolContext.signerPrivateKey)
+	return EncodePayload(buffer, votingRoundID, s.chainID, data, protocolID, protocolType, s.protocolContext.signerPrivateKey)
 }
 
 // EncodePayload encodes a signed submitSignatures payload to buffer.
@@ -329,7 +328,7 @@ func (s *SignatureSubmitter) WritePayload(
 func EncodePayload(
 	buffer *bytes.Buffer,
 	votingRoundID int64,
-	cutover *shared.RelayCutover,
+	chainID int64,
 	data *SubProtocolResponse,
 	protocolID, protocolType uint8,
 	privateKey *ecdsa.PrivateKey,
@@ -344,7 +343,7 @@ func EncodePayload(
 		return errors.New("unrecognized protocol type")
 	}
 
-	signature, err := SignSignaturePayload(cutover, data.Data, privateKey)
+	signature, err := crypto.Sign(shared.MessageDigest(data.Data, chainID), privateKey)
 	if err != nil {
 		return fmt.Errorf("signing submitSignatures data: %w", err)
 	}

@@ -3,6 +3,7 @@ package finalizer
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/binary"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/flare-foundation/go-flare-common/pkg/encoding"
 	"github.com/flare-foundation/go-flare-common/pkg/policy"
 )
 
@@ -60,36 +62,32 @@ func TestServesOnlyConfiguredProtocols(t *testing.T) {
 	require.False(t, (&finalizerContext{}).serves(randomProtocolID), "an unset set must fail closed")
 }
 
-// Only the random protocol's rounds on the new Relay keep what the message carries,
+// Only the random protocol's rounds keep what the message carries,
 // and only in the shape relay() reads it: whole 32-byte words.
 func TestFinalizationDataToStore(t *testing.T) {
 	full := words(randomValue, proofNodeA)
 	atCap := make([]byte, maxFinalizationDataLength)
 	overCap := make([]byte, maxFinalizationDataLength+common.HashLength)
-	policyAt := func(epoch int64) *policy.SigningPolicy { return &policy.SigningPolicy{RewardEpochID: uint32(epoch)} }
 
 	cases := []struct {
 		name       string
 		protocolID uint8
-		epoch      int64
 		data       []byte
 		want       []byte
 	}{
-		{"kept for the random protocol from the breaking epoch", randomProtocolID, testBreakingEpoch, full, full},
-		{"a single word is a single-leaf tree", randomProtocolID, testBreakingEpoch, randomValue.Bytes(), randomValue.Bytes()},
-		{"missing data is reported, not stored", randomProtocolID, testBreakingEpoch, nil, nil},
-		{"a truncated word is not stored", randomProtocolID, testBreakingEpoch, full[:len(full)-1], nil},
-		{"exactly the cap is kept", randomProtocolID, testBreakingEpoch, atCap, atCap},
-		{"one word over the cap is not stored", randomProtocolID, testBreakingEpoch, overCap, nil},
-		{"ignored before the breaking epoch", randomProtocolID, testBreakingEpoch - 1, full, nil},
-		{"ignored for another protocol", 200, testBreakingEpoch, full, nil},
+		{"kept for the random protocol", randomProtocolID, full, full},
+		{"a single word is a single-leaf tree", randomProtocolID, randomValue.Bytes(), randomValue.Bytes()},
+		{"missing data is reported, not stored", randomProtocolID, nil, nil},
+		{"a truncated word is not stored", randomProtocolID, full[:len(full)-1], nil},
+		{"exactly the cap is kept", randomProtocolID, atCap, atCap},
+		{"one word over the cap is not stored", randomProtocolID, overCap, nil},
+		{"ignored for another protocol", 200, full, nil},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			cl := &client{
 				finalizerContext: &finalizerContext{randomNumberProtocolID: randomProtocolID},
-				relayCutover:     cutoverForTest(),
 			}
 			m := &shared.ProtocolMessage{
 				ProtocolID:       c.protocolID,
@@ -97,53 +95,20 @@ func TestFinalizationDataToStore(t *testing.T) {
 				Message:          buildMessage(c.protocolID, 7, common.Hash{}),
 				FinalizationData: c.data,
 			}
-			require.Equal(t, c.want, cl.finalizationDataToStore(m, policyAt(c.epoch)))
+			require.Equal(t, c.want, cl.finalizationDataToStore(m))
 		})
 	}
-
-	// with no cutover scheduled nothing is ever stored
-	plain := &client{
-		finalizerContext: &finalizerContext{randomNumberProtocolID: randomProtocolID},
-		relayCutover:     shared.NewRelayCutover(testChainID, common.Address{}, 0),
-	}
-	require.Nil(t, plain.finalizationDataToStore(
-		&shared.ProtocolMessage{ProtocolID: randomProtocolID, VotingRoundID: 7, FinalizationData: full},
-		policyAt(testBreakingEpoch)))
-}
-
-// Only the new Relay verifies and stores the data; a pre-cutover round goes to the old one.
-func TestNeedsFinalizationData(t *testing.T) {
-	p := &finalizerQueueProcessor{
-		finalizerContext: &finalizerContext{randomNumberProtocolID: randomProtocolID},
-		relayClient:      &relayContractClient{address: oldRelayAddress, relayCutover: cutoverForTest()},
-	}
-
-	require.False(t, p.needsFinalizationData(randomProtocolID, testBreakingEpoch-1))
-	require.True(t, p.needsFinalizationData(randomProtocolID, testBreakingEpoch))
-	require.True(t, p.needsFinalizationData(randomProtocolID, testBreakingEpoch+1))
-	require.False(t, p.needsFinalizationData(200, testBreakingEpoch))
-
-	// with no cutover scheduled at all, no round ever needs one
-	plain := &finalizerQueueProcessor{
-		finalizerContext: &finalizerContext{randomNumberProtocolID: randomProtocolID},
-		relayClient: &relayContractClient{
-			address:      oldRelayAddress,
-			relayCutover: shared.NewRelayCutover(testChainID, common.Address{}, 0),
-		},
-	}
-	require.False(t, plain.needsFinalizationData(randomProtocolID, testBreakingEpoch+1))
 }
 
 // The data lives with the message it arrived with.
 func TestAddMessageStoresTheDataWithItsOwnMessage(t *testing.T) {
 	sp := &policy.SigningPolicy{
-		RewardEpochID: uint32(testBreakingEpoch),
-		Voters:        newVoterSet(t, []common.Address{{}}, []uint16{1}),
+		Voters: newVoterSet(t, []common.Address{{}}, []uint16{1}),
 	}
 	message := buildMessage(randomProtocolID, 9, randomValue)
 	data := words(randomValue, proofNodeA)
 
-	storage := newFinalizationStorage(cutoverForTest())
+	storage := newFinalizationStorage(testChainID)
 	_, err := storage.AddMessage(&shared.ProtocolMessage{
 		ProtocolID: randomProtocolID, VotingRoundID: 9, Message: message, FinalizationData: data,
 	}, sp, 1)
@@ -155,37 +120,34 @@ func TestAddMessageStoresTheDataWithItsOwnMessage(t *testing.T) {
 	require.Equal(t, data, sc.finalizationData)
 }
 
-// relayRound finalizes one already-crossed round of the random protocol and returns what it sent:
-// rewardEpochID picks the target Relay, data is what the provider served with the message.
-func relayRound(t *testing.T, rewardEpochID int64, data []byte) *testEthClient {
+// relayRound finalizes one round of the random protocol and returns what it sent; data is what
+// the provider served with the message.
+func relayRound(t *testing.T, data []byte) *testEthClient {
 	t.Helper()
-	cutover := cutoverForTest()
 	key, err := crypto.HexToECDSA(testPrivateKeyHex)
 	require.NoError(t, err)
 	signer := crypto.PubkeyToAddress(key.PublicKey)
 
 	message := buildMessage(randomProtocolID, 7, randomValue)
 	sp := &policy.SigningPolicy{
-		RewardEpochID: uint32(rewardEpochID),
-		Voters:        newVoterSet(t, []common.Address{signer}, []uint16{2}),
+		Voters: newVoterSet(t, []common.Address{signer}, []uint16{2}),
 	}
 
-	storage := newFinalizationStorage(cutover)
+	storage := newFinalizationStorage(testChainID)
 	_, err = storage.AddMessage(&shared.ProtocolMessage{
 		ProtocolID: randomProtocolID, VotingRoundID: 7, Message: message, FinalizationData: data,
 	}, sp, 1)
 	require.NoError(t, err)
 
-	// the boundary is unlearned here, so the digest follows the policy's epoch
 	ready, err := storage.addPayload(&submitSignaturesPayload{
 		sender: signer, protocolID: randomProtocolID, votingRoundID: 7,
-		signature: signDigest(t, shared.MessageDigest(message, cutover.ChainID, rewardEpochID >= testBreakingEpoch), key),
+		signature: signDigest(t, shared.MessageDigest(message, testChainID), key),
 	}, sp, 1)
 	require.NoError(t, err)
 	require.True(t, ready.thresholdReached)
 
 	eth := new(testEthClient)
-	relayClient, err := NewRelayContractClient(nil, oldRelayAddress, key, signer, &config.Gas{}, testChainID, cutover)
+	relayClient, err := NewRelayContractClient(nil, relayContractAddress, key, signer, &config.Gas{}, testChainID)
 	require.NoError(t, err)
 	relayClient.chainClient = eth
 	relayClient.retryDelay = time.Millisecond
@@ -199,30 +161,27 @@ func relayRound(t *testing.T, rewardEpochID int64, data []byte) *testEthClient {
 	return eth
 }
 
-// A pre-cutover round goes to the old Relay, which never reads the appended words. The collection can
-// still hold them: the arrival filter judges the message-time policy, the send the collection's.
-func TestFinalizationDataIsNotAppendedForTheOldRelay(t *testing.T) {
-	data := words(randomValue, proofNodeA)
-	eth := relayRound(t, testBreakingEpoch-1, data)
-
-	require.Len(t, eth.sentTxs, 1)
-	require.Equal(t, oldRelayAddress, eth.sentTxs[0].to)
-	require.False(t, bytes.HasSuffix(eth.sentTxs[0].data, data), "the old Relay never reads them")
+func signDigest(t *testing.T, digest []byte, key *ecdsa.PrivateKey) []byte {
+	t.Helper()
+	signature, err := crypto.Sign(digest, key)
+	require.NoError(t, err)
+	vrs, err := encoding.TransformSignatureRSVtoVRS(signature)
+	require.NoError(t, err)
+	return vrs
 }
 
-// From the breaking epoch on the words ride the tx, and only the new Relay holds that policy's hash.
-func TestFinalizationDataIsAppendedForTheNewRelay(t *testing.T) {
+func TestFinalizationDataIsAppended(t *testing.T) {
 	data := words(randomValue, proofNodeA)
-	eth := relayRound(t, testBreakingEpoch, data)
+	eth := relayRound(t, data)
 
 	require.Len(t, eth.sentTxs, 1)
-	require.Equal(t, newRelayAddress, eth.sentTxs[0].to)
+	require.Equal(t, relayContractAddress, eth.sentTxs[0].to)
 	require.True(t, bytes.HasSuffix(eth.sentTxs[0].data, data))
 }
 
 // relay() reverts without the words, so a round the provider served none for is not sent at all.
 func TestNothingIsSentWithoutTheFinalizationData(t *testing.T) {
-	require.Empty(t, relayRound(t, testBreakingEpoch, nil).sentTxs)
+	require.Empty(t, relayRound(t, nil).sentTxs)
 }
 
 // The data only reaches the tx input when the finalization carries one.

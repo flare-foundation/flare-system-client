@@ -34,6 +34,7 @@ import (
 const (
 	testPrivateKeyHex     = "4f65bffe3c8ed6c0b812e84d35402e949feea042061cc1635fe6ae83ed84df4a"
 	submitContractAddress = "0xBB6eae07aD2c5899A081984e31157035b0604106"
+	testChainID           = int64(114)
 )
 
 func TestMain(m *testing.M) {
@@ -126,7 +127,7 @@ func TestSubmitter(t *testing.T) {
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
-			relayCutover:   shared.NewRelayCutover(testChainID, common.Address{}, 0),
+			chainID:        testChainID,
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -154,7 +155,7 @@ func TestSubmitter(t *testing.T) {
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
-			relayCutover:   shared.NewRelayCutover(testChainID, common.Address{}, 0),
+			chainID:        testChainID,
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -183,7 +184,7 @@ func TestSubmitter(t *testing.T) {
 
 		submitter := SignatureSubmitter{
 			SubmitterBase:  base,
-			relayCutover:   shared.NewRelayCutover(testChainID, common.Address{}, 0),
+			chainID:        testChainID,
 			messageChannel: msgChan,
 			maxCycles:      1,
 			cycleDuration:  time.Second,
@@ -401,7 +402,6 @@ func TestRunShutdown(t *testing.T) {
 		votingRoundTiming: timing,
 		rewardEpochTiming: utils.NewEpochConfig(time.Now().Add(-time.Hour), time.Hour),
 		registry:          &testRegistry{expectedAddress: identityAddress},
-		relayCutover:      shared.NewRelayCutover(testChainID, common.Address{}, 0),
 		identityAddress:   identityAddress,
 		submitter1: &Submitter{
 			SubmitterBase: SubmitterBase{name: "submit1", votingRoundTiming: timing},

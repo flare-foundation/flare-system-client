@@ -39,15 +39,11 @@ func (msg Message) Parse() (RelayMessage, error) {
 	}, nil
 }
 
-// MessageDigest returns the digest the Relay computes before ecrecover. The new Relay binds
-// the source chain — keccak256(chainID ‖ msg) — so a signature minted for another network with
-// an overlapping voter set is rejected; the old one hashes msg alone. Signing and signer recovery
-// must pick the same form.
-func MessageDigest(msg []byte, chainID int64, chainBound bool) []byte {
-	if chainBound {
-		return accounts.TextHash(crypto.Keccak256(convert.Uint64ToHash(uint64(chainID)).Bytes(), msg))
-	}
-	return accounts.TextHash(crypto.Keccak256(msg))
+// MessageDigest returns the digest the Relay computes before ecrecover. It binds the source
+// chain — keccak256(chainID ‖ msg) — so a signature minted for another network with an
+// overlapping voter set is rejected.
+func MessageDigest(msg []byte, chainID int64) []byte {
+	return accounts.TextHash(crypto.Keccak256(convert.Uint64ToHash(uint64(chainID)).Bytes(), msg))
 }
 
 type ProtocolMessage struct {
@@ -55,6 +51,6 @@ type ProtocolMessage struct {
 	VotingRoundID uint32
 	Message       Message
 	// served by the provider with the message: what relay() needs appended, if anything — the
-	// random number and its Merkle proof for the random protocol on the new Relay
+	// random number and its Merkle proof for the random protocol
 	FinalizationData []byte
 }

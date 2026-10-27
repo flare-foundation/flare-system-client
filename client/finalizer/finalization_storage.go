@@ -33,18 +33,7 @@ type protocolCollection struct {
 	bufferedSenders     map[common.Address]struct{} // senders already buffered pre-message (DOS-01 cap)
 	signingPolicy       *policy.SigningPolicy
 	threshold           uint16
-	relayCutover        *shared.RelayCutover
-}
-
-// messageDigest returns the digest the signatures cover, derived from the round in the
-// message bytes — the contract's own derivation, and the one every signer used. Falls back to
-// the governing policy's epoch, as the target Relay does, when the boundary is unlearned (a
-// restart may fetch only post-breaking policies) or the bytes do not parse.
-func (pc *protocolCollection) messageDigest(message shared.Message) []byte {
-	if digest, known, err := pc.relayCutover.DigestFromMessage(message); err == nil && known {
-		return digest
-	}
-	return pc.relayCutover.DigestForRewardEpoch(message, int64(pc.signingPolicy.RewardEpochID))
+	chainID             int64 // bound into the message digest
 }
 
 // roundCollection maps protocolID to protocolCollection
@@ -55,7 +44,7 @@ type roundCollection struct {
 type finalizationStorage struct {
 	stg               map[uint32]*roundCollection // map from roundID to roundCollection
 	lowestRoundStored uint32
-	relayCutover      *shared.RelayCutover
+	chainID           int64
 
 	// mutex
 	sync.RWMutex
@@ -153,8 +142,7 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 		return false, nil
 	}
 
-	// per payload, not per message: the digest form can change once the cutover boundary is learned
-	digest := pc.messageDigest(pc.collection.message)
+	digest := shared.MessageDigest(pc.collection.message, pc.chainID)
 
 	err := payload.AddSigner(digest, pc.collection.signingPolicy.Voters)
 	if err != nil {
@@ -164,10 +152,10 @@ func (pc *protocolCollection) addPayload(payload *submitSignaturesPayload) (bool
 	return pc.collection.addSignature(payload)
 }
 
-func newFinalizationStorage(relayCutover *shared.RelayCutover) *finalizationStorage {
+func newFinalizationStorage(chainID int64) *finalizationStorage {
 	return &finalizationStorage{
-		stg:          make(map[uint32]*roundCollection),
-		relayCutover: relayCutover,
+		stg:     make(map[uint32]*roundCollection),
+		chainID: chainID,
 	}
 }
 
@@ -191,7 +179,7 @@ func (s *finalizationStorage) addPayload(p *submitSignaturesPayload, signingPoli
 
 	pc, exists := rc.protocolCollections[p.protocolID]
 	if !exists {
-		pc = &protocolCollection{signingPolicy: signingPolicy, threshold: threshold, relayCutover: s.relayCutover}
+		pc = &protocolCollection{signingPolicy: signingPolicy, threshold: threshold, chainID: s.chainID}
 		rc.protocolCollections[p.protocolID] = pc
 	}
 
@@ -224,7 +212,7 @@ func (s *finalizationStorage) AddMessage(p *shared.ProtocolMessage, signingPolic
 
 	pc, exists := rc.protocolCollections[p.ProtocolID]
 	if !exists {
-		pc = &protocolCollection{signingPolicy: signingPolicy, threshold: threshold, relayCutover: s.relayCutover}
+		pc = &protocolCollection{signingPolicy: signingPolicy, threshold: threshold, chainID: s.chainID}
 		rc.protocolCollections[p.ProtocolID] = pc
 	}
 

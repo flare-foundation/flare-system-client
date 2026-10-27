@@ -166,7 +166,7 @@ func TestThresholdOnTheMessagePathPrunesStorage(t *testing.T) {
 	message, err := encodeMessage(1, round, true, make([]byte, 32))
 	require.NoError(t, err)
 
-	storage := newFinalizationStorage(testCutover)
+	storage := newFinalizationStorage(testChainID)
 	for old := uint32(20); old < 25; old++ {
 		require.NoError(t, bufferRoundPayload(t, storage, old, sp))
 	}
@@ -186,7 +186,6 @@ func TestThresholdOnTheMessagePathPrunesStorage(t *testing.T) {
 		finalizationStorage:  storage,
 		queueProcessor:       newFinalizerQueueProcessor(&testDB{}, storage, nil, fCtx),
 		finalizerContext:     fCtx,
-		relayCutover:         testCutover,
 		messages:             messages,
 	}
 
@@ -210,7 +209,7 @@ func TestOnlyConfiguredProtocolsAreStored(t *testing.T) {
 	policies := policy.NewStorage()
 	require.NoError(t, policies.Add(sp))
 
-	storage := newFinalizationStorage(testCutover)
+	storage := newFinalizationStorage(testChainID)
 	c := &client{
 		signingPolicyStorage: policies,
 		finalizationStorage:  storage,
@@ -237,7 +236,7 @@ func TestOnlyConfiguredProtocolsAreStored(t *testing.T) {
 // threshold, so a node whose provider is down would keep every round of the outage.
 func TestStaleRoundsArePrunedWithoutAnyThreshold(t *testing.T) {
 	sp := &policy.SigningPolicy{Voters: newVoterSet(t, []common.Address{{}}, []uint16{1})}
-	storage := newFinalizationStorage(testCutover)
+	storage := newFinalizationStorage(testChainID)
 
 	// the pruner reads the clock, so anchor the rounds to it
 	timing := &utils.EpochTimingConfig{Start: time.Now().Add(-100 * time.Minute), Period: time.Minute}
@@ -260,7 +259,7 @@ func TestStaleRoundsArePrunedWithoutAnyThreshold(t *testing.T) {
 // Before minRoundsStored rounds nothing is prunable, and the subtraction must not wrap.
 func TestStalePruneKeepsEverythingEarlyOn(t *testing.T) {
 	sp := &policy.SigningPolicy{Voters: newVoterSet(t, []common.Address{{}}, []uint16{1})}
-	storage := newFinalizationStorage(testCutover)
+	storage := newFinalizationStorage(testChainID)
 	require.NoError(t, bufferRoundPayload(t, storage, 1, sp))
 
 	timing := &utils.EpochTimingConfig{Start: time.Now().Add(-3 * time.Minute), Period: time.Minute}
@@ -295,7 +294,7 @@ func TestRunWiresTheStalePruner(t *testing.T) {
 // The tick itself prunes, and cancellation ends the loop with the context's error.
 func TestStalePrunerPrunesOnTheTick(t *testing.T) {
 	sp := &policy.SigningPolicy{Voters: newVoterSet(t, []common.Address{{}}, []uint16{1})}
-	storage := newFinalizationStorage(testCutover)
+	storage := newFinalizationStorage(testChainID)
 	timing := &utils.EpochTimingConfig{Start: time.Now().Add(-100 * time.Second), Period: time.Second}
 	current := uint32(timing.EpochIndex(time.Now()))
 	for round := current - 20; round < current; round++ {
