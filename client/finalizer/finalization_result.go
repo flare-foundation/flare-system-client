@@ -21,7 +21,7 @@ type FinalizationResult struct {
 	signingPolicy *policy.SigningPolicy
 
 	// what relay() reads after the signatures: randomNumber(32) ‖ proof(32×d) for the
-	// random protocol on the new Relay, empty everywhere else.
+	// random protocol, empty everywhere else.
 	finalizationData []byte
 }
 

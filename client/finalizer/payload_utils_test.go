@@ -177,7 +177,7 @@ func TestRoundTripWithEncodePayload(t *testing.T) {
 			Status: payload.Ok,
 			Data:   c.data,
 		}
-		err := protocol.EncodePayload(buf, votingRound, testCutover, resp, c.protocolID, c.protocolType, privateKey)
+		err := protocol.EncodePayload(buf, votingRound, testChainID, resp, c.protocolID, c.protocolType, privateKey)
 		require.NoError(t, err)
 	}
 
@@ -508,7 +508,7 @@ func submittedPayload(t *testing.T, key *ecdsa.PrivateKey, protocolType uint8, m
 
 	buf := bytes.NewBuffer([]byte{0xde, 0xad, 0xbe, 0xef})
 	resp := &protocol.SubProtocolResponse{Status: payload.Ok, Data: message}
-	require.NoError(t, protocol.EncodePayload(buf, int64(msg.VotingRoundID), testCutover, resp, msg.ProtocolID, protocolType, key))
+	require.NoError(t, protocol.EncodePayload(buf, int64(msg.VotingRoundID), testChainID, resp, msg.ProtocolID, protocolType, key))
 
 	payloads, err := ExtractPayloads(buf.Bytes())
 	require.NoError(t, err)
@@ -529,14 +529,14 @@ func TestSignatureIsVerifiedAgainstTheLocalMessage(t *testing.T) {
 	other, err := encodeMessage(1, 7, true, bytes.Repeat([]byte{0x22}, 32))
 	require.NoError(t, err)
 
-	s := storageWithMessage(t, testCutover, 7, other, sp)
+	s := storageWithMessage(t, 7, other, sp)
 	_, err = s.addPayload(submittedPayload(t, key, 0, signed), sp, 1)
 	require.ErrorIs(t, err, errBadPayload, "the inline message must not rescue a signature over other bytes")
 	sc, exists := s.get(7, 1)
 	require.True(t, exists)
 	require.Equal(t, other, []byte(sc.message), "and must not displace the local message")
 
-	s = storageWithMessage(t, testCutover, 7, signed, sp)
+	s = storageWithMessage(t, 7, signed, sp)
 	ready, err := s.addPayload(submittedPayload(t, key, 0, signed), sp, 1)
 	require.NoError(t, err)
 	require.True(t, ready.thresholdReached)
@@ -551,7 +551,7 @@ func TestBothTypesShareOneCollection(t *testing.T) {
 	message, err := encodeMessage(1, 7, true, bytes.Repeat([]byte{0x33}, 32))
 	require.NoError(t, err)
 
-	s := storageWithMessage(t, testCutover, 7, message, sp)
+	s := storageWithMessage(t, 7, message, sp)
 	ready, err := s.addPayload(submittedPayload(t, keyA, 0, message), sp, 1)
 	require.NoError(t, err)
 	require.False(t, ready.thresholdReached)

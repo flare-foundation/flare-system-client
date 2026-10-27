@@ -39,7 +39,7 @@ type SubProtocolResponse struct {
 	Data           []byte                 `json:"data"`
 	AdditionalData []byte                 `json:"additionalData"`
 	// FinalizationData is what the finalizer must append to the round's relay() call — the
-	// random number and Merkle proof for the new Relay's random protocol; never in the payload.
+	// random number and Merkle proof for the random protocol; never in the payload.
 	FinalizationData hexutil.Bytes `json:"finalizationData"`
 }
 
@@ -185,9 +185,8 @@ func (sp *SubProtocol) fetchDataWithRetry(
 }
 
 // SignatureSubmitterDataVerifier builds a verifier bound to the round and protocol the
-// response was fetched for. The message must name both: the digest form is derived from
-// the round in these bytes, so a message for another round would pick the wrong one, and
-// the payload header would label it with a round the message does not carry.
+// response was fetched for. The message must name both, or the payload header would label
+// it with a round the message does not carry.
 func SignatureSubmitterDataVerifier(votingRoundID uint32, protocolID uint8) DataVerifier {
 	return func(data *SubProtocolResponse) error {
 		switch data.Status {

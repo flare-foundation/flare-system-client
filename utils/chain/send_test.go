@@ -78,7 +78,7 @@ func TestAnyAccepted(t *testing.T) {
 			wantHash: hA, want: chain.Accepted,
 		},
 		{
-			name:     "reverted with the new Relay's custom error",
+			name:     "reverted with the Relay's custom error",
 			client:   fakeClient{receipts: map[common.Hash]*types.Receipt{hA: reverted}, reverts: map[common.Hash]string{hA: "AlreadyRelayed()"}},
 			hashes:   []common.Hash{hA},
 			allowed:  []string{"Already relayed", "AlreadyRelayed()"},

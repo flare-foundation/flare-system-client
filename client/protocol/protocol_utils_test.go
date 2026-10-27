@@ -15,7 +15,7 @@ import (
 
 // SignatureSubmitterDataVerifier carries a real off-by-one boundary
 // (MaxUint16-104), a hard length-must-be-38 invariant, and the round/protocol
-// binding that pins which digest form the payload is signed under. All worth pinning.
+// binding. All worth pinning.
 
 const (
 	testRound    = uint32(1234)
@@ -44,8 +44,7 @@ func TestSignatureSubmitterDataVerifier_OkRequiresLength38(t *testing.T) {
 }
 
 func TestSignatureSubmitterDataVerifier_BindsRoundAndProtocol(t *testing.T) {
-	// The digest form follows the round in these bytes, so a message for another
-	// round must never reach the signer.
+	// a message for another round must never reach the signer
 	t.Run("accepts the fetched round and protocol", func(t *testing.T) {
 		err := SignatureSubmitterDataVerifier(testRound, testProtocol)(&SubProtocolResponse{
 			Status: payload.Ok,

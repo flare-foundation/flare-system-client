@@ -26,7 +26,7 @@ func bufferPayload(t *testing.T, pc *protocolCollection, sender common.Address) 
 // Before the message, a sender may buffer at most one payload per (round,
 // protocol); extras are dropped to bound the ECDSA-recovery burst on drain (DOS-01).
 func TestProtocolCollectionBuffersOnePayloadPerSender(t *testing.T) {
-	pc := &protocolCollection{relayCutover: testCutover}
+	pc := &protocolCollection{chainID: testChainID}
 	sender := common.HexToAddress("0x1111111111111111111111111111111111111111")
 
 	for range 100 {
@@ -37,7 +37,7 @@ func TestProtocolCollectionBuffersOnePayloadPerSender(t *testing.T) {
 }
 
 func TestProtocolCollectionBuffersPerSenderIndependently(t *testing.T) {
-	pc := &protocolCollection{relayCutover: testCutover}
+	pc := &protocolCollection{chainID: testChainID}
 	a := common.HexToAddress("0xaaaa000000000000000000000000000000000001")
 	b := common.HexToAddress("0xbbbb000000000000000000000000000000000002")
 
@@ -60,7 +60,7 @@ func TestPayloadsWaitForTheMessage(t *testing.T) {
 	_, err := rand.Read(message)
 	require.NoError(t, err)
 
-	s := newFinalizationStorage(testCutover)
+	s := newFinalizationStorage(testChainID)
 	ready, err := s.addPayload(&submitSignaturesPayload{
 		sender: addr, votingRoundID: round, protocolID: 1,
 		signature: signVRS(t, testDigest(message), priv),
@@ -88,7 +88,7 @@ func TestASecondMessageCannotDisplaceTheFirst(t *testing.T) {
 	first := buildMessage(1, round, randomValue)
 	firstData := words(randomValue)
 
-	s := newFinalizationStorage(testCutover)
+	s := newFinalizationStorage(testChainID)
 	_, err := s.AddMessage(&shared.ProtocolMessage{
 		ProtocolID: 1, VotingRoundID: round, Message: first, FinalizationData: firstData,
 	}, sp, 1)
@@ -128,7 +128,7 @@ func bufferRoundPayload(t *testing.T, s *finalizationStorage, round uint32, sp *
 // leaking one roundCollection per cleanup and rejecting new payloads for a
 // round that was never deleted.
 func TestRemoveRoundsBeforeKeepsTargetRound(t *testing.T) {
-	s := newFinalizationStorage(testCutover)
+	s := newFinalizationStorage(testChainID)
 	sp := &policy.SigningPolicy{Voters: newVoterSet(t, []common.Address{{}}, []uint16{1})}
 
 	for round := uint32(100); round <= 105; round++ {
@@ -176,7 +176,7 @@ func TestFinalizationStorageConcurrentAccess(t *testing.T) {
 	require.NoError(t, err)
 	digest := testDigest(message)
 
-	s := newFinalizationStorage(testCutover)
+	s := newFinalizationStorage(testChainID)
 
 	var wg sync.WaitGroup
 	// payload listeners: one valid signature per voter
@@ -257,7 +257,7 @@ func TestBadPayloadClassification(t *testing.T) {
 	})
 
 	t.Run("round below lowest stored", func(t *testing.T) {
-		s := newFinalizationStorage(testCutover)
+		s := newFinalizationStorage(testChainID)
 		s.lowestRoundStored = 5
 		sp := &policy.SigningPolicy{Voters: newVoterSet(t, []common.Address{{}}, []uint16{1})}
 		_, err := s.addPayload(&submitSignaturesPayload{votingRoundID: 1}, sp, 100)
@@ -295,7 +295,7 @@ func TestPruneWarnsAboutAnUnfinalizedRound(t *testing.T) {
 	sp := &policy.SigningPolicy{Voters: newVoterSet(t, []common.Address{{}}, []uint16{1})}
 	message := make(shared.Message, shared.RelayMessageLength)
 
-	s := newFinalizationStorage(testCutover)
+	s := newFinalizationStorage(testChainID)
 	// protocol 1: we served the message, nothing valid signed it
 	_, err := s.AddMessage(&shared.ProtocolMessage{ProtocolID: 1, VotingRoundID: 40, Message: message}, sp, 100)
 	require.NoError(t, err)
@@ -319,7 +319,7 @@ func TestPruneIsQuietForAFinalizedRound(t *testing.T) {
 	sp := &policy.SigningPolicy{Voters: newVoterSet(t, []common.Address{addr}, []uint16{2})}
 	message := make(shared.Message, shared.RelayMessageLength)
 
-	s := newFinalizationStorage(testCutover)
+	s := newFinalizationStorage(testChainID)
 	_, err := s.AddMessage(&shared.ProtocolMessage{ProtocolID: 1, VotingRoundID: 40, Message: message}, sp, 1)
 	require.NoError(t, err)
 	ready, err := s.addPayload(&submitSignaturesPayload{
@@ -331,4 +331,13 @@ func TestPruneIsQuietForAFinalizedRound(t *testing.T) {
 	s.RemoveRoundsBefore(41)
 
 	require.NotContains(t, warnings(), "round 40")
+}
+
+// storageWithMessage returns a storage holding the local message of protocol 1 for round.
+func storageWithMessage(t *testing.T, round uint32, message shared.Message, sp *policy.SigningPolicy) *finalizationStorage {
+	t.Helper()
+	s := newFinalizationStorage(testChainID)
+	_, err := s.AddMessage(&shared.ProtocolMessage{ProtocolID: 1, VotingRoundID: round, Message: message}, sp, 1)
+	require.NoError(t, err)
+	return s
 }

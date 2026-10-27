@@ -22,7 +22,7 @@ type finalizerContext struct {
 	votingRoundTiming *utils.EpochTimingConfig
 	rewardEpoch       *utils.RewardEpochConfig
 
-	// the protocol whose finalization the new Relay requires a random trailer for
+	// the protocol whose finalization the Relay requires a random trailer for
 	randomNumberProtocolID uint8
 
 	// ids of the [protocol.*] sections — the only ones a local message can arrive for

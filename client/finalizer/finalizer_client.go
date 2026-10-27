@@ -48,13 +48,12 @@ type client struct {
 	queueProcessor       *finalizerQueueProcessor      // implementation of a processor finalizing data from a queue
 
 	finalizerContext *finalizerContext
-	relayCutover     *shared.RelayCutover
 }
 
 // NewClient creates a new client that manages finalizations.
 //
 // messageChannel is used to receive messages from protocol.client.
-func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage, relayCutover *shared.RelayCutover) (*client, error) {
+func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.ProtocolMessage) (*client, error) {
 	cfg := ctx.Config()
 	if !cfg.Clients.EnabledFinalizer {
 		return nil, nil
@@ -91,19 +90,12 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 		txOpts.From,
 		&cfg.RelayGas,
 		chainCfg.ChainID,
-		relayCutover,
 	)
 	if err != nil {
 		return nil, err
 	}
-	// only the new Relay demands the random number and Merkle proof, and they ride on the random
-	// protocol's own message, so that protocol must be one the submitter queries
-	if relayCutover.Scheduled() && !finalizerContext.serves(finalizerContext.randomNumberProtocolID) {
-		return nil, fmt.Errorf("a relay cutover is scheduled but protocol %d, whose provider serves the random number and Merkle proof the new Relay needs to finalize it, is not configured", finalizerContext.randomNumberProtocolID)
-	}
-
 	submissionListener := NewSubmissionListener(cfg.ContractAddresses.Submission)
-	finalizationStorage := newFinalizationStorage(relayCutover)
+	finalizationStorage := newFinalizationStorage(chainCfg.ChainID)
 
 	db := finalizerDBImpl{client: ctx.DB()}
 
@@ -116,7 +108,6 @@ func NewClient(ctx clientContext.ClientContext, messageChannel <-chan shared.Pro
 		submissionListener:   submissionListener,
 		queueProcessor:       newFinalizerQueueProcessor(db, finalizationStorage, relayClient, finalizerContext),
 		finalizerContext:     finalizerContext,
-		relayCutover:         relayCutover,
 	}, nil
 }
 
@@ -165,7 +156,6 @@ func (c *client) fetchExistingSigningPolicies(
 		if err != nil {
 			return startTime, err
 		}
-		c.relayCutover.ObserveSigningPolicy(int64(newPolicy.RewardEpochID), newPolicy.StartVotingRoundID)
 		if int64(newPolicy.RewardEpochID) < c.finalizerContext.startingRewardEpoch {
 			continue
 		}
@@ -198,7 +188,6 @@ func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startT
 			logger.Errorf("Error parsing signing policy: %v", err)
 			continue
 		}
-		c.relayCutover.ObserveSigningPolicy(int64(policy.RewardEpochID), policy.StartVotingRoundID)
 		if int64(policy.RewardEpochID) < c.finalizerContext.startingRewardEpoch {
 			continue
 		}
@@ -216,8 +205,6 @@ func (c *client) runSigningPolicyInitializedListener(ctx context.Context, startT
 //
 // If the signing policy was expected to end before votingRoundID but was prolonged, the threshold
 // is raised the way the Relay raises it: the policy's own threshold scaled by thresholdIncreaseBIPS.
-// Both Relays scale identically (Relay.sol:1165-1180, RelayMainDeployed.sol:914-926), so the raise
-// is not gated on the cutover.
 func (c *client) signingPolicyData(votingRoundID uint32) (*policy.SigningPolicy, uint16) {
 	sp, last := c.signingPolicyStorage.ForVotingRound(votingRoundID)
 	if sp == nil {
@@ -265,7 +252,7 @@ func (c *client) messagesChannelListener(ctx context.Context) error {
 			}
 			logger.Panicf("messagesChannelListener: no signing policy found for voting round %d. Storage is empty: %v", protocolMessage.VotingRoundID, c.signingPolicyStorage.OldestStored() == nil) // this stops the whole fsp client, it only happens if there is no signing policy in the storage.
 		}
-		protocolMessage.FinalizationData = c.finalizationDataToStore(&protocolMessage, sp)
+		protocolMessage.FinalizationData = c.finalizationDataToStore(&protocolMessage)
 
 		finalizationReady, err := c.finalizationStorage.AddMessage(&protocolMessage, sp, threshold)
 
@@ -327,12 +314,10 @@ func (c *client) pruneStaleRounds() {
 }
 
 // finalizationDataToStore returns what relay() needs appended: the random number and Merkle proof
-// for the random protocol on the new Relay, nothing elsewhere. Their meaning is the Relay's to
+// for the random protocol, nothing elsewhere. Their meaning is the Relay's to
 // check; only the shape is — non-empty, word-aligned, capped — so a bad provider is flagged before a send.
-func (c *client) finalizationDataToStore(m *shared.ProtocolMessage, sp *policy.SigningPolicy) []byte {
-	expected := m.ProtocolID == c.finalizerContext.randomNumberProtocolID &&
-		c.relayCutover.NewRelayFromRewardEpoch(int64(sp.RewardEpochID))
-	if !expected {
+func (c *client) finalizationDataToStore(m *shared.ProtocolMessage) []byte {
+	if m.ProtocolID != c.finalizerContext.randomNumberProtocolID {
 		if len(m.FinalizationData) > 0 {
 			logger.Debugf("Ignoring finalization data for protocol %d in voting round %d, none is needed", m.ProtocolID, m.VotingRoundID)
 		}

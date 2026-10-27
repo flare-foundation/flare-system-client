@@ -1,11 +1,9 @@
 package finalizer
 
 import (
-	"cmp"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/flare-foundation/flare-system-client/client/config"
@@ -15,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/policy"
@@ -28,18 +25,14 @@ const (
 )
 
 // nonFatalRelayErrors are relay revert reasons that mean the finalization is
-// already done on chain, so our tx failing that way is a success. Both relays
-// are matched: only the old one can emit the string, only the new one the custom
-// error, so the round's contract picks itself. "nonce too low" is handled
-// separately (chain.IsNonceTooLow) via hash reconciliation.
+// already done on chain, so our tx failing that way is a success. "nonce too low"
+// is handled separately (chain.IsNonceTooLow) via hash reconciliation.
 var nonFatalRelayErrors = []string{
-	"Already relayed",  // old Relay
-	"AlreadyRelayed()", // new Relay
+	"AlreadyRelayed()",
 }
 
 type relayContractClient struct {
-	address      common.Address       // configured Relay, holds the signing policies before the cutover
-	relayCutover *shared.RelayCutover // NewAddress serves the reward epochs from the cutover on
+	address common.Address
 
 	chainClient chain.Client
 	gasConfig   *config.Gas
@@ -67,7 +60,6 @@ func NewRelayContractClient(
 	senderAddress common.Address,
 	gasConfig *config.Gas,
 	chainID int64,
-	relayCutover *shared.RelayCutover,
 ) (*relayContractClient, error) {
 	relayContract, err := relay.NewRelay(address, ethClient)
 	if err != nil {
@@ -95,7 +87,6 @@ func NewRelayContractClient(
 	return &relayContractClient{
 		chainClient:   chain.NewClientImpl(ethClient, chainID),
 		address:       address,
-		relayCutover:  relayCutover,
 		relay:         relayContract,
 		privateKey:    privateKey,
 		senderAddress: senderAddress,
@@ -107,52 +98,9 @@ func NewRelayContractClient(
 	}, nil
 }
 
-// addressForRewardEpoch returns the Relay holding rewardEpochID's signing policy:
-// only that one can verify a finalization signed under it.
-func (r *relayContractClient) addressForRewardEpoch(rewardEpochID int64) common.Address {
-	if r.relayCutover.NewRelayFromRewardEpoch(rewardEpochID) {
-		return r.relayCutover.NewAddress
-	}
-	return r.address
-}
-
-// addresses lists the Relays to read events from — both across the cutover, since the old
-// one emits only the events before it and the new one only those after.
-func (r *relayContractClient) addresses() []common.Address {
-	if !r.relayCutover.Scheduled() {
-		return []common.Address{r.address}
-	}
-	return []common.Address{r.address, r.relayCutover.NewAddress}
-}
-
-// fetchLogs fetches topic0 logs of every relevant Relay in (from,to], in chain order.
-func (r *relayContractClient) fetchLogs(ctx context.Context, db finalizerDB, topic0 common.Hash, from, to int64) ([]database.Log, error) {
-	var all []database.Log
-	for _, address := range r.addresses() {
-		logs, err := db.FetchLogsByAddressAndTopic0(ctx, address, topic0, from, to)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, logs...)
-	}
-	sortLogs(all)
-	return all, nil
-}
-
-// sortLogs restores chain order across merged per-address queries; callers rely on it to
-// take the latest policy and to advance their event range.
-func sortLogs(logs []database.Log) {
-	slices.SortFunc(logs, func(a, b database.Log) int {
-		if a.BlockNumber != b.BlockNumber {
-			return cmp.Compare(a.BlockNumber, b.BlockNumber)
-		}
-		return cmp.Compare(a.LogIndex, b.LogIndex)
-	})
-}
-
 // FetchSigningPolicies fetches signing policies emitted by in SigningPolicyInitialized events from Relay smart contract with timestamps in the interval (from,to].
 func (r *relayContractClient) FetchSigningPolicies(ctx context.Context, db finalizerDB, from, to int64) ([]signingPolicyListenerResponse, error) {
-	logs, err := r.fetchLogs(ctx, db, r.topic0SPI, from, to)
+	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +130,7 @@ func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Conte
 			}
 			now := time.Now().Unix()
 
-			logs, err := r.fetchLogs(ctx, db, r.topic0SPI, eventRangeStart, now)
+			logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0SPI, eventRangeStart, now)
 			if err != nil {
 				logger.Errorf("Error fetching logs %v", err)
 				continue
@@ -204,15 +152,11 @@ func (r *relayContractClient) SigningPolicyInitializedListener(ctx context.Conte
 	return out
 }
 
-// SubmitPayloads sends a transaction with input to the Relay at address, with the same
+// SubmitPayloads sends a transaction with input to the Relay, with the same
 // pre-/post-broadcast and nonce-too-low reconciliation logic as SubmitterBase.submit.
-func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common.Address, input []byte, dryRun bool, protocolID uint8, votingRoundID uint32) {
+func (r *relayContractClient) SubmitPayloads(ctx context.Context, input []byte, dryRun bool, protocolID uint8, votingRoundID uint32) {
 	if len(input) == 0 {
 		logger.Warnf("Relay protocol %d round %d: empty tx input, nothing to send", protocolID, votingRoundID)
-		return
-	}
-	if address == (common.Address{}) {
-		logger.Errorf("Relay protocol %d round %d: no Relay address for this round, nothing to send", protocolID, votingRoundID)
 		return
 	}
 
@@ -264,7 +208,7 @@ func (r *relayContractClient) SubmitPayloads(ctx context.Context, address common
 
 		// one slice per attempt — SendRawTx spends timeout per phase, uncapped that's ~3 slices
 		attemptCtx, cancelAttempt := context.WithTimeout(ctx, perAttempt)
-		res := r.chainClient.SendRawTx(attemptCtx, r.privateKey, nonce, address, input, gasConfig, perAttempt, dryRun)
+		res := r.chainClient.SendRawTx(attemptCtx, r.privateKey, nonce, r.address, input, gasConfig, perAttempt, dryRun)
 		cancelAttempt()
 		if res.Broadcast {
 			broadcastHashes = append(broadcastHashes, res.Hash)
@@ -366,36 +310,25 @@ type relayedKey struct {
 	votingRoundID uint32
 }
 
-// relayedSet holds the finalizations seen on chain, per Relay: a round relayed only on
-// the old Relay still has to be sent to the new one.
-type relayedSet map[common.Address]map[relayedKey]bool
+// ProtocolMessageRelayed returns a set of (protocolID, votingRoundID)
+// pairs that have already been finalized on chain in the given time
+// range.
+func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (map[relayedKey]bool, error) {
+	logs, err := db.FetchLogsByAddressAndTopic0(ctx, r.address, r.topic0PMR, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
 
-func (s relayedSet) has(address common.Address, key relayedKey) bool {
-	return s[address][key]
-}
-
-// ProtocolMessageRelayed returns, per Relay, the (protocolID, votingRoundID) pairs
-// already finalized on chain in the given time range.
-func (r *relayContractClient) ProtocolMessageRelayed(ctx context.Context, db finalizerDB, from time.Time, to time.Time) (relayedSet, error) {
-	result := make(relayedSet)
-	for _, address := range r.addresses() {
-		logs, err := db.FetchLogsByAddressAndTopic0(ctx, address, r.topic0PMR, from.Unix(), to.Unix())
+	result := make(map[relayedKey]bool)
+	for _, log := range logs {
+		data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
 		if err != nil {
 			return nil, err
 		}
-
-		relayed := make(map[relayedKey]bool)
-		for _, log := range logs {
-			data, err := shared.ParseProtocolMessageRelayedEvent(r.relay, log)
-			if err != nil {
-				return nil, err
-			}
-			relayed[relayedKey{
-				protocolID:    data.ProtocolId,
-				votingRoundID: data.VotingRoundId,
-			}] = true
-		}
-		result[address] = relayed
+		result[relayedKey{
+			protocolID:    data.ProtocolId,
+			votingRoundID: data.VotingRoundId,
+		}] = true
 	}
 	return result, nil
 }
