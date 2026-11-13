@@ -35,6 +35,10 @@ const (
 	// timing out and re-sending duplicate transactions.
 	LongTxTimeout   = 30 * time.Minute
 	DefaultGasLimit = 2_500_000
+	// AlreadyRelayedGasLimit is the gas limit of a relay tx that reverts with AlreadyRelayed().
+	// It is above the intrinsic gas of the largest relay calldata (300 voters, all signatures),
+	// and the chain charges at least half the gas limit.
+	AlreadyRelayedGasLimit = 500_000
 
 	multiplierBumpTimes100 = 111
 	normalizer             = 100
@@ -463,17 +467,33 @@ func getGasLimit(ctx context.Context, gasConfig *config.Gas, client *ethclient.C
 		estCtx, cancelFunc := context.WithTimeout(ctx, timeout)
 		estimatedGas, err := estimateGas(estCtx, client, fromAddress, toAddress, value, data)
 		cancelFunc()
-		if err != nil {
+		switch {
+		case err != nil && isAlreadyRelayed(err):
+			// The round is finalized, so the tx can only revert. It is still sent, because
+			// the reward counts every selected finalizer's tx in the grace period.
+			gasLimit = AlreadyRelayedGasLimit
+			logger.Infof("Round already relayed, sending with gas limit %d", gasLimit)
+		case err != nil:
 			// estimation usually fails because the call would revert: the tx still sends and burns the nonce
 			logger.Warnf("Unable to estimate gas (the tx may revert): %v; using default gas limit: %d", err, DefaultGasLimit)
 			gasLimit = DefaultGasLimit
-		} else {
+		default:
 			gasLimit = 3 * estimatedGas / 2
 		}
 	} else {
 		gasLimit = uint64(gasConfig.GasLimit)
 	}
 	return gasLimit
+}
+
+// isAlreadyRelayed reports whether err is a revert with the Relay's AlreadyRelayed() error.
+func isAlreadyRelayed(err error) bool {
+	data, ok := revertDataFromError(err)
+	if !ok {
+		return false
+	}
+	name, ok := relayErrorName(data)
+	return ok && name == "AlreadyRelayed()"
 }
 
 func GetGasPrice(ctx context.Context, gasConfig *config.Gas, client *ethclient.Client, timeout time.Duration) (*big.Int, error) {
