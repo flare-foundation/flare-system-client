@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -193,4 +194,14 @@ func TestWaitUntilMined(t *testing.T) {
 		require.ErrorIs(t, err, errReverted)
 		require.ErrorContains(t, err, "some reason")
 	})
+}
+
+func TestIsAlreadyRelayed(t *testing.T) {
+	alreadyRelayed := stubDataError{msg: "execution reverted", data: "0xd0ebeb4b"}
+	require.True(t, isAlreadyRelayed(alreadyRelayed))
+	require.True(t, isAlreadyRelayed(annotateRevert(alreadyRelayed)), "estimateGas returns the annotated error")
+
+	otherRelayError := stubDataError{msg: "execution reverted", data: hexutil.Encode(crypto.Keccak256([]byte("NotEnoughWeight()"))[:4])}
+	require.False(t, isAlreadyRelayed(otherRelayError))
+	require.False(t, isAlreadyRelayed(errors.New("context deadline exceeded")))
 }

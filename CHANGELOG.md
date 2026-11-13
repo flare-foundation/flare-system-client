@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- A finalization for a round that another finalizer has already relayed is sent with a gas limit of 500,000 instead of 2,500,000. The chain charges at least half the gas limit, so these reverting transactions cost about a fifth as much. They are still sent, so the finalization reward is unaffected.
+
 ### Removed
 
 - The `[relay_cutover]` section (`RELAY_CUTOVER_CONTRACT_ADDRESS`, `RELAY_CUTOVER_STARTING_REWARD_EPOCH`). Flare, Songbird, Coston and Coston2 are all past their Relay cutover, so the client always uses the configured `relay`. Set `relay` to the new Relay address before upgrading. A leftover `[relay_cutover]` section is ignored.
